@@ -161,25 +161,87 @@ const toast =
 // AUTH
 // =====================================================
 
-onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(
+  auth,
+  async (user) => {
 
-  if (!user) {
+    if (!user) {
 
-    window.location.href = "login.html";
+      window.location.href =
+        "login.html";
 
-    return;
+      return;
+    }
+
+
+    currentUser = user;
+
+
+    // =================================
+    // DATA DARI GOOGLE
+    // =================================
+
+    const name =
+      user.displayName ||
+      "User";
+
+    const email =
+      user.email ||
+      "";
+
+
+    const photo =
+      user.photoURL ||
+      createAvatar(
+        name
+      );
+
+
+    // =================================
+    // TAMPILKAN DI HEADER
+    // =================================
+
+    userName.textContent =
+      name;
+
+    userEmail.textContent =
+      email;
+
+    userPhoto.src =
+      photo;
+
+
+    // =================================
+    // TAMPILKAN DI MENU
+    // =================================
+
+    menuUserName.textContent =
+      name;
+
+    menuUserEmail.textContent =
+      email;
+
+    menuUserPhoto.src =
+      photo;
+
+
+    // =================================
+    // SIMPAN / UPDATE PROFIL
+    // =================================
+
+    await saveUserProfile(
+      user
+    );
+
+
+    // =================================
+    // LOAD KEBUTUHAN
+    // =================================
+
+    startNeedsListener();
+
   }
-
-  currentUser = user;
-
-  userName.textContent =
-    user.displayName ||
-    user.email ||
-    "User";
-
-  startNeedsListener();
-
-});
+);
 
 
 // =====================================================
