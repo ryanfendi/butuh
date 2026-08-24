@@ -15,6 +15,7 @@ import {
   doc,
   getDoc,
   updateDoc,
+  setDoc,
   query,
   where,
   orderBy,
@@ -1665,3 +1666,66 @@ async function saveUserProfile(
   }
 
 }
+
+
+function createAvatar(
+  name
+) {
+
+  const letter =
+    encodeURIComponent(
+      (name || "U")
+        .charAt(0)
+        .toUpperCase()
+    );
+
+
+  return `
+    https://ui-avatars.com/api/
+    ?name=${letter}
+    &background=2563eb
+    &color=ffffff
+    &size=128
+  `.replace(/\s/g, "");
+
+}
+
+// =========================================
+// PROFILE MENU
+// =========================================
+
+profileButton.addEventListener(
+  "click",
+  event => {
+
+    event.stopPropagation();
+
+    profileMenu.classList.toggle(
+      "hidden"
+    );
+
+  }
+);
+
+
+document.addEventListener(
+  "click",
+  event => {
+
+    if (
+      !profileMenu.contains(
+        event.target
+      ) &&
+      !profileButton.contains(
+        event.target
+      )
+    ) {
+
+      profileMenu.classList.add(
+        "hidden"
+      );
+
+    }
+
+  }
+);
