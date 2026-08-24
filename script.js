@@ -78,6 +78,27 @@ let unsubscribeOffers = null;
 const userName =
   document.getElementById("userName");
 
+const userEmail =
+  document.getElementById("userEmail");
+
+const userPhoto =
+  document.getElementById("userPhoto");
+
+const menuUserPhoto =
+  document.getElementById("menuUserPhoto");
+
+const menuUserName =
+  document.getElementById("menuUserName");
+
+const menuUserEmail =
+  document.getElementById("menuUserEmail");
+
+const profileButton =
+  document.getElementById("profileButton");
+
+const profileMenu =
+  document.getElementById("profileMenu");
+
 const logoutBtn =
   document.getElementById("logoutBtn");
 
