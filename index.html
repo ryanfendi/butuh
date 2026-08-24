@@ -13,14 +13,14 @@
     content="#2563eb"
   >
 
-  <title>
-    BUTUH - Temukan Kebutuhan dan Berikan Solusi
-  </title>
-
-  <link
-    rel="stylesheet"
-    href="style.css"
+  <meta
+    name="description"
+    content="BUTUH - Posting kebutuhan dan temukan orang yang siap membantu."
   >
+
+  <title>BUTUH - Marketplace Kebutuhan</title>
+
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
@@ -34,24 +34,27 @@
 
     <div class="header-inner">
 
-      <a
-        href="index.html"
-        class="logo"
-      >
-        <span class="logo-icon">B</span>
 
-        <span>
+      <!-- LOGO -->
+
+      <a href="index.html" class="logo">
+
+        <span class="logo-icon">
+          B
+        </span>
+
+        <span class="logo-text">
           BUTUH
         </span>
+
       </a>
 
 
+      <!-- NAVIGATION -->
+
       <nav class="nav">
 
-        <a
-          href="#needs"
-          class="nav-link"
-        >
+        <a href="#needs" class="nav-link">
           Kebutuhan
         </a>
 
@@ -67,15 +70,18 @@
       </nav>
 
 
-      <!-- USER PROFILE -->
+      <!-- USER AREA -->
 
       <div class="user-area">
+
+
+        <!-- PROFILE BUTTON -->
 
         <button
           id="profileButton"
           class="profile-button"
           type="button"
-          aria-label="Menu Profil"
+          aria-label="Buka menu profil"
         >
 
           <img
@@ -84,6 +90,7 @@
             alt="Foto Profil"
             referrerpolicy="no-referrer"
           >
+
 
           <div class="profile-button-text">
 
@@ -97,6 +104,7 @@
 
           </div>
 
+
           <span class="profile-arrow">
             ▾
           </span>
@@ -104,21 +112,23 @@
         </button>
 
 
-        <!-- DROPDOWN -->
+        <!-- PROFILE DROPDOWN -->
 
         <div
           id="profileMenu"
           class="profile-menu hidden"
         >
 
+
           <div class="profile-menu-user">
 
             <img
               id="menuUserPhoto"
               src=""
-              alt="Foto"
+              alt="Foto Profil"
               referrerpolicy="no-referrer"
             >
+
 
             <div>
 
@@ -140,8 +150,8 @@
 
           <button
             id="profilePageBtn"
-            type="button"
             class="profile-menu-item"
+            type="button"
           >
             👤 Profil Saya
           </button>
@@ -149,19 +159,22 @@
 
           <button
             id="logoutBtn"
-            type="button"
             class="profile-menu-item danger"
+            type="button"
           >
             🚪 Keluar
           </button>
+
 
         </div>
 
       </div>
 
+
     </div>
 
   </header>
+
 
 
   <!-- =========================================
@@ -171,13 +184,14 @@
   <main>
 
 
-    <!-- =====================================
+    <!-- =======================================
          HERO
-    ====================================== -->
+    ======================================== -->
 
     <section class="hero">
 
       <div class="hero-content">
+
 
         <div class="hero-badge">
           🚀 Marketplace Kebutuhan
@@ -187,6 +201,7 @@
         <h1>
           Punya Kebutuhan?
           <br>
+
           <span>
             Temukan Orang yang Bisa Membantu.
           </span>
@@ -201,8 +216,10 @@
 
         <div class="hero-actions">
 
+
           <button
-            id="postNeedBtn"
+            id="heroPostButton"
+            data-open-post
             class="btn btn-primary btn-large"
             type="button"
           >
@@ -217,20 +234,24 @@
             🔥 Lihat Kebutuhan
           </a>
 
+
         </div>
+
 
       </div>
 
     </section>
 
 
-    <!-- =====================================
+
+    <!-- =======================================
          STATISTICS
-    ====================================== -->
+    ======================================== -->
 
     <section class="stats-section">
 
       <div class="stats-grid">
+
 
         <div class="stat-card">
 
@@ -256,10 +277,11 @@
         </div>
 
 
+
         <div class="stat-card">
 
           <div class="stat-icon">
-            👤
+            📌
           </div>
 
           <div>
@@ -268,7 +290,7 @@
               id="userNeedsCount"
               class="stat-number"
             >
-              -
+              0
             </strong>
 
             <span>
@@ -278,6 +300,7 @@
           </div>
 
         </div>
+
 
 
         <div class="stat-card">
@@ -292,7 +315,7 @@
               id="userOffersCount"
               class="stat-number"
             >
-              -
+              0
             </strong>
 
             <span>
@@ -303,14 +326,16 @@
 
         </div>
 
+
       </div>
 
     </section>
 
 
-    <!-- =====================================
-         NEEDS
-    ====================================== -->
+
+    <!-- =======================================
+         NEEDS SECTION
+    ======================================== -->
 
     <section
       id="needs"
@@ -320,6 +345,8 @@
       <div class="section-container">
 
 
+        <!-- SECTION HEADER -->
+
         <div class="section-header">
 
           <div>
@@ -328,46 +355,157 @@
               MARKETPLACE
             </span>
 
+
             <h2>
               🔥 Kebutuhan Aktif
             </h2>
 
+
             <p>
-              Temukan kebutuhan yang bisa Anda bantu.
+              Temukan kebutuhan yang bisa Anda bantu
+              dan kirimkan penawaran Anda.
             </p>
 
           </div>
 
 
+          <!-- TIDAK MENGGUNAKAN ID DUPLIKAT -->
+
           <button
-            id="openNeedModal"
+            data-open-post
             class="btn btn-primary desktop-post-button"
             type="button"
           >
             + Posting Kebutuhan
           </button>
 
+
         </div>
 
 
-        <!-- LOADING / NEEDS LIST -->
+
+        <!-- ===================================
+             NEEDS LIST
+        ==================================== -->
 
         <div
           id="needsList"
           class="needs-list"
         >
 
+
+          <!-- INITIAL LOADING -->
+
           <div class="loading-box">
 
             <div class="loading-spinner"></div>
+
 
             <strong>
               Memuat kebutuhan...
             </strong>
 
+
+            <small>
+              Menghubungkan ke Firestore
+            </small>
+
           </div>
 
+
         </div>
+
+
+      </div>
+
+    </section>
+
+
+
+    <!-- =======================================
+         ABOUT / INFO
+    ======================================== -->
+
+    <section class="how-it-works">
+
+      <div class="section-container">
+
+
+        <div class="how-header">
+
+          <span class="section-label">
+            CARA KERJA
+          </span>
+
+
+          <h2>
+            Mudah dan Cepat
+          </h2>
+
+        </div>
+
+
+        <div class="steps-grid">
+
+
+          <div class="step-card">
+
+            <div class="step-number">
+              1
+            </div>
+
+            <h3>
+              Posting Kebutuhan
+            </h3>
+
+            <p>
+              Jelaskan apa yang Anda butuhkan
+              dan tentukan budget Anda.
+            </p>
+
+          </div>
+
+
+
+          <div class="step-card">
+
+            <div class="step-number">
+              2
+            </div>
+
+            <h3>
+              Terima Penawaran
+            </h3>
+
+            <p>
+              Orang yang mampu membantu
+              akan mengirimkan penawaran.
+            </p>
+
+          </div>
+
+
+
+          <div class="step-card">
+
+            <div class="step-number">
+              3
+            </div>
+
+            <h3>
+              Pilih dan Selesaikan
+            </h3>
+
+            <p>
+              Pilih penawaran terbaik
+              dan selesaikan kebutuhan Anda.
+            </p>
+
+          </div>
+
+
+        </div>
+
 
       </div>
 
@@ -375,6 +513,7 @@
 
 
   </main>
+
 
 
   <!-- =========================================
@@ -387,9 +526,17 @@
     class="mobile-post-button"
     type="button"
   >
-    <span>＋</span>
-    Posting Kebutuhan
+
+    <span class="mobile-post-icon">
+      ＋
+    </span>
+
+    <span>
+      Posting Kebutuhan
+    </span>
+
   </button>
+
 
 
   <!-- =========================================
@@ -399,9 +546,15 @@
   <div
     id="needModal"
     class="modal hidden"
+    aria-hidden="true"
   >
 
-    <div class="modal-backdrop"></div>
+
+    <div
+      class="modal-backdrop"
+      data-close-need-modal
+    ></div>
+
 
 
     <div
@@ -412,7 +565,10 @@
     >
 
 
+      <!-- MODAL HEADER -->
+
       <div class="modal-header">
+
 
         <div>
 
@@ -421,7 +577,8 @@
           </h2>
 
           <p>
-            Jelaskan apa yang Anda butuhkan.
+            Jelaskan kebutuhan Anda agar orang lain
+            dapat memberikan penawaran yang tepat.
           </p>
 
         </div>
@@ -436,10 +593,12 @@
           ×
         </button>
 
+
       </div>
 
 
-      <!-- FORM -->
+
+      <!-- POST FORM -->
 
       <form id="needForm">
 
@@ -452,16 +611,19 @@
             Judul Kebutuhan
           </label>
 
+
           <input
             id="needTitle"
             name="title"
             type="text"
             placeholder="Contoh: Butuh website toko online"
             maxlength="100"
+            autocomplete="off"
             required
           >
 
         </div>
+
 
 
         <!-- CATEGORY -->
@@ -472,13 +634,14 @@
             Kategori
           </label>
 
+
           <select
             id="needCategory"
             name="category"
           >
 
             <option value="other">
-              Lainnya
+              📦 Lainnya
             </option>
 
             <option value="design">
@@ -514,6 +677,7 @@
         </div>
 
 
+
         <!-- DESCRIPTION -->
 
         <div class="form-group">
@@ -522,15 +686,18 @@
             Deskripsi Kebutuhan
           </label>
 
+
           <textarea
             id="needDescription"
             name="description"
-            rows="5"
-            placeholder="Jelaskan kebutuhan Anda secara detail..."
+            rows="6"
+            maxlength="2000"
+            placeholder="Contoh: Saya membutuhkan website toko online dengan katalog produk, keranjang, dan tombol WhatsApp..."
             required
           ></textarea>
 
         </div>
+
 
 
         <!-- BUDGET -->
@@ -541,12 +708,14 @@
             Budget (Rp)
           </label>
 
+
           <input
             id="needBudget"
             name="budget"
             type="number"
             inputmode="numeric"
             min="1"
+            step="1000"
             placeholder="Contoh: 500000"
             required
           >
@@ -554,16 +723,21 @@
         </div>
 
 
+
         <!-- DEADLINE -->
 
         <div class="form-group">
 
           <label for="needDeadline">
+
             Deadline
+
             <span class="optional">
-              (Opsional)
+              Opsional
             </span>
+
           </label>
+
 
           <input
             id="needDeadline"
@@ -574,9 +748,11 @@
         </div>
 
 
-        <!-- ACTIONS -->
+
+        <!-- FORM ACTIONS -->
 
         <div class="modal-actions">
+
 
           <button
             id="cancelNeed"
@@ -595,13 +771,18 @@
             🚀 Posting Kebutuhan
           </button>
 
+
         </div>
+
 
       </form>
 
+
     </div>
 
+
   </div>
+
 
 
   <!-- =========================================
@@ -611,9 +792,15 @@
   <div
     id="offerModal"
     class="modal hidden"
+    aria-hidden="true"
   >
 
-    <div class="modal-backdrop"></div>
+
+    <div
+      class="modal-backdrop"
+      data-close-offer-modal
+    ></div>
+
 
 
     <div
@@ -622,7 +809,11 @@
       aria-modal="true"
     >
 
+
+      <!-- MODAL HEADER -->
+
       <div class="modal-header">
+
 
         <div>
 
@@ -641,17 +832,22 @@
           id="closeOfferModal"
           class="modal-close"
           type="button"
+          aria-label="Tutup"
         >
           ×
         </button>
 
+
       </div>
 
+
+
+      <!-- OFFER FORM -->
 
       <form id="offerForm">
 
 
-        <!-- PRICE -->
+        <!-- OFFER PRICE -->
 
         <div class="form-group">
 
@@ -659,16 +855,19 @@
             Harga Penawaran (Rp)
           </label>
 
+
           <input
             id="offerPrice"
             type="number"
-            min="1"
             inputmode="numeric"
+            min="1"
+            step="1000"
             placeholder="Contoh: 500000"
             required
           >
 
         </div>
+
 
 
         <!-- DURATION -->
@@ -679,33 +878,42 @@
             Estimasi Pengerjaan
           </label>
 
+
           <input
             id="offerDuration"
             type="text"
+            maxlength="100"
             placeholder="Contoh: 3 hari"
           >
 
         </div>
 
 
-        <!-- MESSAGE -->
+
+        <!-- OFFER MESSAGE -->
 
         <div class="form-group">
 
           <label for="offerMessage">
-            Pesan untuk Pemilik
+            Pesan untuk Pemilik Kebutuhan
           </label>
+
 
           <textarea
             id="offerMessage"
             rows="5"
-            placeholder="Jelaskan mengapa Anda cocok untuk membantu..."
+            maxlength="2000"
+            placeholder="Jelaskan pengalaman Anda dan bagaimana Anda akan membantu..."
           ></textarea>
 
         </div>
 
 
+
+        <!-- OFFER ACTIONS -->
+
         <div class="modal-actions">
+
 
           <button
             id="cancelOffer"
@@ -717,28 +925,68 @@
 
 
           <button
+            id="submitOffer"
             type="submit"
             class="btn btn-primary"
           >
-            Kirim Penawaran
+            💰 Kirim Penawaran
           </button>
+
 
         </div>
 
+
       </form>
 
+
     </div>
+
 
   </div>
 
 
+
   <!-- =========================================
-       FIREBASE SCRIPT
+       FOOTER
+  ========================================== -->
+
+  <footer class="footer">
+
+    <div class="footer-inner">
+
+
+      <div>
+
+        <strong>
+          BUTUH
+        </strong>
+
+        <p>
+          Hubungkan kebutuhan dengan solusi.
+        </p>
+
+      </div>
+
+
+      <div class="footer-copy">
+
+        © 2026 BUTUH
+      </div>
+
+
+    </div>
+
+  </footer>
+
+
+
+  <!-- =========================================
+       APP SCRIPT
   ========================================== -->
 
   <script
     type="module"
-    src="script.js"
+    src="./script.js"
   ></script>
 
 
