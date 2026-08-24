@@ -1,343 +1,1126 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BUTUH - Kamu butuh, ada yang bisa</title>
 
-  <title>BUTUH</title>
+<style>
+*{box-sizing:border-box}
 
-  <style>
-    * {
-      box-sizing: border-box;
-    }
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:#f5f7fb;
+  color:#172033;
+}
 
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f5f7fb;
-      color: #172033;
-    }
+button,input,select,textarea{
+  font:inherit;
+}
 
-    .app {
-      max-width: 600px;
-      margin: auto;
-      padding: 20px;
-    }
+.app{
+  max-width:700px;
+  margin:auto;
+  padding:16px;
+}
 
-    .logo {
-      font-size: 30px;
-      font-weight: 800;
-      margin-bottom: 6px;
-    }
+.header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:18px;
+}
 
-    .tagline {
-      color: #687386;
-      margin-bottom: 25px;
-    }
+.logo{
+  font-size:25px;
+  font-weight:900;
+}
 
-    .card {
-      background: white;
-      border-radius: 18px;
-      padding: 20px;
-      margin-bottom: 15px;
-      box-shadow: 0 5px 20px rgba(0,0,0,.06);
-    }
+.user-mini{
+  width:40px;
+  height:40px;
+  border-radius:50%;
+  object-fit:cover;
+  display:none;
+}
 
-    button {
-      width: 100%;
-      padding: 14px;
-      border: 0;
-      border-radius: 12px;
-      background: #3159c9;
-      color: white;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-    }
+.hero{
+  background:linear-gradient(135deg,#3159c9,#6b82ff);
+  color:white;
+  padding:24px;
+  border-radius:22px;
+  margin-bottom:16px;
+}
 
-    button:disabled {
-      opacity: .6;
-    }
+.hero h1{
+  margin:0 0 8px;
+  font-size:27px;
+}
 
-    .user {
-      display: none;
-    }
+.hero p{
+  margin:0 0 18px;
+  line-height:1.5;
+  opacity:.92;
+}
 
-    .user img {
-      width: 55px;
-      height: 55px;
-      border-radius: 50%;
-      margin-bottom: 10px;
-    }
+.card{
+  background:white;
+  padding:18px;
+  border-radius:18px;
+  margin-bottom:15px;
+  box-shadow:0 5px 20px rgba(0,0,0,.05);
+}
 
-    .name {
-      font-size: 20px;
-      font-weight: bold;
-    }
+button{
+  border:0;
+  cursor:pointer;
+}
 
-    .email {
-      color: #687386;
-      font-size: 14px;
-      margin: 5px 0 15px;
-      word-break: break-all;
-    }
+.primary{
+  width:100%;
+  padding:14px;
+  border-radius:12px;
+  background:#3159c9;
+  color:white;
+  font-weight:800;
+}
 
-    .logout {
-      background: #e9edf5;
-      color: #172033;
-      margin-top: 10px;
-    }
+.hero .primary{
+  background:white;
+  color:#3159c9;
+}
 
-    .status {
-      padding: 10px;
-      border-radius: 10px;
-      background: #f1f5ff;
-      color: #3159c9;
-      margin-bottom: 15px;
-      font-size: 14px;
-    }
-  </style>
+.secondary{
+  width:100%;
+  padding:12px;
+  border-radius:12px;
+  background:#edf1f8;
+  color:#172033;
+  font-weight:700;
+}
+
+input,select,textarea{
+  width:100%;
+  border:1px solid #dfe4ed;
+  border-radius:12px;
+  padding:13px;
+  margin-top:6px;
+  margin-bottom:13px;
+  background:white;
+}
+
+textarea{
+  min-height:80px;
+  resize:vertical;
+}
+
+label{
+  display:block;
+  font-size:13px;
+  font-weight:800;
+}
+
+.login-box{
+  text-align:center;
+}
+
+.login-btn{
+  width:100%;
+  padding:14px;
+  border-radius:12px;
+  background:#fff;
+  border:1px solid #ddd;
+  font-weight:800;
+}
+
+.user-box{
+  display:none;
+}
+
+.user-info{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-bottom:15px;
+}
+
+.user-info img{
+  width:55px;
+  height:55px;
+  border-radius:50%;
+}
+
+.user-name{
+  font-weight:800;
+}
+
+.user-email{
+  color:#737c8c;
+  font-size:13px;
+  margin-top:4px;
+}
+
+.section-title{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin:20px 0 12px;
+}
+
+.section-title h2{
+  margin:0;
+  font-size:19px;
+}
+
+.count{
+  font-size:13px;
+  color:#7a8392;
+}
+
+.need{
+  background:white;
+  border-radius:18px;
+  padding:17px;
+  margin-bottom:12px;
+  box-shadow:0 5px 20px rgba(0,0,0,.05);
+}
+
+.need-head{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.need-title{
+  font-size:17px;
+  font-weight:800;
+}
+
+.badge{
+  white-space:nowrap;
+  background:#edf2ff;
+  color:#3159c9;
+  padding:5px 8px;
+  border-radius:8px;
+  font-size:11px;
+  font-weight:800;
+}
+
+.price{
+  color:#168347;
+  font-size:18px;
+  font-weight:900;
+  margin-top:9px;
+}
+
+.info{
+  color:#687386;
+  font-size:13px;
+  line-height:1.7;
+  margin-top:8px;
+}
+
+.timer{
+  background:#fff3df;
+  color:#a35d00;
+  padding:9px;
+  border-radius:10px;
+  text-align:center;
+  font-weight:800;
+  margin-top:10px;
+}
+
+.timer.expired{
+  background:#ffe7e7;
+  color:#c62828;
+}
+
+.help-btn{
+  width:100%;
+  background:#3159c9;
+  color:white;
+  padding:12px;
+  border-radius:11px;
+  font-weight:800;
+  margin-top:11px;
+}
+
+.empty{
+  text-align:center;
+  color:#7b8493;
+  padding:30px 10px;
+}
+
+.modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.55);
+  display:none;
+  align-items:flex-end;
+  z-index:100;
+}
+
+.modal.show{
+  display:flex;
+}
+
+.modal-content{
+  background:white;
+  width:100%;
+  max-width:700px;
+  max-height:92vh;
+  overflow:auto;
+  margin:auto;
+  border-radius:22px 22px 0 0;
+  padding:20px;
+}
+
+.modal-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:18px;
+}
+
+.close{
+  width:38px;
+  height:38px;
+  border-radius:50%;
+  background:#edf0f5;
+}
+
+.hidden{
+  display:none!important;
+}
+
+.status{
+  font-size:13px;
+  color:#3159c9;
+  background:#eef3ff;
+  padding:10px;
+  border-radius:10px;
+  margin-bottom:12px;
+}
+
+.logout{
+  margin-top:10px;
+}
+
+@media(min-width:700px){
+  .modal{
+    align-items:center;
+  }
+
+  .modal-content{
+    border-radius:20px;
+  }
+}
+</style>
 </head>
 
 <body>
 
 <div class="app">
 
-  <div class="logo">
-    🔵 BUTUH
-  </div>
+  <header class="header">
+    <div class="logo">🔵 BUTUH</div>
+    <img id="userMini" class="user-mini">
+  </header>
 
-  <div class="tagline">
-    Kamu butuh. Ada yang bisa.
-  </div>
+  <section class="hero">
+    <h1>Kamu butuh. Ada yang bisa.</h1>
+    <p>
+      Posting kebutuhan Anda dan temukan
+      orang yang bisa membantu.
+    </p>
 
+    <button
+      id="heroPostBtn"
+      class="primary">
+      ＋ Posting Kebutuhan
+    </button>
+  </section>
 
-  <!-- STATUS -->
-
-  <div id="status" class="status">
+  <div id="statusBox" class="status">
     Memeriksa login...
   </div>
 
-
   <!-- LOGIN -->
 
-  <div id="loginCard" class="card">
+  <section id="loginBox" class="card login-box">
 
-    <h2>
-      Mulai menggunakan BUTUH
-    </h2>
+    <h2>Masuk ke BUTUH</h2>
 
     <p>
-      Masuk menggunakan akun Google
-      untuk membuat dan mengambil kebutuhan.
+      Login untuk membuat kebutuhan
+      dan menawarkan bantuan.
     </p>
 
-    <button id="loginBtn">
+    <button
+      id="loginBtn"
+      class="login-btn">
       🔵 Masuk dengan Google
     </button>
 
-  </div>
-
+  </section>
 
   <!-- USER -->
 
-  <div id="userCard" class="card user">
+  <section
+    id="userBox"
+    class="card user-box">
 
-    <img
-      id="userPhoto"
-      src=""
-      alt="Foto profil"
-    >
+    <div class="user-info">
 
-    <div
-      id="userName"
-      class="name"
-    ></div>
+      <img id="userPhoto">
 
-    <div
-      id="userEmail"
-      class="email"
-    ></div>
+      <div>
+        <div
+          id="userName"
+          class="user-name">
+        </div>
 
-    <button id="postBtn">
+        <div
+          id="userEmail"
+          class="user-email">
+        </div>
+      </div>
+
+    </div>
+
+    <button
+      id="userPostBtn"
+      class="primary">
       ＋ Posting Kebutuhan
     </button>
 
     <button
       id="logoutBtn"
-      class="logout"
-    >
+      class="secondary logout">
       Keluar
     </button>
+
+  </section>
+
+
+  <!-- SEARCH -->
+
+  <section class="card">
+
+    <input
+      id="searchInput"
+      placeholder="🔎 Cari kebutuhan...">
+
+    <select id="categoryFilter">
+
+      <option value="all">
+        Semua kategori
+      </option>
+
+      <option value="Jasa">
+        🔧 Jasa
+      </option>
+
+      <option value="Barang">
+        📦 Barang
+      </option>
+
+      <option value="Transportasi">
+        🚗 Transportasi
+      </option>
+
+      <option value="Digital">
+        💻 Digital
+      </option>
+
+      <option value="Lainnya">
+        ⭐ Lainnya
+      </option>
+
+    </select>
+
+  </section>
+
+
+  <!-- NEEDS -->
+
+  <div class="section-title">
+
+    <h2>🔥 Kebutuhan Aktif</h2>
+
+    <span
+      id="needCount"
+      class="count">
+      0
+    </span>
+
+  </div>
+
+  <div id="needsList">
+
+    <div class="empty">
+      Memuat kebutuhan...
+    </div>
 
   </div>
 
 </div>
 
 
-<!-- FIREBASE -->
+<!-- POST MODAL -->
+
+<div
+  id="postModal"
+  class="modal">
+
+  <div class="modal-content">
+
+    <div class="modal-head">
+
+      <h2>Posting Kebutuhan</h2>
+
+      <button
+        id="closeModal"
+        class="close">
+        ✕
+      </button>
+
+    </div>
+
+    <form id="needForm">
+
+      <label>
+        Apa yang Anda butuhkan?
+      </label>
+
+      <input
+        id="title"
+        maxlength="100"
+        required
+        placeholder="Contoh: Butuh tukang pasang rak">
+
+
+      <label>
+        Kategori
+      </label>
+
+      <select id="category">
+
+        <option value="Jasa">🔧 Jasa</option>
+        <option value="Barang">📦 Barang</option>
+        <option value="Transportasi">🚗 Transportasi</option>
+        <option value="Digital">💻 Digital</option>
+        <option value="Lainnya">⭐ Lainnya</option>
+
+      </select>
+
+
+      <label>
+        Budget / bayaran
+      </label>
+
+      <input
+        id="budget"
+        type="number"
+        min="0"
+        required
+        placeholder="Contoh: 50000">
+
+
+      <label>
+        Provinsi
+      </label>
+
+      <select
+        id="province"
+        required>
+
+        <option value="">
+          Pilih provinsi
+        </option>
+
+        <option>Aceh</option>
+        <option>Sumatera Utara</option>
+        <option>Sumatera Barat</option>
+        <option>Riau</option>
+        <option>Jambi</option>
+        <option>Sumatera Selatan</option>
+        <option>Bengkulu</option>
+        <option>Lampung</option>
+        <option>Kepulauan Bangka Belitung</option>
+        <option>Kepulauan Riau</option>
+        <option>DKI Jakarta</option>
+        <option>Jawa Barat</option>
+        <option>Jawa Tengah</option>
+        <option>DI Yogyakarta</option>
+        <option>Jawa Timur</option>
+        <option>Banten</option>
+        <option>Bali</option>
+        <option>Nusa Tenggara Barat</option>
+        <option>Nusa Tenggara Timur</option>
+        <option>Kalimantan Barat</option>
+        <option>Kalimantan Tengah</option>
+        <option>Kalimantan Selatan</option>
+        <option>Kalimantan Timur</option>
+        <option>Kalimantan Utara</option>
+        <option>Sulawesi Utara</option>
+        <option>Sulawesi Tengah</option>
+        <option>Sulawesi Selatan</option>
+        <option>Sulawesi Tenggara</option>
+        <option>Gorontalo</option>
+        <option>Sulawesi Barat</option>
+        <option>Maluku</option>
+        <option>Maluku Utara</option>
+        <option>Papua</option>
+        <option>Papua Barat</option>
+
+      </select>
+
+
+      <label>
+        Kota / Kabupaten
+      </label>
+
+      <input
+        id="city"
+        required
+        placeholder="Contoh: Surakarta">
+
+
+      <label>
+        Detail lokasi
+      </label>
+
+      <textarea
+        id="location"
+        placeholder="Contoh: sekitar pusat kota">
+      </textarea>
+
+
+      <label>
+        Berakhir dalam
+      </label>
+
+      <select id="duration">
+
+        <option value="1">
+          1 jam
+        </option>
+
+        <option value="3">
+          3 jam
+        </option>
+
+        <option value="6">
+          6 jam
+        </option>
+
+        <option value="12">
+          12 jam
+        </option>
+
+        <option value="24">
+          24 jam
+        </option>
+
+        <option value="72">
+          3 hari
+        </option>
+
+        <option value="168">
+          7 hari
+        </option>
+
+      </select>
+
+
+      <button
+        type="submit"
+        id="submitBtn"
+        class="primary">
+
+        Posting Sekarang
+
+      </button>
+
+    </form>
+
+  </div>
+
+</div>
+
 
 <script type="module">
 
-  import {
-    initializeApp
-  } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+import {
+  initializeApp
+} from
+"https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged
+} from
+"https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  query,
+  orderBy,
+  onSnapshot,
+  serverTimestamp
+} from
+"https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 
-  import {
-    getAuth,
-    GoogleAuthProvider,
-    signInWithPopup,
-    signOut,
-    onAuthStateChanged
-  } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+/* ==========================================
+   FIREBASE CONFIG
+========================================== */
+
+const firebaseConfig = {
+
+  apiKey: "MASUKKAN_API_KEY_ANDA",
+
+  authDomain:
+    "MASUKKAN_AUTH_DOMAIN_ANDA",
+
+  projectId:
+    "MASUKKAN_PROJECT_ID_ANDA",
+
+  storageBucket:
+    "MASUKKAN_STORAGE_BUCKET_ANDA",
+
+  messagingSenderId:
+    "MASUKKAN_MESSAGING_SENDER_ID_ANDA",
+
+  appId:
+    "MASUKKAN_APP_ID_ANDA"
+
+};
 
 
-  /* =====================================
-     GANTI DENGAN CONFIG FIREBASE ANDA
-  ===================================== */
+/* ==========================================
+   FIREBASE
+========================================== */
 
-  const firebaseConfig = {
+const app =
+  initializeApp(firebaseConfig);
 
-    apiKey: "AIzaSyCUFHkwOfNo-JCGHWG3dWcnISoYLg7vGnY",
+const auth =
+  getAuth(app);
 
-    authDomain:
-      "butuhin.firebaseapp.com",
+const db =
+  getFirestore(app);
 
-    projectId:
-      "butuhin",
-
-    storageBucket:
-      "butuhin.firebasestorage.app",
-
-    messagingSenderId:
-      "331896660506",
-
-    appId:
-      "1:331896660506:web:7a03f433101b81dd74e7a3"
-
-  };
+const provider =
+  new GoogleAuthProvider();
 
 
-  /* =====================================
-     FIREBASE
-  ===================================== */
+/* ==========================================
+   ELEMENTS
+========================================== */
 
-  const app =
-    initializeApp(firebaseConfig);
+const loginBox =
+  document.getElementById("loginBox");
 
-  const auth =
-    getAuth(app);
+const userBox =
+  document.getElementById("userBox");
 
-  const provider =
-    new GoogleAuthProvider();
+const loginBtn =
+  document.getElementById("loginBtn");
+
+const logoutBtn =
+  document.getElementById("logoutBtn");
+
+const userName =
+  document.getElementById("userName");
+
+const userEmail =
+  document.getElementById("userEmail");
+
+const userPhoto =
+  document.getElementById("userPhoto");
+
+const userMini =
+  document.getElementById("userMini");
+
+const statusBox =
+  document.getElementById("statusBox");
+
+const postModal =
+  document.getElementById("postModal");
+
+const needsList =
+  document.getElementById("needsList");
+
+const needCount =
+  document.getElementById("needCount");
+
+const searchInput =
+  document.getElementById("searchInput");
+
+const categoryFilter =
+  document.getElementById("categoryFilter");
 
 
-  /* =====================================
-     ELEMENT
-  ===================================== */
+let currentUser = null;
+let allNeeds = [];
 
-  const loginBtn =
-    document.getElementById(
-      "loginBtn"
+
+/* ==========================================
+   LOGIN
+========================================== */
+
+loginBtn.addEventListener(
+  "click",
+  async () => {
+
+    try {
+
+      loginBtn.disabled = true;
+
+      loginBtn.textContent =
+        "⏳ Membuka Google...";
+
+      await signInWithPopup(
+        auth,
+        provider
+      );
+
+    } catch(error) {
+
+      console.error(error);
+
+      alert(
+        "Login gagal:\n" +
+        error.message
+      );
+
+    } finally {
+
+      loginBtn.disabled = false;
+
+      loginBtn.textContent =
+        "🔵 Masuk dengan Google";
+
+    }
+
+  }
+);
+
+
+/* ==========================================
+   LOGOUT
+========================================== */
+
+logoutBtn.addEventListener(
+  "click",
+  async () => {
+
+    await signOut(auth);
+
+  }
+);
+
+
+/* ==========================================
+   AUTH STATE
+========================================== */
+
+onAuthStateChanged(
+  auth,
+  user => {
+
+    currentUser = user;
+
+    if(user){
+
+      loginBox.style.display =
+        "none";
+
+      userBox.style.display =
+        "block";
+
+      statusBox.textContent =
+        "🟢 Login sebagai " +
+        (user.displayName || "Pengguna");
+
+      userName.textContent =
+        user.displayName ||
+        "Pengguna BUTUH";
+
+      userEmail.textContent =
+        user.email || "";
+
+      userPhoto.src =
+        user.photoURL || "";
+
+      userMini.src =
+        user.photoURL || "";
+
+      userMini.style.display =
+        "block";
+
+    }else{
+
+      loginBox.style.display =
+        "block";
+
+      userBox.style.display =
+        "none";
+
+      userMini.style.display =
+        "none";
+
+      statusBox.textContent =
+        "🔵 Login untuk menggunakan BUTUH";
+
+    }
+
+  }
+);
+
+
+/* ==========================================
+   MODAL
+========================================== */
+
+function openModal(){
+
+  if(!currentUser){
+
+    alert(
+      "Silakan login terlebih dahulu."
     );
 
-  const logoutBtn =
-    document.getElementById(
-      "logoutBtn"
-    );
+    return;
 
-  const loginCard =
-    document.getElementById(
-      "loginCard"
-    );
+  }
 
-  const userCard =
-    document.getElementById(
-      "userCard"
-    );
+  postModal.classList.add("show");
 
-  const userName =
-    document.getElementById(
-      "userName"
-    );
-
-  const userEmail =
-    document.getElementById(
-      "userEmail"
-    );
-
-  const userPhoto =
-    document.getElementById(
-      "userPhoto"
-    );
-
-  const status =
-    document.getElementById(
-      "status"
-    );
+}
 
 
-  /* =====================================
-     LOGIN
-  ===================================== */
+function closeModal(){
 
-  loginBtn.addEventListener(
+  postModal.classList.remove("show");
+
+}
+
+
+document
+  .getElementById("heroPostBtn")
+  .addEventListener(
     "click",
-    async () => {
+    openModal
+  );
+
+
+document
+  .getElementById("userPostBtn")
+  .addEventListener(
+    "click",
+    openModal
+  );
+
+
+document
+  .getElementById("closeModal")
+  .addEventListener(
+    "click",
+    closeModal
+  );
+
+
+/* ==========================================
+   POST TO FIRESTORE
+========================================== */
+
+document
+  .getElementById("needForm")
+  .addEventListener(
+    "submit",
+    async event => {
+
+      event.preventDefault();
+
+      if(!currentUser){
+
+        alert(
+          "Anda harus login."
+        );
+
+        return;
+
+      }
+
+
+      const title =
+        document
+          .getElementById("title")
+          .value
+          .trim();
+
+      const category =
+        document
+          .getElementById("category")
+          .value;
+
+      const budget =
+        Number(
+          document
+            .getElementById("budget")
+            .value
+        );
+
+      const province =
+        document
+          .getElementById("province")
+          .value;
+
+      const city =
+        document
+          .getElementById("city")
+          .value
+          .trim();
+
+      const location =
+        document
+          .getElementById("location")
+          .value
+          .trim();
+
+      const duration =
+        Number(
+          document
+            .getElementById("duration")
+            .value
+        );
+
+
+      if(
+        !title ||
+        !budget ||
+        !province ||
+        !city
+      ){
+
+        alert(
+          "Lengkapi data kebutuhan."
+        );
+
+        return;
+
+      }
+
+
+      const submitBtn =
+        document.getElementById(
+          "submitBtn"
+        );
+
 
       try {
 
-        loginBtn.disabled = true;
+        submitBtn.disabled = true;
 
-        loginBtn.textContent =
-          "⏳ Membuka Google...";
+        submitBtn.textContent =
+          "⏳ Menyimpan...";
 
-        await signInWithPopup(
-          auth,
-          provider
+
+        const now =
+          Date.now();
+
+        const expiresAt =
+          now +
+          duration *
+          60 *
+          60 *
+          1000;
+
+
+        await addDoc(
+          collection(
+            db,
+            "needs"
+          ),
+          {
+
+            title,
+
+            category,
+
+            budget,
+
+            province,
+
+            city,
+
+            location,
+
+            ownerId:
+              currentUser.uid,
+
+            ownerName:
+              currentUser.displayName ||
+              "Pengguna",
+
+            ownerPhoto:
+              currentUser.photoURL ||
+              "",
+
+            createdAt:
+              serverTimestamp(),
+
+            createdAtMs:
+              now,
+
+            expiresAt:
+
+              expiresAt,
+
+            status:
+              "active"
+
+          }
         );
+
+
+        alert(
+          "✅ Kebutuhan berhasil diposting!"
+        );
+
+
+        document
+          .getElementById("needForm")
+          .reset();
+
+
+        closeModal();
+
 
       } catch(error) {
 
         console.error(error);
 
         alert(
-          "Login gagal:\n" +
+          "Gagal menyimpan:\n" +
           error.message
         );
 
       } finally {
 
-        loginBtn.disabled = false;
+        submitBtn.disabled = false;
 
-        loginBtn.textContent =
-          "🔵 Masuk dengan Google";
-
-      }
-
-    }
-  );
-
-
-  /* =====================================
-     LOGOUT
-  ===================================== */
-
-  logoutBtn.addEventListener(
-    "click",
-    async () => {
-
-      try {
-
-        await signOut(auth);
-
-      } catch(error) {
-
-        alert(
-          "Gagal keluar: " +
-          error.message
-        );
+        submitBtn.textContent =
+          "Posting Sekarang";
 
       }
 
@@ -345,70 +1128,487 @@
   );
 
 
-  /* =====================================
-     AUTH STATE
-  ===================================== */
+/* ==========================================
+   LOAD FIRESTORE
+========================================== */
 
-  onAuthStateChanged(
-    auth,
-    user => {
-
-      if(user){
-
-        loginCard.style.display =
-          "none";
-
-        userCard.style.display =
-          "block";
-
-        status.textContent =
-          "🟢 Anda sudah login";
-
-        userName.textContent =
-          user.displayName ||
-          "Pengguna BUTUH";
-
-        userEmail.textContent =
-          user.email ||
-          "";
-
-        userPhoto.src =
-          user.photoURL ||
-          "https://via.placeholder.com/100";
-
-      }else{
-
-        loginCard.style.display =
-          "block";
-
-        userCard.style.display =
-          "none";
-
-        status.textContent =
-          "🔵 Silakan login";
-
-      }
-
-    }
+const needsQuery =
+  query(
+    collection(
+      db,
+      "needs"
+    ),
+    orderBy(
+      "createdAtMs",
+      "desc"
+    )
   );
 
 
-  /* =====================================
-     POST BUTTON
-  ===================================== */
+onSnapshot(
+  needsQuery,
+  snapshot => {
+
+    allNeeds =
+      snapshot.docs.map(
+        doc => ({
+
+          id:doc.id,
+
+          ...doc.data()
+
+        })
+      );
+
+    renderNeeds();
+
+  },
+
+  error => {
+
+    console.error(error);
+
+    needsList.innerHTML = `
+
+      <div class="empty">
+
+        ❌ Gagal mengambil data.
+
+        <br><br>
+
+        Pastikan Firestore Rules
+        sudah benar.
+
+      </div>
+
+    `;
+
+  }
+);
+
+
+/* ==========================================
+   RENDER
+========================================== */
+
+function renderNeeds(){
+
+  const keyword =
+    searchInput
+      .value
+      .trim()
+      .toLowerCase();
+
+  const category =
+    categoryFilter.value;
+
+  const now =
+    Date.now();
+
+
+  let data =
+    allNeeds.filter(
+      need =>
+        Number(
+          need.expiresAt
+        ) > now
+    );
+
+
+  if(keyword){
+
+    data =
+      data.filter(
+        need =>
+
+          String(
+            need.title || ""
+          )
+          .toLowerCase()
+          .includes(keyword)
+
+          ||
+
+          String(
+            need.city || ""
+          )
+          .toLowerCase()
+          .includes(keyword)
+
+          ||
+
+          String(
+            need.province || ""
+          )
+          .toLowerCase()
+          .includes(keyword)
+
+      );
+
+  }
+
+
+  if(category !== "all"){
+
+    data =
+      data.filter(
+        need =>
+          need.category ===
+          category
+      );
+
+  }
+
+
+  needCount.textContent =
+    `${data.length} kebutuhan`;
+
+
+  if(!data.length){
+
+    needsList.innerHTML = `
+
+      <div class="empty">
+
+        🔎
+
+        <br><br>
+
+        Belum ada kebutuhan aktif.
+
+        <br>
+
+        Jadilah yang pertama
+        membuat kebutuhan!
+
+      </div>
+
+    `;
+
+    return;
+
+  }
+
+
+  needsList.innerHTML =
+    data.map(
+      need => {
+
+        return `
+
+          <article class="need">
+
+            <div class="need-head">
+
+              <div class="need-title">
+
+                ${escapeHtml(
+                  need.title
+                )}
+
+              </div>
+
+              <span class="badge">
+
+                ${escapeHtml(
+                  need.category
+                )}
+
+              </span>
+
+            </div>
+
+
+            <div class="price">
+
+              ${formatRupiah(
+                need.budget
+              )}
+
+            </div>
+
+
+            <div class="info">
+
+              📍
+              ${escapeHtml(
+                need.city
+              )},
+              ${escapeHtml(
+                need.province
+              )}
+
+              <br>
+
+              📌
+              ${escapeHtml(
+                need.location ||
+                "Lokasi detail tidak diberikan"
+              )}
+
+              <br>
+
+              👤
+              ${escapeHtml(
+                need.ownerName ||
+                "Pengguna BUTUH"
+              )}
+
+            </div>
+
+
+            <div
+              class="timer"
+              data-expires="${need.expiresAt}">
+
+              ⏳
+              ${formatRemaining(
+                Number(
+                  need.expiresAt
+                ) - Date.now()
+              )}
+
+            </div>
+
+
+            <button
+              class="help-btn"
+              data-id="${need.id}">
+
+              🙋 SAYA BISA
+
+            </button>
+
+          </article>
+
+        `;
+
+      }
+    )
+    .join("");
+
 
   document
-    .getElementById("postBtn")
-    .addEventListener(
-      "click",
-      () => {
+    .querySelectorAll(".help-btn")
+    .forEach(
+      button => {
 
-        alert(
-          "🚧 Fitur posting akan kita buat pada langkah berikutnya."
+        button.addEventListener(
+          "click",
+          () => {
+
+            const need =
+              allNeeds.find(
+                n =>
+                  n.id ===
+                  button.dataset.id
+              );
+
+            if(!need) return;
+
+            if(!currentUser){
+
+              alert(
+                "Login terlebih dahulu."
+              );
+
+              return;
+
+            }
+
+
+            if(
+              need.ownerId ===
+              currentUser.uid
+            ){
+
+              alert(
+                "Ini adalah kebutuhan Anda sendiri."
+              );
+
+              return;
+
+            }
+
+
+            alert(
+              "🙋 Anda memilih kebutuhan ini.\n\n" +
+              "Chat akan kita tambahkan pada tahap berikutnya."
+            );
+
+          }
         );
 
       }
     );
+
+}
+
+
+/* ==========================================
+   SEARCH
+========================================== */
+
+searchInput.addEventListener(
+  "input",
+  renderNeeds
+);
+
+
+categoryFilter.addEventListener(
+  "change",
+  renderNeeds
+);
+
+
+/* ==========================================
+   COUNTDOWN
+========================================== */
+
+setInterval(
+  () => {
+
+    document
+      .querySelectorAll(
+        ".timer"
+      )
+      .forEach(
+        element => {
+
+          const expires =
+            Number(
+              element.dataset.expires
+            );
+
+          const remaining =
+            expires -
+            Date.now();
+
+
+          if(remaining <= 0){
+
+            element.textContent =
+              "🔴 KEBUTUHAN BERAKHIR";
+
+            element.classList.add(
+              "expired"
+            );
+
+          }else{
+
+            element.textContent =
+              "⏳ " +
+              formatRemaining(
+                remaining
+              );
+
+          }
+
+        }
+      );
+
+  },
+  1000
+);
+
+
+/* ==========================================
+   FORMAT
+========================================== */
+
+function formatRupiah(value){
+
+  return new Intl.NumberFormat(
+    "id-ID",
+    {
+      style:"currency",
+      currency:"IDR",
+      maximumFractionDigits:0
+    }
+  ).format(
+    Number(value) || 0
+  );
+
+}
+
+
+function formatRemaining(ms){
+
+  if(ms <= 0)
+    return "00:00:00";
+
+
+  const total =
+    Math.floor(
+      ms / 1000
+    );
+
+  const days =
+    Math.floor(
+      total / 86400
+    );
+
+  const hours =
+    Math.floor(
+      (total % 86400) /
+      3600
+    );
+
+  const minutes =
+    Math.floor(
+      (total % 3600) /
+      60
+    );
+
+  const seconds =
+    total % 60;
+
+
+  const h =
+    String(hours)
+      .padStart(2,"0");
+
+  const m =
+    String(minutes)
+      .padStart(2,"0");
+
+  const s =
+    String(seconds)
+      .padStart(2,"0");
+
+
+  if(days > 0){
+
+    return (
+      days +
+      " hari " +
+      h + ":" +
+      m + ":" +
+      s
+    );
+
+  }
+
+
+  return (
+    h + ":" +
+    m + ":" +
+    s
+  );
+
+}
+
+
+function escapeHtml(value){
+
+  return String(value || "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+
+}
 
 </script>
 
