@@ -2,10 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <title>Login - Kebutuhan</title>
 
@@ -17,16 +14,12 @@
     body {
       margin: 0;
       min-height: 100vh;
-
       display: flex;
       align-items: center;
       justify-content: center;
-
       padding: 20px;
 
-      font-family:
-        Arial,
-        sans-serif;
+      font-family: Arial, sans-serif;
 
       background:
         linear-gradient(
@@ -34,134 +27,83 @@
           #111827,
           #2563eb
         );
-
-      color: #111827;
     }
 
-    .login-box {
+    .box {
       width: 100%;
       max-width: 420px;
 
       background: white;
 
-      padding: 30px;
+      padding: 32px 25px;
 
       border-radius: 20px;
 
       box-shadow:
         0 20px 50px
         rgba(0,0,0,.25);
+
+      text-align: center;
     }
 
     .logo {
-      text-align: center;
-
-      font-size: 32px;
-
-      margin-bottom: 8px;
+      font-size: 45px;
+      margin-bottom: 10px;
     }
 
     h1 {
-      text-align: center;
-
       margin: 0 0 8px;
-
-      font-size: 27px;
+      color: #111827;
     }
 
-    .subtitle {
-      text-align: center;
-
+    p {
       color: #6b7280;
-
-      margin:
-        0 0 25px;
+      margin-bottom: 28px;
     }
 
-    label {
-      display: block;
-
-      margin:
-        14px 0 7px;
-
-      font-weight: 700;
-
-      font-size: 14px;
-    }
-
-    input {
+    .google-btn {
       width: 100%;
 
-      padding: 13px 14px;
+      padding: 14px;
 
-      border:
-        1px solid #d1d5db;
+      border: 1px solid #d1d5db;
 
       border-radius: 10px;
 
-      font-size: 15px;
+      background: white;
 
-      outline: none;
-    }
-
-    input:focus {
-      border-color:
-        #2563eb;
-
-      box-shadow:
-        0 0 0 3px
-        rgba(37,99,235,.12);
-    }
-
-    button {
-      width: 100%;
-
-      margin-top: 20px;
-
-      padding: 13px;
-
-      border: 0;
-
-      border-radius: 10px;
-
-      background: #2563eb;
-
-      color: white;
+      color: #111827;
 
       font-size: 16px;
 
       font-weight: 700;
 
       cursor: pointer;
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content: center;
+
+      gap: 12px;
+
+      transition: .2s;
     }
 
-    button:disabled {
-      opacity: .6;
-
-      cursor:
-        not-allowed;
+    .google-btn:hover {
+      background: #f9fafb;
+      transform: translateY(-1px);
     }
 
-    .register {
-      text-align: center;
+    .google-icon {
+      font-size: 20px;
+    }
 
-      margin-top: 20px;
+    .loading {
+      margin-top: 15px;
 
       color: #6b7280;
-
-      font-size: 14px;
-    }
-
-    .register button {
-      width: auto;
-
-      margin: 0;
-
-      padding: 0;
-
-      background: none;
-
-      color: #2563eb;
 
       font-size: 14px;
     }
@@ -169,7 +111,7 @@
     .error {
       margin-top: 15px;
 
-      padding: 11px;
+      padding: 12px;
 
       background: #fee2e2;
 
@@ -180,39 +122,23 @@
       font-size: 13px;
     }
 
-    .success {
-      margin-top: 15px;
-
-      padding: 11px;
-
-      background: #dcfce7;
-
-      color: #166534;
-
-      border-radius: 9px;
-
-      font-size: 13px;
-    }
-
     .hidden {
       display: none;
     }
 
-    .loading {
-      text-align: center;
+    .footer {
+      margin-top: 25px;
 
-      color: #6b7280;
+      font-size: 12px;
 
-      font-size: 13px;
-
-      margin-top: 12px;
+      color: #9ca3af;
     }
   </style>
 </head>
 
 <body>
 
-  <div class="login-box">
+  <div class="box">
 
     <div class="logo">
       🚀
@@ -222,135 +148,45 @@
       Kebutuhan
     </h1>
 
-    <p class="subtitle">
-      Login untuk melanjutkan
+    <p>
+      Temukan dan tawarkan solusi
     </p>
 
 
-    <form id="loginForm">
+    <button
+      id="googleLogin"
+      class="google-btn">
 
-      <label>
-        Email
-      </label>
+      <span class="google-icon">
+        🌐
+      </span>
 
-      <input
-        id="email"
-        type="email"
-        placeholder="nama@email.com"
-        autocomplete="email"
-        required
-      >
+      <span>
+        Lanjutkan dengan Google
+      </span>
 
-
-      <label>
-        Password
-      </label>
-
-      <input
-        id="password"
-        type="password"
-        placeholder="Password"
-        autocomplete="current-password"
-        required
-      >
+    </button>
 
 
-      <div
-        id="error"
-        class="error hidden">
-      </div>
+    <div
+      id="loading"
+      class="loading hidden">
 
-
-      <div
-        id="success"
-        class="success hidden">
-      </div>
-
-
-      <button
-        id="loginBtn"
-        type="submit">
-
-        <span id="loginText">
-          Login
-        </span>
-
-        <span
-          id="loadingText"
-          class="hidden">
-
-          Memproses...
-
-        </span>
-
-      </button>
-
-    </form>
-
-
-    <div class="register">
-
-      Belum punya akun?
-
-      <button
-        id="registerBtn"
-        type="button">
-
-        Daftar
-
-      </button>
+      Membuka Google...
 
     </div>
 
 
     <div
-      id="registerArea"
-      class="hidden">
-
-      <form id="registerForm">
-
-        <label>
-          Nama
-        </label>
-
-        <input
-          id="registerName"
-          type="text"
-          placeholder="Nama Anda"
-        >
+      id="error"
+      class="error hidden">
+    </div>
 
 
-        <label>
-          Email
-        </label>
+    <div class="footer">
 
-        <input
-          id="registerEmail"
-          type="email"
-          placeholder="nama@email.com"
-        >
-
-
-        <label>
-          Password
-        </label>
-
-        <input
-          id="registerPassword"
-          type="password"
-          placeholder="Minimal 6 karakter"
-        >
-
-
-        <button
-          type="submit"
-          id="createAccountBtn">
-
-          Buat Akun
-
-        </button>
-
-      </form>
+      Login aman menggunakan
+      Firebase Authentication
 
     </div>
 
@@ -367,9 +203,8 @@
 
   import {
     getAuth,
-    signInWithEmailAndPassword,
-    createUserWithEmailAndPassword,
-    updateProfile,
+    GoogleAuthProvider,
+    signInWithPopup,
     onAuthStateChanged
   } from
   "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
@@ -378,6 +213,7 @@
   import {
     getFirestore,
     doc,
+    getDoc,
     setDoc,
     serverTimestamp
   } from
@@ -425,53 +261,27 @@
     getFirestore(app);
 
 
+  const provider =
+    new GoogleAuthProvider();
+
+
   // ==========================================
-  // DOM
+  // ELEMENT
   // ==========================================
 
-  const loginForm =
+  const googleLogin =
     document.getElementById(
-      "loginForm"
+      "googleLogin"
     );
 
-  const loginBtn =
+  const loading =
     document.getElementById(
-      "loginBtn"
-    );
-
-  const loginText =
-    document.getElementById(
-      "loginText"
-    );
-
-  const loadingText =
-    document.getElementById(
-      "loadingText"
+      "loading"
     );
 
   const errorBox =
     document.getElementById(
       "error"
-    );
-
-  const successBox =
-    document.getElementById(
-      "success"
-    );
-
-  const registerBtn =
-    document.getElementById(
-      "registerBtn"
-    );
-
-  const registerArea =
-    document.getElementById(
-      "registerArea"
-    );
-
-  const registerForm =
-    document.getElementById(
-      "registerForm"
     );
 
 
@@ -495,293 +305,142 @@
 
 
   // ==========================================
-  // LOGIN
+  // GOOGLE LOGIN
   // ==========================================
 
-  loginForm.addEventListener(
-    "submit",
-    async event => {
-
-      event.preventDefault();
-
-
-      hideMessages();
-
-
-      const email =
-        document
-          .getElementById("email")
-          .value
-          .trim();
-
-
-      const password =
-        document
-          .getElementById("password")
-          .value;
-
-
-      loginBtn.disabled =
-        true;
-
-      loginText.classList.add(
-        "hidden"
-      );
-
-      loadingText.classList.remove(
-        "hidden"
-      );
-
-
-      try {
-
-        await signInWithEmailAndPassword(
-          auth,
-          email,
-          password
-        );
-
-
-        successBox.textContent =
-          "Login berhasil. Membuka dashboard...";
-
-        successBox.classList.remove(
-          "hidden"
-        );
-
-
-        setTimeout(
-          () => {
-
-            window.location.href =
-              "index.html";
-
-          },
-          400
-        );
-
-
-      } catch (error) {
-
-        console.error(error);
-
-        errorBox.textContent =
-          getFirebaseError(
-            error.code
-          );
-
-        errorBox.classList.remove(
-          "hidden"
-        );
-
-      } finally {
-
-        loginBtn.disabled =
-          false;
-
-        loginText.classList.remove(
-          "hidden"
-        );
-
-        loadingText.classList.add(
-          "hidden"
-        );
-
-      }
-
-    }
-  );
-
-
-  // ==========================================
-  // REGISTER AREA
-  // ==========================================
-
-  registerBtn.addEventListener(
+  googleLogin.addEventListener(
     "click",
-    () => {
+    async () => {
 
-      registerArea.classList.toggle(
+      errorBox.classList.add(
         "hidden"
       );
 
-    }
-  );
-
-
-  // ==========================================
-  // REGISTER
-  // ==========================================
-
-  registerForm.addEventListener(
-    "submit",
-    async event => {
-
-      event.preventDefault();
-
-
-      hideMessages();
-
-
-      const name =
-        document
-          .getElementById(
-            "registerName"
-          )
-          .value
-          .trim();
-
-
-      const email =
-        document
-          .getElementById(
-            "registerEmail"
-          )
-          .value
-          .trim();
-
-
-      const password =
-        document
-          .getElementById(
-            "registerPassword"
-          )
-          .value;
-
-
-      if (!name) {
-
-        showError(
-          "Nama wajib diisi."
-        );
-
-        return;
-
-      }
-
-
-      if (password.length < 6) {
-
-        showError(
-          "Password minimal 6 karakter."
-        );
-
-        return;
-
-      }
-
-
-      const button =
-        document.getElementById(
-          "createAccountBtn"
-        );
-
-
-      button.disabled =
+      googleLogin.disabled =
         true;
 
-      button.textContent =
-        "Membuat akun...";
+      loading.classList.remove(
+        "hidden"
+      );
 
 
       try {
 
         const result =
-          await createUserWithEmailAndPassword(
+          await signInWithPopup(
             auth,
-            email,
-            password
+            provider
           );
 
 
-        await updateProfile(
-          result.user,
-          {
-            displayName: name
-          }
-        );
+        const user =
+          result.user;
 
 
-        await setDoc(
+        // =====================================
+        // SIMPAN USER KE FIRESTORE
+        // =====================================
+
+        const userRef =
           doc(
             db,
             "users",
-            result.user.uid
-          ),
-          {
-
-            uid:
-              result.user.uid,
-
-            name,
-
-            email,
-
-            createdAt:
-              serverTimestamp()
-
-          }
-        );
+            user.uid
+          );
 
 
-        successBox.textContent =
-          "Akun berhasil dibuat!";
-
-        successBox.classList.remove(
-          "hidden"
-        );
+        const userSnap =
+          await getDoc(
+            userRef
+          );
 
 
-        setTimeout(
-          () => {
+        if (!userSnap.exists()) {
 
-            window.location.href =
-              "index.html";
+          await setDoc(
+            userRef,
+            {
 
-          },
-          500
-        );
+              uid:
+                user.uid,
+
+              name:
+                user.displayName ||
+                "User",
+
+              email:
+                user.email ||
+                "",
+
+              photo:
+                user.photoURL ||
+                "",
+
+              createdAt:
+                serverTimestamp()
+
+            }
+          );
+
+        }
+
+
+        // =====================================
+        // KE DASHBOARD
+        // =====================================
+
+        window.location.href =
+          "index.html";
 
 
       } catch (error) {
 
         console.error(error);
 
-        showError(
-          getFirebaseError(
-            error.code
-          )
-        );
 
-      } finally {
+        if (
+          error.code ===
+          "auth/popup-closed-by-user"
+        ) {
 
-        button.disabled =
+          showError(
+            "Login dibatalkan."
+          );
+
+        }
+
+        else if (
+          error.code ===
+          "auth/popup-blocked"
+        ) {
+
+          showError(
+            "Popup Google diblokir browser. Izinkan popup lalu coba lagi."
+          );
+
+        }
+
+        else {
+
+          showError(
+            error.message ||
+            "Login Google gagal."
+          );
+
+        }
+
+
+        googleLogin.disabled =
           false;
 
-        button.textContent =
-          "Buat Akun";
+        loading.classList.add(
+          "hidden"
+        );
 
       }
 
     }
   );
-
-
-  // ==========================================
-  // HELPERS
-  // ==========================================
-
-  function hideMessages() {
-
-    errorBox.classList.add(
-      "hidden"
-    );
-
-    successBox.classList.add(
-      "hidden"
-    );
-
-  }
 
 
   function showError(
@@ -793,47 +452,6 @@
 
     errorBox.classList.remove(
       "hidden"
-    );
-
-  }
-
-
-  function getFirebaseError(
-    code
-  ) {
-
-    const errors = {
-
-      "auth/invalid-email":
-        "Format email tidak valid.",
-
-      "auth/user-not-found":
-        "Email belum terdaftar.",
-
-      "auth/wrong-password":
-        "Password salah.",
-
-      "auth/invalid-credential":
-        "Email atau password salah.",
-
-      "auth/email-already-in-use":
-        "Email sudah digunakan.",
-
-      "auth/weak-password":
-        "Password terlalu lemah.",
-
-      "auth/too-many-requests":
-        "Terlalu banyak percobaan. Coba lagi nanti.",
-
-      "auth/network-request-failed":
-        "Koneksi internet bermasalah."
-
-    };
-
-
-    return (
-      errors[code] ||
-      "Terjadi kesalahan. Silakan coba lagi."
     );
 
   }
