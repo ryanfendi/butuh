@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-
   <meta charset="UTF-8">
 
   <meta
@@ -9,1863 +8,774 @@
     content="width=device-width, initial-scale=1.0"
   >
 
-  <title>Profil Saya - Kebutuhan</title>
-
-  <style>
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-
-      font-family:
-        Arial,
-        sans-serif;
-
-      background: #f5f7fb;
-
-      color: #172033;
-    }
-
-    button,
-    input,
-    textarea,
-    select {
-      font: inherit;
-    }
-
-    button {
-      cursor: pointer;
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-
-    /* =================================
-       HEADER
-    ================================= */
-
-    .topbar {
-      height: 64px;
-
-      background: white;
-
-      border-bottom:
-        1px solid #e5e7eb;
-
-      display: flex;
-
-      align-items: center;
-
-      justify-content: space-between;
-
-      padding: 0 24px;
-
-      position: sticky;
-
-      top: 0;
-
-      z-index: 50;
-    }
-
-    .logo {
-      font-size: 20px;
-
-      font-weight: 800;
-    }
-
-    .top-actions {
-      display: flex;
-
-      gap: 10px;
-
-      align-items: center;
-    }
-
-
-    /* =================================
-       BUTTON
-    ================================= */
-
-    .btn {
-      border: 0;
-
-      border-radius: 10px;
-
-      padding:
-        10px 15px;
-
-      font-weight: 700;
-
-      background: #e5e7eb;
-
-      color: #111827;
-    }
-
-    .btn.primary {
-      background: #2563eb;
-
-      color: white;
-    }
-
-    .btn.danger {
-      background: #fee2e2;
-
-      color: #b91c1c;
-    }
-
-
-    /* =================================
-       CONTAINER
-    ================================= */
-
-    .container {
-      max-width: 1050px;
-
-      margin: auto;
-
-      padding:
-        25px 18px 70px;
-    }
-
-
-    /* =================================
-       PROFILE HERO
-    ================================= */
-
-    .profile-card {
-      background:
-        linear-gradient(
-          135deg,
-          #111827,
-          #2563eb
-        );
-
-      color: white;
-
-      border-radius: 20px;
-
-      padding: 28px;
-
-      display: flex;
-
-      align-items: center;
-
-      gap: 22px;
-
-      margin-bottom: 22px;
-
-      box-shadow:
-        0 10px 30px
-        rgba(37,99,235,.15);
-    }
-
-    .profile-photo {
-      width: 100px;
-
-      height: 100px;
-
-      border-radius: 50%;
-
-      object-fit: cover;
-
-      border:
-        4px solid
-        rgba(255,255,255,.8);
-
-      background: #e5e7eb;
-    }
-
-    .profile-main {
-      min-width: 0;
-    }
-
-    .profile-main h1 {
-      margin:
-        0 0 7px;
-
-      font-size: 28px;
-    }
-
-    .profile-email {
-      opacity: .85;
-
-      margin-bottom: 12px;
-
-      word-break: break-all;
-    }
-
-    .google-badge {
-      display: inline-block;
-
-      padding:
-        6px 10px;
-
-      border-radius: 20px;
-
-      background:
-        rgba(255,255,255,.15);
-
-      font-size: 12px;
-    }
-
-
-    /* =================================
-       STATS
-    ================================= */
-
-    .stats {
-      display: grid;
-
-      grid-template-columns:
-        repeat(4, 1fr);
-
-      gap: 14px;
-
-      margin-bottom: 30px;
-    }
-
-    .stat-card {
-      background: white;
-
-      border:
-        1px solid #eef0f4;
-
-      border-radius: 15px;
-
-      padding: 19px;
-
-      box-shadow:
-        0 4px 14px
-        rgba(0,0,0,.04);
-    }
-
-    .stat-icon {
-      font-size: 22px;
-
-      margin-bottom: 10px;
-    }
-
-    .stat-number {
-      font-size: 24px;
-
-      font-weight: 900;
-
-      margin-bottom: 4px;
-    }
-
-    .stat-label {
-      color: #6b7280;
-
-      font-size: 13px;
-    }
-
-
-    /* =================================
-       RATING
-    ================================= */
-
-    .rating-card {
-      background: white;
-
-      border-radius: 16px;
-
-      padding: 20px;
-
-      margin-bottom: 28px;
-
-      border:
-        1px solid #eef0f4;
-
-      display: flex;
-
-      align-items: center;
-
-      justify-content: space-between;
-
-      gap: 20px;
-    }
-
-    .rating-left {
-      display: flex;
-
-      align-items: center;
-
-      gap: 15px;
-    }
-
-    .rating-number {
-      font-size: 36px;
-
-      font-weight: 900;
-    }
-
-    .stars {
-      color: #f59e0b;
-
-      font-size: 21px;
-
-      letter-spacing: 2px;
-    }
-
-    .rating-text {
-      color: #6b7280;
-
-      font-size: 13px;
-
-      margin-top: 3px;
-    }
-
-
-    /* =================================
-       SECTIONS
-    ================================= */
-
-    .section {
-      margin-bottom: 30px;
-    }
-
-    .section-header {
-      display: flex;
-
-      align-items: center;
-
-      justify-content: space-between;
-
-      margin-bottom: 13px;
-    }
-
-    .section-header h2 {
-      margin: 0;
-
-      font-size: 21px;
-    }
-
-    .section-count {
-      color: #6b7280;
-
-      font-size: 13px;
-    }
-
-
-    /* =================================
-       HISTORY CARD
-    ================================= */
-
-    .history-list {
-      display: grid;
-
-      gap: 12px;
-    }
-
-    .history-card {
-      background: white;
-
-      border:
-        1px solid #e5e7eb;
-
-      border-radius: 14px;
-
-      padding: 17px;
-
-      transition: .2s;
-    }
-
-    .history-card:hover {
-      transform:
-        translateY(-1px);
-
-      box-shadow:
-        0 5px 18px
-        rgba(0,0,0,.06);
-    }
-
-    .history-top {
-      display: flex;
-
-      justify-content: space-between;
-
-      gap: 15px;
-
-      align-items: flex-start;
-    }
-
-    .history-title {
-      margin: 0;
-
-      font-size: 17px;
-
-      line-height: 1.4;
-    }
-
-    .history-description {
-      color: #6b7280;
-
-      font-size: 13px;
-
-      line-height: 1.5;
-
-      margin:
-        8px 0;
-    }
-
-    .history-meta {
-      display: flex;
-
-      flex-wrap: wrap;
-
-      gap: 8px;
-
-      color: #6b7280;
-
-      font-size: 12px;
-    }
-
-
-    /* =================================
-       BADGE
-    ================================= */
-
-    .badge {
-      display: inline-block;
-
-      padding:
-        5px 9px;
-
-      border-radius: 20px;
-
-      font-size: 11px;
-
-      font-weight: 800;
-
-      white-space: nowrap;
-    }
-
-    .badge-open {
-      background: #dbeafe;
-
-      color: #1d4ed8;
-    }
-
-    .badge-progress {
-      background: #fef3c7;
-
-      color: #92400e;
-    }
-
-    .badge-completed {
-      background: #dcfce7;
-
-      color: #166534;
-    }
-
-    .badge-pending {
-      background: #fef3c7;
-
-      color: #92400e;
-    }
-
-    .badge-accepted {
-      background: #dcfce7;
-
-      color: #166534;
-    }
-
-    .badge-rejected {
-      background: #fee2e2;
-
-      color: #991b1b;
-    }
-
-
-    /* =================================
-       OFFER PRICE
-    ================================= */
-
-    .offer-price {
-      font-size: 18px;
-
-      font-weight: 900;
-
-      color: #16a34a;
-
-      white-space: nowrap;
-    }
-
-
-    /* =================================
-       EMPTY
-    ================================= */
-
-    .empty {
-      background: white;
-
-      border:
-        1px solid #e5e7eb;
-
-      border-radius: 14px;
-
-      padding: 30px 20px;
-
-      text-align: center;
-
-      color: #6b7280;
-    }
-
-    .empty-icon {
-      font-size: 32px;
-
-      margin-bottom: 8px;
-    }
-
-
-    /* =================================
-       LOADING
-    ================================= */
-
-    .loading {
-      padding: 30px;
-
-      text-align: center;
-
-      color: #6b7280;
-    }
-
-
-    /* =================================
-       MOBILE
-    ================================= */
-
-    @media (max-width: 800px) {
-
-      .stats {
-        grid-template-columns:
-          repeat(2, 1fr);
-      }
-
-    }
-
-
-    @media (max-width: 600px) {
-
-      .topbar {
-        padding: 0 12px;
-      }
-
-      .logo {
-        font-size: 17px;
-      }
-
-      .profile-card {
-        padding: 22px;
-
-        flex-direction: column;
-
-        text-align: center;
-      }
-
-      .profile-main h1 {
-        font-size: 24px;
-      }
-
-      .profile-photo {
-        width: 90px;
-
-        height: 90px;
-      }
-
-      .stats {
-        grid-template-columns:
-          1fr 1fr;
-
-        gap: 9px;
-      }
-
-      .stat-card {
-        padding: 14px;
-      }
-
-      .stat-number {
-        font-size: 21px;
-      }
-
-      .rating-card {
-        align-items: flex-start;
-
-        flex-direction: column;
-      }
-
-      .history-top {
-        flex-direction: column;
-      }
-
-      .offer-price {
-        font-size: 16px;
-      }
-
-    }
-
-  </style>
-
+  <meta
+    name="theme-color"
+    content="#2563eb"
+  >
+
+  <meta
+    name="description"
+    content="Profil pengguna BUTUH"
+  >
+
+  <title>Profil Saya - BUTUH</title>
+
+  <link
+    rel="stylesheet"
+    href="style.css"
+  >
 </head>
-
 
 <body>
 
 
-<!-- ======================================
-     HEADER
-======================================= -->
+  <!-- =========================================
+       HEADER
+  ========================================== -->
 
-<header class="topbar">
+  <header class="header">
 
-  <div class="logo">
-    🚀 Kebutuhan
-  </div>
+    <div class="header-inner">
 
-  <div class="top-actions">
 
-    <button
-      id="dashboardBtn"
-      class="btn primary">
+      <!-- LOGO -->
 
-      Dashboard
+      <a
+        href="index.html"
+        class="logo"
+      >
 
-    </button>
+        <span class="logo-icon">
+          B
+        </span>
 
-    <button
-      id="logoutBtn"
-      class="btn danger">
+        <span class="logo-text">
+          BUTUH
+        </span>
 
-      Keluar
+      </a>
 
-    </button>
 
-  </div>
+      <!-- NAVIGATION -->
 
-</header>
+      <nav class="nav">
 
+        <a
+          href="index.html"
+          class="nav-link"
+        >
+          ← Dashboard
+        </a>
 
-<main class="container">
+      </nav>
 
 
-  <!-- ====================================
-       PROFILE
-  ===================================== -->
+      <!-- USER -->
 
-  <section class="profile-card">
+      <div class="user-area">
 
-    <img
-      id="profilePhoto"
-      class="profile-photo"
-      src=""
-      alt="Foto profil"
-    >
+        <button
+          id="profileButton"
+          class="profile-button"
+          type="button"
+        >
 
-    <div class="profile-main">
+          <img
+            id="userPhoto"
+            src=""
+            alt="Foto Profil"
+            referrerpolicy="no-referrer"
+          >
 
-      <h1 id="profileName">
-        Memuat...
-      </h1>
+          <div class="profile-button-text">
 
-      <div
-        id="profileEmail"
-        class="profile-email">
+            <strong id="userName">
+              Memuat...
+            </strong>
 
-        Memuat...
+            <small id="userEmail">
+              ...
+            </small>
 
-      </div>
-
-      <span class="google-badge">
-        🔵 Login dengan Google
-      </span>
-
-    </div>
-
-  </section>
-
-
-  <!-- ====================================
-       STATISTICS
-  ===================================== -->
-
-  <section class="stats">
-
-
-    <div class="stat-card">
-
-      <div class="stat-icon">
-        ⭐
-      </div>
-
-      <div
-        id="ratingStat"
-        class="stat-number">
-
-        0.0
-
-      </div>
-
-      <div class="stat-label">
-        Rating
-      </div>
-
-    </div>
-
-
-    <div class="stat-card">
-
-      <div class="stat-icon">
-        📌
-      </div>
-
-      <div
-        id="needStat"
-        class="stat-number">
-
-        0
-
-      </div>
-
-      <div class="stat-label">
-        Kebutuhan dibuat
-      </div>
-
-    </div>
-
-
-    <div class="stat-card">
-
-      <div class="stat-icon">
-        💰
-      </div>
-
-      <div
-        id="offerStat"
-        class="stat-number">
-
-        0
-
-      </div>
-
-      <div class="stat-label">
-        Penawaran
-      </div>
-
-    </div>
-
-
-    <div class="stat-card">
-
-      <div class="stat-icon">
-        ✅
-      </div>
-
-      <div
-        id="completedStat"
-        class="stat-number">
-
-        0
-
-      </div>
-
-      <div class="stat-label">
-        Selesai
-      </div>
-
-    </div>
-
-
-  </section>
-
-
-  <!-- ====================================
-       RATING
-  ===================================== -->
-
-  <section class="rating-card">
-
-    <div class="rating-left">
-
-      <div
-        id="ratingNumber"
-        class="rating-number">
-
-        0.0
-
-      </div>
-
-      <div>
-
-        <div
-          id="stars"
-          class="stars">
-
-          ☆☆☆☆☆
-
-        </div>
-
-        <div
-          id="ratingText"
-          class="rating-text">
-
-          Belum memiliki rating
-
-        </div>
-
-      </div>
-
-    </div>
-
-  </section>
-
-
-  <!-- ====================================
-       RIWAYAT KEBUTUHAN
-  ===================================== -->
-
-  <section class="section">
-
-    <div class="section-header">
-
-      <h2>
-        📌 Riwayat Kebutuhan
-      </h2>
-
-      <span
-        id="needHistoryCount"
-        class="section-count">
-
-        0 kebutuhan
-
-      </span>
-
-    </div>
-
-
-    <div
-      id="needHistory"
-      class="history-list">
-
-      <div class="loading">
-        Memuat riwayat...
-      </div>
-
-    </div>
-
-  </section>
-
-
-  <!-- ====================================
-       RIWAYAT PENAWARAN
-  ===================================== -->
-
-  <section class="section">
-
-    <div class="section-header">
-
-      <h2>
-        💰 Riwayat Penawaran
-      </h2>
-
-      <span
-        id="offerHistoryCount"
-        class="section-count">
-
-        0 penawaran
-
-      </span>
-
-    </div>
-
-
-    <div
-      id="offerHistory"
-      class="history-list">
-
-      <div class="loading">
-        Memuat riwayat...
-      </div>
-
-    </div>
-
-  </section>
-
-
-</main>
-
-
-<script type="module">
-
-
-  // ==========================================
-  // FIREBASE
-  // ==========================================
-
-  import {
-    initializeApp
-  } from
-  "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-
-
-  import {
-    getAuth,
-    onAuthStateChanged,
-    signOut
-  } from
-  "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
-
-
-  import {
-    getFirestore,
-    collection,
-    query,
-    where,
-    orderBy,
-    getDocs
-  } from
-  "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
-
-
-  // ==========================================
-  // FIREBASE CONFIG
-  // ==========================================
-
-  const firebaseConfig = {
-
-    apiKey:
-      "MASUKKAN_API_KEY_ANDA",
-
-    authDomain:
-      "MASUKKAN_PROJECT_ID.firebaseapp.com",
-
-    projectId:
-      "MASUKKAN_PROJECT_ID",
-
-    storageBucket:
-      "MASUKKAN_PROJECT_ID.firebasestorage.app",
-
-    messagingSenderId:
-      "MASUKKAN_MESSAGING_SENDER_ID",
-
-    appId:
-      "MASUKKAN_APP_ID"
-
-  };
-
-
-  const app =
-    initializeApp(
-      firebaseConfig
-    );
-
-
-  const auth =
-    getAuth(app);
-
-
-  const db =
-    getFirestore(app);
-
-
-  let currentUser = null;
-
-  let myNeeds = [];
-
-  let myOffers = [];
-
-
-  // ==========================================
-  // DOM
-  // ==========================================
-
-  const profilePhoto =
-    document.getElementById(
-      "profilePhoto"
-    );
-
-  const profileName =
-    document.getElementById(
-      "profileName"
-    );
-
-  const profileEmail =
-    document.getElementById(
-      "profileEmail"
-    );
-
-
-  // ==========================================
-  // AUTH
-  // ==========================================
-
-  onAuthStateChanged(
-    auth,
-    async user => {
-
-      if (!user) {
-
-        window.location.href =
-          "login.html";
-
-        return;
-
-      }
-
-
-      currentUser =
-        user;
-
-
-      // PROFILE
-
-      profileName.textContent =
-        user.displayName ||
-        "User";
-
-
-      profileEmail.textContent =
-        user.email ||
-        "";
-
-
-      profilePhoto.src =
-        user.photoURL ||
-        createAvatar(
-          user.displayName
-        );
-
-
-      await loadProfileData();
-
-    }
-  );
-
-
-  // ==========================================
-  // LOAD PROFILE DATA
-  // ==========================================
-
-  async function loadProfileData() {
-
-    try {
-
-      await Promise.all([
-
-        loadMyNeeds(),
-
-        loadMyOffers()
-
-      ]);
-
-
-      renderStatistics();
-
-      renderNeeds();
-
-      renderOffers();
-
-    }
-
-    catch (error) {
-
-      console.error(
-        "Profile error:",
-        error
-      );
-
-      document.getElementById(
-        "needHistory"
-      ).innerHTML = `
-        <div class="empty">
-          Gagal memuat riwayat.
-        </div>
-      `;
-
-      document.getElementById(
-        "offerHistory"
-      ).innerHTML = `
-        <div class="empty">
-          Gagal memuat riwayat.
-        </div>
-      `;
-
-    }
-
-  }
-
-
-  // ==========================================
-  // LOAD NEEDS
-  // ==========================================
-
-  async function loadMyNeeds() {
-
-    const q =
-      query(
-
-        collection(
-          db,
-          "needs"
-        ),
-
-        where(
-          "ownerId",
-          "==",
-          currentUser.uid
-        ),
-
-        orderBy(
-          "createdAt",
-          "desc"
-        )
-
-      );
-
-
-    const snapshot =
-      await getDocs(q);
-
-
-    myNeeds =
-      snapshot.docs.map(
-        doc => ({
-
-          id:
-            doc.id,
-
-          ...doc.data()
-
-        })
-      );
-
-  }
-
-
-  // ==========================================
-  // LOAD OFFERS
-  // ==========================================
-
-  async function loadMyOffers() {
-
-    /*
-      Firestore tidak bisa langsung
-      mencari semua subcollection
-      offers di semua needs menggunakan
-      query biasa.
-
-      Karena itu kita gunakan collectionGroup.
-    */
-
-    // collectionGroup di-import
-    // secara dinamis agar kode tetap ringan.
-
-    const {
-      collectionGroup
-    } = await import(
-      "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js"
-    );
-
-
-    const q =
-      query(
-
-        collectionGroup(
-          db,
-          "offers"
-        ),
-
-        where(
-          "providerId",
-          "==",
-          currentUser.uid
-        ),
-
-        orderBy(
-          "createdAt",
-          "desc"
-        )
-
-      );
-
-
-    const snapshot =
-      await getDocs(q);
-
-
-    myOffers =
-      snapshot.docs.map(
-        item => ({
-
-          id:
-            item.id,
-
-          needId:
-            item.ref.parent.parent.id,
-
-          ...item.data()
-
-        })
-      );
-
-  }
-
-
-  // ==========================================
-  // STATISTICS
-  // ==========================================
-
-  function renderStatistics() {
-
-    const totalNeeds =
-      myNeeds.length;
-
-
-    const totalOffers =
-      myOffers.length;
-
-
-    const completedNeeds =
-      myNeeds.filter(
-        need =>
-          need.status ===
-          "completed"
-      ).length;
-
-
-    document.getElementById(
-      "needStat"
-    ).textContent =
-      totalNeeds;
-
-
-    document.getElementById(
-      "offerStat"
-    ).textContent =
-      totalOffers;
-
-
-    document.getElementById(
-      "completedStat"
-    ).textContent =
-      completedNeeds;
-
-
-    /*
-      Untuk sekarang rating berasal
-      dari field rating pada users.
-
-      Jika belum ada:
-      0.0
-    */
-
-    const rating =
-      Number(
-        currentUser.rating || 0
-      );
-
-
-    document.getElementById(
-      "ratingStat"
-    ).textContent =
-      rating.toFixed(1);
-
-
-    document.getElementById(
-      "ratingNumber"
-    ).textContent =
-      rating.toFixed(1);
-
-
-    renderStars(
-      rating
-    );
-
-  }
-
-
-  // ==========================================
-  // RATING
-  // ==========================================
-
-  function renderStars(
-    rating
-  ) {
-
-    const stars =
-      document.getElementById(
-        "stars"
-      );
-
-
-    let html = "";
-
-
-    for (
-      let i = 1;
-      i <= 5;
-      i++
-    ) {
-
-      html +=
-        i <= Math.round(rating)
-          ? "★"
-          : "☆";
-
-    }
-
-
-    stars.textContent =
-      html;
-
-
-    const ratingText =
-      document.getElementById(
-        "ratingText"
-      );
-
-
-    if (rating <= 0) {
-
-      ratingText.textContent =
-        "Belum memiliki rating";
-
-    }
-
-    else {
-
-      ratingText.textContent =
-        "Rating pengguna";
-
-    }
-
-  }
-
-
-  // ==========================================
-  // RENDER NEED HISTORY
-  // ==========================================
-
-  function renderNeeds() {
-
-    const container =
-      document.getElementById(
-        "needHistory"
-      );
-
-
-    document.getElementById(
-      "needHistoryCount"
-    ).textContent =
-      `${myNeeds.length} kebutuhan`;
-
-
-    if (!myNeeds.length) {
-
-      container.innerHTML = `
-        <div class="empty">
-
-          <div class="empty-icon">
-            📭
           </div>
 
-          Belum ada kebutuhan.
+        </button>
+
+      </div>
+
+
+    </div>
+
+  </header>
+
+
+
+  <!-- =========================================
+       MAIN
+  ========================================== -->
+
+  <main class="profile-page">
+
+
+    <div class="profile-container">
+
+
+      <!-- =====================================
+           PROFILE HERO
+      ====================================== -->
+
+      <section class="profile-hero">
+
+
+        <!-- COVER -->
+
+        <div class="profile-cover">
+
+          <div class="profile-cover-pattern"></div>
 
         </div>
-      `;
-
-      return;
-
-    }
 
 
-    container.innerHTML = "";
+        <!-- PROFILE CONTENT -->
+
+        <div class="profile-main-info">
 
 
-    myNeeds.forEach(
-      need => {
+          <!-- PHOTO -->
 
-        const card =
-          document.createElement(
-            "div"
-          );
+          <div class="profile-photo-wrapper">
 
+            <img
+              id="profilePhoto"
+              src=""
+              alt="Foto Profil"
+              class="profile-photo"
+              referrerpolicy="no-referrer"
+            >
 
-        card.className =
-          "history-card";
-
-
-        const status =
-          getStatus(
-            need.status
-          );
+          </div>
 
 
-        card.innerHTML = `
+          <!-- INFO -->
 
-          <div class="history-top">
+          <div class="profile-info">
 
-            <div>
 
-              <h3
-                class="history-title">
+            <div class="profile-name-row">
 
-                ${escapeHTML(
-                  need.title
-                )}
+              <h1 id="profileName">
+                Memuat...
+              </h1>
 
-              </h3>
 
-              <p
-                class="history-description">
-
-                ${escapeHTML(
-                  truncate(
-                    need.description,
-                    150
-                  )
-                )}
-
-              </p>
+              <span class="verified-badge">
+                ✓
+              </span>
 
             </div>
 
-            <span
-              class="badge ${status.className}">
 
-              ${status.text}
+            <p
+              id="profileEmail"
+              class="profile-email"
+            >
+              ...
+            </p>
 
-            </span>
+
+            <!-- MEMBER SINCE -->
+
+            <div class="profile-meta">
+
+              <span>
+                👤 Pengguna BUTUH
+              </span>
+
+              <span>
+                📅 <span id="memberSince">
+                  Memuat...
+                </span>
+              </span>
+
+            </div>
+
 
           </div>
 
 
-          <div
-            class="history-meta">
+          <!-- RATING -->
 
-            <span>
-              💰 Rp ${formatMoney(
-                need.budget
-              )}
+          <div class="profile-rating-box">
+
+            <span class="rating-label">
+              Rating
             </span>
 
-            <span>
-              📅 ${escapeHTML(
-                need.deadline ||
-                "-"
-              )}
-            </span>
 
-            <span>
-              📂 ${escapeHTML(
-                getCategory(
-                  need.category
-                )
-              )}
-            </span>
+            <div class="rating-main">
+
+              <span
+                id="profileRating"
+                class="rating-number"
+              >
+                0.0
+              </span>
+
+              <span class="rating-star">
+                ★
+              </span>
+
+            </div>
+
+
+            <small>
+              <span id="ratingCount">
+                0
+              </span>
+
+              ulasan
+            </small>
 
           </div>
 
-        `;
-
-
-        container.appendChild(
-          card
-        );
-
-      }
-    );
-
-  }
-
-
-  // ==========================================
-  // RENDER OFFERS
-  // ==========================================
-
-  function renderOffers() {
-
-    const container =
-      document.getElementById(
-        "offerHistory"
-      );
-
-
-    document.getElementById(
-      "offerHistoryCount"
-    ).textContent =
-      `${myOffers.length} penawaran`;
-
-
-    if (!myOffers.length) {
-
-      container.innerHTML = `
-        <div class="empty">
-
-          <div class="empty-icon">
-            💰
-          </div>
-
-          Belum ada penawaran.
 
         </div>
-      `;
-
-      return;
-
-    }
 
 
-    container.innerHTML = "";
+      </section>
 
 
-    myOffers.forEach(
-      offer => {
 
-        const card =
-          document.createElement(
-            "div"
-          );
+      <!-- =====================================
+           STATISTICS
+      ====================================== -->
 
-
-        card.className =
-          "history-card";
+      <section class="profile-stats-section">
 
 
-        const status =
-          getStatus(
-            offer.status
-          );
+        <div class="profile-section-title">
+
+          <div>
+
+            <span class="section-label">
+              STATISTIK
+            </span>
+
+            <h2>
+              Aktivitas Saya
+            </h2>
+
+          </div>
+
+        </div>
 
 
-        card.innerHTML = `
+        <div class="profile-stats-grid">
 
-          <div class="history-top">
+
+          <!-- NEEDS -->
+
+          <div class="profile-stat-card">
+
+            <div class="profile-stat-icon">
+              📌
+            </div>
+
 
             <div>
 
-              <h3
-                class="history-title">
+              <strong id="totalNeeds">
+                0
+              </strong>
 
-                Penawaran Anda
+              <span>
+                Total Kebutuhan
+              </span>
 
-              </h3>
+            </div>
 
-              <p
-                class="history-description">
+          </div>
 
-                ${escapeHTML(
-                  offer.message
-                )}
 
-              </p>
+
+          <!-- ACTIVE NEEDS -->
+
+          <div class="profile-stat-card">
+
+            <div class="profile-stat-icon">
+              🔥
+            </div>
+
+
+            <div>
+
+              <strong id="activeUserNeeds">
+                0
+              </strong>
+
+              <span>
+                Kebutuhan Aktif
+              </span>
+
+            </div>
+
+          </div>
+
+
+
+          <!-- OFFERS -->
+
+          <div class="profile-stat-card">
+
+            <div class="profile-stat-icon">
+              💰
+            </div>
+
+
+            <div>
+
+              <strong id="totalOffers">
+                0
+              </strong>
+
+              <span>
+                Total Penawaran
+              </span>
+
+            </div>
+
+          </div>
+
+
+
+          <!-- ACCEPTED -->
+
+          <div class="profile-stat-card">
+
+            <div class="profile-stat-icon">
+              🤝
+            </div>
+
+
+            <div>
+
+              <strong id="acceptedOffers">
+                0
+              </strong>
+
+              <span>
+                Penawaran Diterima
+              </span>
+
+            </div>
+
+          </div>
+
+
+        </div>
+
+
+      </section>
+
+
+
+      <!-- =====================================
+           RATING DETAILS
+      ====================================== -->
+
+      <section class="rating-details-section">
+
+
+        <div class="profile-section-title">
+
+          <div>
+
+            <span class="section-label">
+              REPUTASI
+            </span>
+
+            <h2>
+              Rating & Kepercayaan
+            </h2>
+
+          </div>
+
+        </div>
+
+
+        <div class="rating-details-card">
+
+
+          <div class="rating-big">
+
+            <div class="rating-big-number">
+
+              <span id="ratingAverage">
+                0.0
+              </span>
+
+              <span>
+                /5
+              </span>
 
             </div>
 
 
             <div
-              class="offer-price">
+              id="ratingStars"
+              class="rating-stars"
+            >
+              ☆ ☆ ☆ ☆ ☆
+            </div>
 
-              Rp ${formatMoney(
-                offer.price
-              )}
+
+            <p>
+              Berdasarkan
+              <strong id="ratingTotal">
+                0
+              </strong>
+              penilaian
+            </p>
+
+          </div>
+
+
+          <!-- RATING BREAKDOWN -->
+
+          <div class="rating-breakdown">
+
+
+            <div class="rating-row">
+
+              <span>
+                5 ★
+              </span>
+
+              <div class="rating-bar">
+
+                <div
+                  id="ratingBar5"
+                  class="rating-fill"
+                  style="width:0%"
+                ></div>
+
+              </div>
+
+              <strong id="ratingCount5">
+                0
+              </strong>
+
+            </div>
+
+
+            <div class="rating-row">
+
+              <span>
+                4 ★
+              </span>
+
+              <div class="rating-bar">
+
+                <div
+                  id="ratingBar4"
+                  class="rating-fill"
+                  style="width:0%"
+                ></div>
+
+              </div>
+
+              <strong id="ratingCount4">
+                0
+              </strong>
+
+            </div>
+
+
+            <div class="rating-row">
+
+              <span>
+                3 ★
+              </span>
+
+              <div class="rating-bar">
+
+                <div
+                  id="ratingBar3"
+                  class="rating-fill"
+                  style="width:0%"
+                ></div>
+
+              </div>
+
+              <strong id="ratingCount3">
+                0
+              </strong>
+
+            </div>
+
+
+            <div class="rating-row">
+
+              <span>
+                2 ★
+              </span>
+
+              <div class="rating-bar">
+
+                <div
+                  id="ratingBar2"
+                  class="rating-fill"
+                  style="width:0%"
+                ></div>
+
+              </div>
+
+              <strong id="ratingCount2">
+                0
+              </strong>
+
+            </div>
+
+
+            <div class="rating-row">
+
+              <span>
+                1 ★
+              </span>
+
+              <div class="rating-bar">
+
+                <div
+                  id="ratingBar1"
+                  class="rating-fill"
+                  style="width:0%"
+                ></div>
+
+              </div>
+
+              <strong id="ratingCount1">
+                0
+              </strong>
+
+            </div>
+
+
+          </div>
+
+
+        </div>
+
+
+      </section>
+
+
+
+      <!-- =====================================
+           ACTIVITY HISTORY
+      ====================================== -->
+
+      <section class="history-section">
+
+
+        <div class="profile-section-title">
+
+          <div>
+
+            <span class="section-label">
+              RIWAYAT
+            </span>
+
+            <h2>
+              Aktivitas Terbaru
+            </h2>
+
+          </div>
+
+        </div>
+
+
+        <!-- TABS -->
+
+        <div
+          id="historyTabs"
+          class="history-tabs"
+        >
+
+          <button
+            class="history-tab active"
+            data-tab="needs"
+            type="button"
+          >
+
+            📌 Kebutuhan Saya
+
+            <span
+              id="tabNeedsCount"
+              class="tab-count"
+            >
+              0
+            </span>
+
+          </button>
+
+
+          <button
+            class="history-tab"
+            data-tab="offers"
+            type="button"
+          >
+
+            💰 Penawaran Saya
+
+            <span
+              id="tabOffersCount"
+              class="tab-count"
+            >
+              0
+            </span>
+
+          </button>
+
+
+        </div>
+
+
+
+        <!-- ===================================
+             NEEDS PANEL
+        ==================================== -->
+
+        <div
+          id="needsHistoryPanel"
+          class="history-panel active"
+        >
+
+
+          <div
+            id="needsHistoryList"
+            class="history-list"
+          >
+
+            <div class="history-loading">
+
+              <div class="loading-spinner"></div>
+
+              Memuat riwayat kebutuhan...
 
             </div>
 
           </div>
 
 
+        </div>
+
+
+
+        <!-- ===================================
+             OFFERS PANEL
+        ==================================== -->
+
+        <div
+          id="offersHistoryPanel"
+          class="history-panel"
+        >
+
+
           <div
-            class="history-meta">
+            id="offersHistoryList"
+            class="history-list"
+          >
 
-            <span>
-              ⏱ ${escapeHTML(
-                offer.duration ||
-                "-"
-              )}
-            </span>
+            <div class="history-loading">
 
-            <span>
-              📌 ID kebutuhan:
-              ${escapeHTML(
-                offer.needId
-              )}
-            </span>
+              <div class="loading-spinner"></div>
 
-            <span
-              class="badge ${status.className}">
+              Memuat riwayat penawaran...
 
-              ${status.text}
-
-            </span>
+            </div>
 
           </div>
 
-        `;
 
+        </div>
 
-        container.appendChild(
-          card
-        );
 
-      }
-    );
+      </section>
 
-  }
 
+    </div>
 
-  // ==========================================
-  // STATUS
-  // ==========================================
 
-  function getStatus(
-    status
-  ) {
+  </main>
 
-    const map = {
 
-      open: {
-        text: "AKTIF",
-        className:
-          "badge-open"
-      },
 
-      in_progress: {
-        text: "DIKERJAKAN",
-        className:
-          "badge-progress"
-      },
+  <!-- =========================================
+       LOGOUT
+  ========================================== -->
 
-      completed: {
-        text: "SELESAI",
-        className:
-          "badge-completed"
-      },
+  <section class="profile-bottom-actions">
 
-      pending: {
-        text: "MENUNGGU",
-        className:
-          "badge-pending"
-      },
+    <a
+      href="index.html"
+      class="btn btn-outline"
+    >
+      ← Kembali ke Dashboard
+    </a>
 
-      accepted: {
-        text: "DITERIMA",
-        className:
-          "badge-accepted"
-      },
 
-      rejected: {
-        text: "DITOLAK",
-        className:
-          "badge-rejected"
-      }
+    <button
+      id="logoutBtn"
+      class="btn profile-logout-button"
+      type="button"
+    >
+      🚪 Keluar dari Akun
+    </button>
 
-    };
+  </section>
 
 
-    return (
-      map[status] ||
-      {
-        text:
-          status ||
-          "UNKNOWN",
 
-        className:
-          "badge-open"
-      }
-    );
+  <!-- =========================================
+       FOOTER
+  ========================================== -->
 
-  }
+  <footer class="footer">
 
+    <div class="footer-inner">
 
-  // ==========================================
-  // DASHBOARD
-  // ==========================================
+      <div>
 
-  document.getElementById(
-    "dashboardBtn"
-  ).addEventListener(
-    "click",
-    () => {
+        <strong>
+          BUTUH
+        </strong>
 
-      window.location.href =
-        "index.html";
+        <p>
+          Hubungkan kebutuhan dengan solusi.
+        </p>
 
-    }
-  );
+      </div>
 
 
-  // ==========================================
-  // LOGOUT
-  // ==========================================
+      <div class="footer-copy">
+        © 2026 BUTUH
+      </div>
 
-  document.getElementById(
-    "logoutBtn"
-  ).addEventListener(
-    "click",
-    async () => {
+    </div>
 
-      await signOut(
-        auth
-      );
+  </footer>
 
-      window.location.href =
-        "login.html";
 
-    }
-  );
 
+  <!-- =========================================
+       PROFILE SCRIPT
+  ========================================== -->
 
-  // ==========================================
-  // HELPERS
-  // ==========================================
+  <script
+    type="module"
+    src="./profile.js"
+  ></script>
 
-  function formatMoney(
-    value
-  ) {
-
-    return new Intl.NumberFormat(
-      "id-ID"
-    ).format(
-      Number(value) || 0
-    );
-
-  }
-
-
-  function truncate(
-    text,
-    max
-  ) {
-
-    if (!text) {
-      return "";
-    }
-
-
-    return text.length > max
-
-      ? text.substring(
-          0,
-          max
-        ) + "..."
-
-      : text;
-
-  }
-
-
-  function getCategory(
-    category
-  ) {
-
-    const categories = {
-
-      design:
-        "Desain",
-
-      website:
-        "Website",
-
-      programming:
-        "Programming",
-
-      marketing:
-        "Marketing",
-
-      writing:
-        "Penulisan",
-
-      other:
-        "Lainnya"
-
-    };
-
-
-    return (
-      categories[category] ||
-      "Lainnya"
-    );
-
-  }
-
-
-  function escapeHTML(
-    value
-  ) {
-
-    if (
-      value === null ||
-      value === undefined
-    ) {
-
-      return "";
-
-    }
-
-
-    return String(value)
-
-      .replace(
-        /&/g,
-        "&amp;"
-      )
-
-      .replace(
-        /</g,
-        "&lt;"
-      )
-
-      .replace(
-        />/g,
-        "&gt;"
-      )
-
-      .replace(
-        /"/g,
-        "&quot;"
-      )
-
-      .replace(
-        /'/g,
-        "&#039;"
-      );
-
-  }
-
-
-  function createAvatar(
-    name
-  ) {
-
-    const letter =
-      encodeURIComponent(
-        (
-          name ||
-          "U"
-        )
-        .charAt(0)
-        .toUpperCase()
-      );
-
-
-    return (
-      "https://ui-avatars.com/api/" +
-      "?name=" +
-      letter +
-      "&background=2563eb" +
-      "&color=ffffff" +
-      "&size=128"
-    );
-
-  }
-
-
-</script>
 
 </body>
 </html>
