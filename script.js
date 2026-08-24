@@ -1603,3 +1603,65 @@ function showToast(
   );
 
 }
+
+// =========================================
+// SAVE USER PROFILE
+// =========================================
+
+async function saveUserProfile(
+  user
+) {
+
+  try {
+
+    const userRef =
+      doc(
+        db,
+        "users",
+        user.uid
+      );
+
+
+    await setDoc(
+      userRef,
+      {
+
+        uid:
+          user.uid,
+
+        name:
+          user.displayName ||
+          "User",
+
+        email:
+          user.email ||
+          "",
+
+        photo:
+          user.photoURL ||
+          "",
+
+        provider:
+          "google",
+
+        updatedAt:
+          serverTimestamp()
+
+      },
+
+      {
+        merge: true
+      }
+
+    );
+
+  } catch (error) {
+
+    console.error(
+      "Gagal menyimpan profil:",
+      error
+    );
+
+  }
+
+}
