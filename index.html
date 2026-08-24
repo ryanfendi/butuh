@@ -939,8 +939,9 @@ document
   );
 
 
-/* ==========================================
-   POST TO FIRESTORE
+
+            /* ==========================================
+   POST TO FIRESTORE - CEPAT
 ========================================== */
 
 document
@@ -953,9 +954,7 @@ document
 
       if(!currentUser){
 
-        alert(
-          "Anda harus login."
-        );
+        alert("Anda harus login.");
 
         return;
 
@@ -1007,13 +1006,13 @@ document
 
       if(
         !title ||
-        !budget ||
+        budget <= 0 ||
         !province ||
         !city
       ){
 
         alert(
-          "Lengkapi data kebutuhan."
+          "Lengkapi semua data kebutuhan."
         );
 
         return;
@@ -1027,95 +1026,138 @@ document
         );
 
 
+      const now =
+        Date.now();
+
+      const expiresAt =
+        now +
+        duration *
+        60 *
+        60 *
+        1000;
+
+
+      /* DATA POSTING */
+
+      const newNeed = {
+
+        title: title,
+
+        category: category,
+
+        budget: budget,
+
+        province: province,
+
+        city: city,
+
+        location: location,
+
+        ownerId:
+          currentUser.uid,
+
+        ownerName:
+          currentUser.displayName ||
+          "Pengguna",
+
+        ownerPhoto:
+          currentUser.photoURL ||
+          "",
+
+        createdAt:
+          serverTimestamp(),
+
+        createdAtMs:
+          now,
+
+        expiresAt:
+          expiresAt,
+
+        status:
+          "active"
+
+      };
+
+
       try {
+
+        /* TAMPILKAN STATUS SEBENTAR */
 
         submitBtn.disabled = true;
 
         submitBtn.textContent =
-          "⏳ Menyimpan...";
+          "⚡ Posting...";
 
 
-        const now =
-          Date.now();
+        /*
+          MULAI SIMPAN KE FIRESTORE
 
-        const expiresAt =
-          now +
-          duration *
-          60 *
-          60 *
-          1000;
+          JANGAN LANGSUNG AWAIT DI SINI
+          AGAR POPUP TIDAK MENUNGGU
+        */
 
-
-        await addDoc(
-          collection(
-            db,
-            "needs"
-          ),
-          {
-
-            title,
-
-            category,
-
-            budget,
-
-            province,
-
-            city,
-
-            location,
-
-            ownerId:
-              currentUser.uid,
-
-            ownerName:
-              currentUser.displayName ||
-              "Pengguna",
-
-            ownerPhoto:
-              currentUser.photoURL ||
-              "",
-
-            createdAt:
-              serverTimestamp(),
-
-            createdAtMs:
-              now,
-
-            expiresAt:
-
-              expiresAt,
-
-            status:
-              "active"
-
-          }
-        );
+        const savePromise =
+          addDoc(
+            collection(
+              db,
+              "needs"
+            ),
+            newNeed
+          );
 
 
-        alert(
-          "✅ Kebutuhan berhasil diposting!"
-        );
+        /*
+          POPUP LANGSUNG HILANG
+        */
 
+        closeModal();
+
+
+        /*
+          FORM LANGSUNG DIKOSONGKAN
+        */
 
         document
           .getElementById("needForm")
           .reset();
 
 
-        closeModal();
+        /*
+          KEMBALIKAN TOMBOL
+        */
+
+        submitBtn.disabled = false;
+
+        submitBtn.textContent =
+          "Posting Sekarang";
+
+
+        /*
+          TUNGGU PENYIMPANAN
+          DI BACKGROUND
+        */
+
+        await savePromise;
+
+
+        console.log(
+          "Posting berhasil disimpan"
+        );
 
 
       } catch(error) {
 
-        console.error(error);
-
-        alert(
-          "Gagal menyimpan:\n" +
-          error.message
+        console.error(
+          "Gagal menyimpan:",
+          error
         );
 
-      } finally {
+
+        alert(
+          "⚠️ Posting gagal disimpan. " +
+          "Periksa koneksi internet Anda lalu coba lagi."
+        );
+
 
         submitBtn.disabled = false;
 
