@@ -2,454 +2,745 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>Kebutuhan Marketplace</title>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
 
-  <link rel="stylesheet" href="style.css">
+  <meta
+    name="theme-color"
+    content="#2563eb"
+  >
 
-  <script type="module" src="script.js"></script>
+  <title>
+    BUTUH - Temukan Kebutuhan dan Berikan Solusi
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="style.css"
+  >
 </head>
 
 <body>
 
-<header class="topbar">
 
-  <div class="logo">
-    🚀 Kebutuhan
-  </div>
+  <!-- =========================================
+       HEADER
+  ========================================== -->
 
-  <div class="user-area">
+  <header class="header">
 
-  <div
-    id="profileButton"
-    class="profile-button">
+    <div class="header-inner">
 
-    <img
-      id="userPhoto"
-      class="user-photo"
-      src=""
-      alt="Foto profil"
-    >
-
-    <div class="profile-info">
-
-      <strong id="userName">
-        Memuat...
-      </strong>
-
-      <small id="userEmail">
-        Memuat...
-      </small>
-
-    </div>
-
-    <span class="profile-arrow">
-      ▾
-    </span>
-
-  </div>
-
-
-  <div
-    id="profileMenu"
-    class="profile-menu hidden">
-
-    <div class="profile-menu-header">
-
-      <img
-        id="menuUserPhoto"
-        class="menu-user-photo"
-        src=""
-        alt="Foto profil"
+      <a
+        href="index.html"
+        class="logo"
       >
+        <span class="logo-icon">B</span>
 
-      <div>
-
-        <strong id="menuUserName">
-          User
-        </strong>
-
-        <small id="menuUserEmail">
-          email
-        </small>
-
-      </div>
-
-    </div>
-
-
-    <div class="profile-divider"></div>
-
-
-    <button
-      id="logoutBtn"
-      class="profile-menu-item logout-item">
-
-      🚪 Keluar
-
-    </button>
-
-  </div>
-
-</div>
-
-</header>
-
-
-<main class="container">
-
-  <!-- HERO -->
-
-  <section class="hero">
-
-    <div>
-      <h1>Cari Kebutuhan</h1>
-
-      <p>
-        Temukan orang yang membutuhkan produk atau jasa Anda.
-      </p>
-    </div>
-
-    <button id="openPostBtn" class="btn primary">
-      + Posting Kebutuhan
-    </button>
-
-  </section>
-
-
-  <!-- FILTER -->
-
-  <section class="toolbar">
-
-    <input
-      type="text"
-      id="searchInput"
-      placeholder="🔎 Cari kebutuhan..."
-    >
-
-    <select id="categoryFilter">
-
-      <option value="all">
-        Semua kategori
-      </option>
-
-      <option value="design">
-        Desain
-      </option>
-
-      <option value="website">
-        Website
-      </option>
-
-      <option value="programming">
-        Programming
-      </option>
-
-      <option value="marketing">
-        Marketing
-      </option>
-
-      <option value="writing">
-        Penulisan
-      </option>
-
-      <option value="other">
-        Lainnya
-      </option>
-
-    </select>
-
-  </section>
-
-
-  <!-- ACTIVE NEEDS -->
-
-  <section>
-
-  <h2>
-    🔥 Kebutuhan Aktif
-  </h2>
-
-  <div id="activeNeedsCount">
-    0
-  </div>
-
-  <div id="needsList">
-
-    <div class="loading">
-      Memuat kebutuhan...
-    </div>
-
-  </div>
-
-</section>
-
-</main>
-
-
-<!-- ======================================
-     POST NEED MODAL
-======================================= -->
-
-<div id="postModal" class="modal hidden">
-
-  <div class="modal-box">
-
-    <div class="modal-header">
-
-      <h2>Posting Kebutuhan</h2>
-
-      <button
-        class="close"
-        id="closePostBtn">
-        ×
-      </button>
-
-    </div>
-
-
-    <form id="postForm">
-
-      <label>
-        Judul kebutuhan
-      </label>
-
-      <input
-        id="needTitle"
-        type="text"
-        placeholder="Contoh: Saya butuh desain logo"
-        required
-      >
-
-
-      <label>
-        Kategori
-      </label>
-
-      <select id="needCategory" required>
-
-        <option value="">
-          Pilih kategori
-        </option>
-
-        <option value="design">
-          Desain
-        </option>
-
-        <option value="website">
-          Website
-        </option>
-
-        <option value="programming">
-          Programming
-        </option>
-
-        <option value="marketing">
-          Marketing
-        </option>
-
-        <option value="writing">
-          Penulisan
-        </option>
-
-        <option value="other">
-          Lainnya
-        </option>
-
-      </select>
-
-
-      <label>
-        Deskripsi
-      </label>
-
-      <textarea
-        id="needDescription"
-        rows="5"
-        placeholder="Jelaskan kebutuhan Anda..."
-        required
-      ></textarea>
-
-
-      <label>
-        Budget
-      </label>
-
-      <input
-        id="needBudget"
-        type="number"
-        min="0"
-        placeholder="Contoh: 500000"
-        required
-      >
-
-
-      <label>
-        Deadline
-      </label>
-
-      <input
-        id="needDeadline"
-        type="date"
-        required
-      >
-
-
-      <div
-        id="postError"
-        class="form-error hidden">
-      </div>
-
-
-      <button
-        id="submitNeedBtn"
-        type="submit"
-        class="btn primary full">
-
-        <span id="submitNeedText">
-          Posting Kebutuhan
+        <span>
+          BUTUH
         </span>
-
-        <span
-          id="submitNeedLoading"
-          class="hidden">
-          Menyimpan...
-        </span>
-
-      </button>
-
-    </form>
-
-  </div>
-
-</div>
+      </a>
 
 
+      <nav class="nav">
 
-<!-- ======================================
-     DETAIL MODAL
-======================================= -->
-
-<div id="detailModal" class="modal hidden">
-
-  <div class="modal-box large">
-
-    <div class="modal-header">
-
-      <h2>Detail Kebutuhan</h2>
-
-      <button
-        id="closeDetailBtn"
-        class="close">
-        ×
-      </button>
-
-    </div>
+        <a
+          href="#needs"
+          class="nav-link"
+        >
+          Kebutuhan
+        </a>
 
 
-    <div id="detailContent">
+        <button
+          id="openNeedModal"
+          class="btn btn-primary nav-post-btn"
+          type="button"
+        >
+          + Posting
+        </button>
 
-      <div class="loading">
-        Memuat...
-      </div>
-
-    </div>
+      </nav>
 
 
-    <!-- OFFER FORM -->
+      <!-- USER PROFILE -->
 
-    <div
-      id="offerSection"
-      class="offer-section hidden">
+      <div class="user-area">
 
-      <h3>
-        💰 Ajukan Penawaran
-      </h3>
-
-      <form id="offerForm">
-
-        <label>
-          Harga penawaran
-        </label>
-
-        <input
-          id="offerPrice"
-          type="number"
-          min="0"
-          required
-          placeholder="Contoh: 350000"
+        <button
+          id="profileButton"
+          class="profile-button"
+          type="button"
+          aria-label="Menu Profil"
         >
 
+          <img
+            id="userPhoto"
+            src=""
+            alt="Foto Profil"
+            referrerpolicy="no-referrer"
+          >
 
-        <label>
-          Estimasi pengerjaan</label>
+          <div class="profile-button-text">
 
-        <input
-          id="offerDuration"
-          type="text"
-          required
-          placeholder="Contoh: 3 hari"
-        >
+            <strong id="userName">
+              Memuat...
+            </strong>
+
+            <small id="userEmail">
+              ...
+            </small>
+
+          </div>
+
+          <span class="profile-arrow">
+            ▾
+          </span>
+
+        </button>
 
 
-        <label>
-          Pesan
-        </label>
-
-        <textarea
-          id="offerMessage"
-          rows="4"
-          required
-          placeholder="Jelaskan penawaran Anda..."
-        ></textarea>
-
+        <!-- DROPDOWN -->
 
         <div
-          id="offerError"
-          class="form-error hidden">
+          id="profileMenu"
+          class="profile-menu hidden"
+        >
+
+          <div class="profile-menu-user">
+
+            <img
+              id="menuUserPhoto"
+              src=""
+              alt="Foto"
+              referrerpolicy="no-referrer"
+            >
+
+            <div>
+
+              <strong id="menuUserName">
+                Memuat...
+              </strong>
+
+              <small id="menuUserEmail">
+                ...
+              </small>
+
+            </div>
+
+          </div>
+
+
+          <div class="profile-menu-divider"></div>
+
+
+          <button
+            id="profilePageBtn"
+            type="button"
+            class="profile-menu-item"
+          >
+            👤 Profil Saya
+          </button>
+
+
+          <button
+            id="logoutBtn"
+            type="button"
+            class="profile-menu-item danger"
+          >
+            🚪 Keluar
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </header>
+
+
+  <!-- =========================================
+       MAIN
+  ========================================== -->
+
+  <main>
+
+
+    <!-- =====================================
+         HERO
+    ====================================== -->
+
+    <section class="hero">
+
+      <div class="hero-content">
+
+        <div class="hero-badge">
+          🚀 Marketplace Kebutuhan
+        </div>
+
+
+        <h1>
+          Punya Kebutuhan?
+          <br>
+          <span>
+            Temukan Orang yang Bisa Membantu.
+          </span>
+        </h1>
+
+
+        <p>
+          Posting kebutuhan Anda dan dapatkan penawaran
+          dari orang-orang yang siap memberikan solusi.
+        </p>
+
+
+        <div class="hero-actions">
+
+          <button
+            id="postNeedBtn"
+            class="btn btn-primary btn-large"
+            type="button"
+          >
+            + Posting Kebutuhan
+          </button>
+
+
+          <a
+            href="#needs"
+            class="btn btn-outline btn-large"
+          >
+            🔥 Lihat Kebutuhan
+          </a>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =====================================
+         STATISTICS
+    ====================================== -->
+
+    <section class="stats-section">
+
+      <div class="stats-grid">
+
+        <div class="stat-card">
+
+          <div class="stat-icon">
+            🔥
+          </div>
+
+          <div>
+
+            <strong
+              id="activeNeedsCount"
+              class="stat-number"
+            >
+              0
+            </strong>
+
+            <span>
+              Kebutuhan Aktif
+            </span>
+
+          </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+          <div class="stat-icon">
+            👤
+          </div>
+
+          <div>
+
+            <strong
+              id="userNeedsCount"
+              class="stat-number"
+            >
+              -
+            </strong>
+
+            <span>
+              Kebutuhan Saya
+            </span>
+
+          </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+          <div class="stat-icon">
+            💰
+          </div>
+
+          <div>
+
+            <strong
+              id="userOffersCount"
+              class="stat-number"
+            >
+              -
+            </strong>
+
+            <span>
+              Penawaran Saya
+            </span>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =====================================
+         NEEDS
+    ====================================== -->
+
+    <section
+      id="needs"
+      class="needs-section"
+    >
+
+      <div class="section-container">
+
+
+        <div class="section-header">
+
+          <div>
+
+            <span class="section-label">
+              MARKETPLACE
+            </span>
+
+            <h2>
+              🔥 Kebutuhan Aktif
+            </h2>
+
+            <p>
+              Temukan kebutuhan yang bisa Anda bantu.
+            </p>
+
+          </div>
+
+
+          <button
+            id="openNeedModal"
+            class="btn btn-primary desktop-post-button"
+            type="button"
+          >
+            + Posting Kebutuhan
+          </button>
+
+        </div>
+
+
+        <!-- LOADING / NEEDS LIST -->
+
+        <div
+          id="needsList"
+          class="needs-list"
+        >
+
+          <div class="loading-box">
+
+            <div class="loading-spinner"></div>
+
+            <strong>
+              Memuat kebutuhan...
+            </strong>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+  </main>
+
+
+  <!-- =========================================
+       MOBILE POST BUTTON
+  ========================================== -->
+
+  <button
+    id="mobilePostButton"
+    data-open-post
+    class="mobile-post-button"
+    type="button"
+  >
+    <span>＋</span>
+    Posting Kebutuhan
+  </button>
+
+
+  <!-- =========================================
+       POST NEED MODAL
+  ========================================== -->
+
+  <div
+    id="needModal"
+    class="modal hidden"
+  >
+
+    <div class="modal-backdrop"></div>
+
+
+    <div
+      class="modal-content"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="postModalTitle"
+    >
+
+
+      <div class="modal-header">
+
+        <div>
+
+          <h2 id="postModalTitle">
+            📌 Posting Kebutuhan
+          </h2>
+
+          <p>
+            Jelaskan apa yang Anda butuhkan.
+          </p>
+
         </div>
 
 
         <button
-          id="submitOfferBtn"
-          class="btn primary full">
-
-          Ajukan Penawaran
-
+          id="closeNeedModal"
+          class="modal-close"
+          type="button"
+          aria-label="Tutup"
+        >
+          ×
         </button>
+
+      </div>
+
+
+      <!-- FORM -->
+
+      <form id="needForm">
+
+
+        <!-- TITLE -->
+
+        <div class="form-group">
+
+          <label for="needTitle">
+            Judul Kebutuhan
+          </label>
+
+          <input
+            id="needTitle"
+            name="title"
+            type="text"
+            placeholder="Contoh: Butuh website toko online"
+            maxlength="100"
+            required
+          >
+
+        </div>
+
+
+        <!-- CATEGORY -->
+
+        <div class="form-group">
+
+          <label for="needCategory">
+            Kategori
+          </label>
+
+          <select
+            id="needCategory"
+            name="category"
+          >
+
+            <option value="other">
+              Lainnya
+            </option>
+
+            <option value="design">
+              🎨 Desain
+            </option>
+
+            <option value="website">
+              🌐 Website
+            </option>
+
+            <option value="programming">
+              💻 Programming
+            </option>
+
+            <option value="marketing">
+              📢 Marketing
+            </option>
+
+            <option value="writing">
+              ✍️ Penulisan
+            </option>
+
+            <option value="video">
+              🎬 Video
+            </option>
+
+            <option value="translation">
+              🌍 Terjemahan
+            </option>
+
+          </select>
+
+        </div>
+
+
+        <!-- DESCRIPTION -->
+
+        <div class="form-group">
+
+          <label for="needDescription">
+            Deskripsi Kebutuhan
+          </label>
+
+          <textarea
+            id="needDescription"
+            name="description"
+            rows="5"
+            placeholder="Jelaskan kebutuhan Anda secara detail..."
+            required
+          ></textarea>
+
+        </div>
+
+
+        <!-- BUDGET -->
+
+        <div class="form-group">
+
+          <label for="needBudget">
+            Budget (Rp)
+          </label>
+
+          <input
+            id="needBudget"
+            name="budget"
+            type="number"
+            inputmode="numeric"
+            min="1"
+            placeholder="Contoh: 500000"
+            required
+          >
+
+        </div>
+
+
+        <!-- DEADLINE -->
+
+        <div class="form-group">
+
+          <label for="needDeadline">
+            Deadline
+            <span class="optional">
+              (Opsional)
+            </span>
+          </label>
+
+          <input
+            id="needDeadline"
+            name="deadline"
+            type="date"
+          >
+
+        </div>
+
+
+        <!-- ACTIONS -->
+
+        <div class="modal-actions">
+
+          <button
+            id="cancelNeed"
+            type="button"
+            class="btn btn-outline"
+          >
+            Batal
+          </button>
+
+
+          <button
+            id="submitNeed"
+            type="submit"
+            class="btn btn-primary"
+          >
+            🚀 Posting Kebutuhan
+          </button>
+
+        </div>
 
       </form>
 
     </div>
 
+  </div>
 
-    <!-- OFFERS -->
+
+  <!-- =========================================
+       OFFER MODAL
+  ========================================== -->
+
+  <div
+    id="offerModal"
+    class="modal hidden"
+  >
+
+    <div class="modal-backdrop"></div>
+
 
     <div
-      id="offersSection"
-      class="offers-section hidden">
+      class="modal-content"
+      role="dialog"
+      aria-modal="true"
+    >
 
-      <h3>
-        📋 Penawaran
-      </h3>
+      <div class="modal-header">
 
-      <div id="offersList"></div>
+        <div>
+
+          <h2>
+            💰 Beri Penawaran
+          </h2>
+
+          <p id="offerNeedTitle">
+            Kebutuhan
+          </p>
+
+        </div>
+
+
+        <button
+          id="closeOfferModal"
+          class="modal-close"
+          type="button"
+        >
+          ×
+        </button>
+
+      </div>
+
+
+      <form id="offerForm">
+
+
+        <!-- PRICE -->
+
+        <div class="form-group">
+
+          <label for="offerPrice">
+            Harga Penawaran (Rp)
+          </label>
+
+          <input
+            id="offerPrice"
+            type="number"
+            min="1"
+            inputmode="numeric"
+            placeholder="Contoh: 500000"
+            required
+          >
+
+        </div>
+
+
+        <!-- DURATION -->
+
+        <div class="form-group">
+
+          <label for="offerDuration">
+            Estimasi Pengerjaan
+          </label>
+
+          <input
+            id="offerDuration"
+            type="text"
+            placeholder="Contoh: 3 hari"
+          >
+
+        </div>
+
+
+        <!-- MESSAGE -->
+
+        <div class="form-group">
+
+          <label for="offerMessage">
+            Pesan untuk Pemilik
+          </label>
+
+          <textarea
+            id="offerMessage"
+            rows="5"
+            placeholder="Jelaskan mengapa Anda cocok untuk membantu..."
+          ></textarea>
+
+        </div>
+
+
+        <div class="modal-actions">
+
+          <button
+            id="cancelOffer"
+            type="button"
+            class="btn btn-outline"
+          >
+            Batal
+          </button>
+
+
+          <button
+            type="submit"
+            class="btn btn-primary"
+          >
+            Kirim Penawaran
+          </button>
+
+        </div>
+
+      </form>
 
     </div>
 
   </div>
 
-</div>
 
+  <!-- =========================================
+       FIREBASE SCRIPT
+  ========================================== -->
 
+  <script
+    type="module"
+    src="script.js"
+  ></script>
 
-<!-- TOAST -->
-
-<div
-  id="toast"
-  class="toast">
-</div>
 
 </body>
 </html>
