@@ -1,18 +1,20 @@
 // ============================================================
-// PROFILE.JS
-// BUTUH - Profile & Riwayat Penawaran
-// Firebase 12.1.0
-// Cocok dengan firebase.js + script.js
+// PROFILE.JS - BUTUH
+// VERSI CEPAT
+// Cocok dengan firebase.js Firebase 12.1.0
+// Struktur:
+// needs/{needId}
+// needs/{needId}/offers/{offerId}
 // ============================================================
 
 import {
   onAuthStateChanged,
-  updateProfile,
-  signOut
+  updateProfile
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 
 import {
   collection,
+  collectionGroup,
   query,
   where,
   getDocs,
@@ -31,8 +33,9 @@ import {
 // CONFIG
 // ============================================================
 
+const MAX_OFFERS = 100;
 const MAX_NEEDS = 100;
-const MAX_OFFERS_PER_NEED = 100;
+
 const LOAD_TIMEOUT = 10000;
 
 
@@ -42,14 +45,14 @@ const LOAD_TIMEOUT = 10000;
 
 let currentUser = null;
 
-let isLoadingOffers = false;
-let isLoadingNeeds = false;
+let loadingOffers = false;
+let loadingNeeds = false;
 
-let cachedNeeds = new Map();
+let needsCache = new Map();
 
 
 // ============================================================
-// HELPER
+// HELPER DOM
 // ============================================================
 
 function $(selector) {
@@ -65,15 +68,15 @@ function escapeHTML(value) {
 
   return String(value ?? "")
 
-    .replaceAll("&", "&amp;")
+    .replace(/&/g, "&amp;")
 
-    .replaceAll("<", "&lt;")
+    .replace(/</g, "&lt;")
 
-    .replaceAll(">", "&gt;")
+    .replace(/>/g, "&gt;")
 
-    .replaceAll('"', "&quot;")
+    .replace(/"/g, "&quot;")
 
-    .replaceAll("'", "&#039;");
+    .replace(/'/g, "&#039;");
 }
 
 
@@ -85,19 +88,20 @@ function formatRupiah(value) {
 
   const number = Number(value || 0);
 
-  return new Intl.NumberFormat(
-    "id-ID",
-    {
-      style: "currency",
-      currency: "IDR",
-      maximumFractionDigits: 0
-    }
-  ).format(number);
+  if (!Number.isFinite(number)) {
+    return "Rp 0";
+  }
+
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0
+  }).format(number);
 }
 
 
 // ============================================================
-// DATE
+// FIRESTORE DATE
 // ============================================================
 
 function timestampToDate(value) {
@@ -108,44 +112,31 @@ function timestampToDate(value) {
 
   try {
 
-    if (
-      typeof value.toDate === "function"
-    ) {
+    if (typeof value.toDate === "function") {
       return value.toDate();
     }
 
-    if (
-      typeof value.toMillis === "function"
-    ) {
-      return new Date(
-        value.toMillis()
-      );
+    if (typeof value.toMillis === "function") {
+      return new Date(value.toMillis());
     }
 
     if (
+      typeof value === "object" &&
       value.seconds !== undefined
     ) {
 
       return new Date(
         Number(value.seconds) * 1000
       );
-
     }
 
-    if (
-      value instanceof Date
-    ) {
+    if (value instanceof Date) {
       return value;
     }
 
-    const date =
-      new Date(value);
+    const date = new Date(value);
 
-    if (
-      Number.isNaN(
-        date.getTime()
-      )
-    ) {
+    if (isNaN(date.getTime())) {
       return null;
     }
 
@@ -158,24 +149,32 @@ function timestampToDate(value) {
 }
 
 
-function getTime(value) {
+// ============================================================
+// TIME
+// ============================================================
 
-  const date =
-    timestampToDate(value);
+function timestampValue(value) {
 
-  return date
-    ? date.getTime()
-    : 0;
+  const date = timestampToDate(value);
+
+  if (!date) {
+    return 0;
+  }
+
+  return date.getTime();
 }
 
 
+// ============================================================
+// FORMAT DATE
+// ============================================================
+
 function formatDate(value) {
 
-  const date =
-    timestampToDate(value);
+  const date = timestampToDate(value);
 
   if (!date) {
-    return "Baru saja";
+    return "-";
   }
 
   return date.toLocaleDateString(
@@ -200,31 +199,31 @@ function withTimeout(
   timeout = LOAD_TIMEOUT
 ) {
 
-  return Promise.race([
+  let timer;
 
-    promise,
+  const timeoutPromise =
+    new Promise((_, reject) => {
 
-    new Promise(
-      (_, reject) => {
+      timer = setTimeout(() => {
 
-        setTimeout(
-          () => {
-
-            reject(
-              new Error(
-                "Permintaan terlalu lama."
-              )
-            );
-
-          },
-          timeout
+        reject(
+          new Error(
+            "Permintaan terlalu lama."
+          )
         );
 
-      }
-    )
+      }, timeout);
 
-  ]);
+    });
 
+  return Promise.race([
+    promise,
+    timeoutPromise
+  ]).finally(() => {
+
+    clearTimeout(timer);
+
+  });
 }
 
 
@@ -232,132 +231,176 @@ function withTimeout(
 // TOAST
 // ============================================================
 
-function showToast(
+function toast(
   message,
   type = "info"
 ) {
 
-  let toast =
+  let element =
     document.getElementById(
       "profileToast"
     );
 
-  if (!toast) {
+  if (!element) {
 
-    toast =
+    element =
       document.createElement(
         "div"
       );
 
-    toast.id =
+    element.id =
       "profileToast";
 
-    toast.style.position =
+    element.style.position =
       "fixed";
 
-    toast.style.left =
+    element.style.left =
       "50%";
 
-    toast.style.bottom =
+    element.style.bottom =
       "20px";
 
-    toast.style.transform =
+    element.style.transform =
       "translateX(-50%)";
 
-    toast.style.zIndex =
+    element.style.zIndex =
       "999999";
 
-    toast.style.padding =
+    element.style.padding =
       "12px 18px";
 
-    toast.style.borderRadius =
+    element.style.borderRadius =
       "12px";
 
-    toast.style.color =
+    element.style.color =
       "#fff";
 
-    toast.style.fontSize =
+    element.style.fontSize =
       "14px";
 
-    toast.style.fontWeight =
+    element.style.fontWeight =
       "700";
 
-    toast.style.boxShadow =
+    element.style.boxShadow =
       "0 10px 30px rgba(0,0,0,.2)";
 
     document.body.appendChild(
-      toast
+      element
     );
 
   }
 
-  toast.textContent =
+  element.textContent =
     message;
 
   if (type === "success") {
 
-    toast.style.background =
+    element.style.background =
       "#16a34a";
 
   } else if (type === "error") {
 
-    toast.style.background =
+    element.style.background =
       "#dc2626";
 
   } else {
 
-    toast.style.background =
+    element.style.background =
       "#111827";
 
   }
 
   clearTimeout(
-    toast._timer
+    element._timer
   );
 
-  toast._timer =
-    setTimeout(
-      () => {
+  element._timer =
+    setTimeout(() => {
 
-        toast.remove();
+      element.remove();
 
-      },
-      3000
-    );
+    }, 3000);
 
 }
 
 
 // ============================================================
-// PROFILE ELEMENTS
+// AUTH
 // ============================================================
 
-function getNameElement() {
+onAuthStateChanged(
+  auth,
+  async user => {
+
+    currentUser =
+      user || null;
+
+    if (!user) {
+
+      showNotLoggedIn();
+
+      return;
+    }
+
+    console.log(
+      "✅ PROFILE USER:",
+      user.uid
+    );
+
+    renderProfile(
+      user
+    );
+
+    // Jalankan bersamaan agar cepat
+    await Promise.allSettled([
+
+      loadMyNeeds(
+        user.uid
+      ),
+
+      loadMyOffers(
+        user.uid
+      )
+
+    ]);
+
+  }
+);
+
+
+// ============================================================
+// PROFILE ELEMENT
+// ============================================================
+
+function getProfileNameElement() {
 
   return (
     $("#profileName") ||
     $("#userName") ||
-    $("#displayName")
+    $("#displayName") ||
+    $("#menuUserName")
   );
 
 }
 
 
-function getEmailElement() {
+function getProfileEmailElement() {
 
   return (
     $("#profileEmail") ||
-    $("#userEmail")
+    $("#userEmail") ||
+    $("#menuUserEmail")
   );
 
 }
 
 
-function getPhotoElement() {
+function getProfilePhotoElement() {
 
   return (
     $("#profilePhoto") ||
-    $("#userAvatar")
+    $("#userAvatar") ||
+    $("#profileImage")
   );
 
 }
@@ -379,55 +422,28 @@ function getOffersContainer() {
   return (
     $("#offersContainer") ||
     $("#offerHistory") ||
-    $("#offersList")
+    $("#offersList") ||
+    $("#riwayatPenawaran")
+  );
+
+}
+
+
+function getNeedsContainer() {
+
+  return (
+    $("#needsContainer") ||
+    $("#needsHistory") ||
+    $("#myNeedsList") ||
+    $("#riwayatKebutuhan") ||
+    $("#userNeedsList")
   );
 
 }
 
 
 // ============================================================
-// AUTH
-// ============================================================
-
-onAuthStateChanged(
-  auth,
-  async user => {
-
-    currentUser =
-      user || null;
-
-    if (!user) {
-
-      showNotLoggedIn();
-
-      return;
-
-    }
-
-    console.log(
-      "PROFILE USER:",
-      user.uid
-    );
-
-    renderProfile(
-      user
-    );
-
-    /*
-      Jangan menunggu profile
-      untuk menampilkan UI.
-    */
-
-    loadOffers(
-      user.uid
-    );
-
-  }
-);
-
-
-// ============================================================
-// PROFILE UI
+// RENDER PROFILE
 // ============================================================
 
 function renderProfile(user) {
@@ -445,13 +461,13 @@ function renderProfile(user) {
     "-";
 
   const nameElement =
-    getNameElement();
+    getProfileNameElement();
 
   const emailElement =
-    getEmailElement();
+    getProfileEmailElement();
 
   const photoElement =
-    getPhotoElement();
+    getProfilePhotoElement();
 
   const input =
     getNameInput();
@@ -500,70 +516,296 @@ function renderProfile(user) {
 
 function showNotLoggedIn() {
 
-  const container =
+  const offers =
     getOffersContainer();
 
-  if (!container) {
-    return;
+  const needs =
+    getNeedsContainer();
+
+
+  if (offers) {
+
+    offers.innerHTML = `
+
+      <div style="
+        padding:35px 15px;
+        text-align:center;
+        color:#6b7280;
+      ">
+
+        <div style="
+          font-size:42px;
+          margin-bottom:10px;
+        ">
+          🔐
+        </div>
+
+        <strong>
+          Silakan login terlebih dahulu
+        </strong>
+
+        <p style="
+          margin-top:8px;
+          font-size:14px;
+        ">
+          Login untuk melihat riwayat penawaran.
+        </p>
+
+      </div>
+
+    `;
+
   }
 
-  container.innerHTML = `
 
-    <div style="
-      padding:35px 15px;
-      text-align:center;
-      color:#6b7280;
-    ">
+  if (needs) {
+
+    needs.innerHTML = `
 
       <div style="
-        font-size:42px;
-        margin-bottom:12px;
+        padding:35px 15px;
+        text-align:center;
+        color:#6b7280;
       ">
-        🔐
+
+        <div style="
+          font-size:42px;
+          margin-bottom:10px;
+        ">
+          🔐
+        </div>
+
+        <strong>
+          Silakan login terlebih dahulu
+        </strong>
+
       </div>
 
-      <strong>
-        Silakan login terlebih dahulu
-      </strong>
+    `;
 
-      <div style="
-        margin-top:8px;
-        font-size:14px;
-      ">
-        Login untuk melihat riwayat penawaran Anda.
-      </div>
-
-    </div>
-
-  `;
+  }
 
 }
 
 
 // ============================================================
-// LOAD OFFERS
+// LOAD MY NEEDS
 // ============================================================
 
-async function loadOffers(
-  providerId
+async function loadMyNeeds(
+  ownerId
 ) {
 
-  if (!providerId) {
+  if (!ownerId) {
     return;
   }
 
-  if (isLoadingOffers) {
+  if (loadingNeeds) {
     return;
   }
 
-  isLoadingOffers =
+  loadingNeeds =
     true;
 
+
   const container =
-    getOffersContainer();
+    getNeedsContainer();
 
 
-  if (container) {
+  if (!container) {
+
+    console.warn(
+      "Container riwayat kebutuhan tidak ditemukan."
+    );
+
+    loadingNeeds =
+      false;
+
+    return;
+  }
+
+
+  // Jangan tampilkan spinner terus
+  container.innerHTML = `
+
+    <div style="
+      padding:25px;
+      text-align:center;
+      color:#6b7280;
+    ">
+
+      <div style="
+        font-size:30px;
+        margin-bottom:8px;
+      ">
+        📌
+      </div>
+
+      <strong>
+        Memuat kebutuhan...
+      </strong>
+
+    </div>
+
+  `;
+
+
+  try {
+
+    console.log(
+      "📌 Mengambil kebutuhan user:",
+      ownerId
+    );
+
+
+    const needsRef =
+      collection(
+        db,
+        "needs"
+      );
+
+
+    /*
+      HANYA where ownerId.
+
+      Tidak menggunakan orderBy.
+
+      Jadi tidak membutuhkan
+      composite index.
+    */
+
+    const q =
+      query(
+
+        needsRef,
+
+        where(
+          "ownerId",
+          "==",
+          ownerId
+        ),
+
+        limit(
+          MAX_NEEDS
+        )
+
+      );
+
+
+    const snapshot =
+      await withTimeout(
+        getDocs(q)
+      );
+
+
+    const needs = [];
+
+
+    snapshot.forEach(
+      item => {
+
+        const data =
+          item.data();
+
+
+        const need = {
+
+          id:
+            item.id,
+
+          ...data
+
+        };
+
+
+        needs.push(
+          need
+        );
+
+
+        needsCache.set(
+          item.id,
+          need
+        );
+
+      }
+    );
+
+
+    // Sort browser
+    needs.sort(
+      (a, b) => {
+
+        return (
+          timestampValue(
+            b.createdAt
+          ) -
+          timestampValue(
+            a.createdAt
+          )
+        );
+
+      }
+    );
+
+
+    console.log(
+      "📌 Kebutuhan saya:",
+      needs.length
+    );
+
+
+    updateNeedCount(
+      needs.length
+    );
+
+
+    renderMyNeeds(
+      needs
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "❌ LOAD MY NEEDS:",
+      error
+    );
+
+
+    showNeedsError(
+      error
+    );
+
+
+  } finally {
+
+    loadingNeeds =
+      false;
+
+  }
+
+}
+
+
+// ============================================================
+// RENDER MY NEEDS
+// ============================================================
+
+function renderMyNeeds(
+  needs
+) {
+
+  const container =
+    getNeedsContainer();
+
+
+  if (!container) {
+    return;
+  }
+
+
+  if (!needs.length) {
 
     container.innerHTML = `
 
@@ -574,144 +816,423 @@ async function loadOffers(
       ">
 
         <div style="
-          font-size:30px;
+          font-size:42px;
           margin-bottom:10px;
         ">
-          ⏳
+          📌
         </div>
 
-        <strong>
-          Memuat riwayat penawaran...
+        <strong style="
+          color:#374151;
+          font-size:16px;
+        ">
+          Belum ada kebutuhan
         </strong>
+
+        <p style="
+          margin-top:7px;
+          font-size:14px;
+        ">
+          Kebutuhan yang Anda posting
+          akan muncul di sini.
+        </p>
 
       </div>
 
     `;
 
+    return;
   }
 
 
-  try {
-
-    /*
-      ========================================================
-      PENTING
-      ========================================================
-
-      Struktur database:
-
-      needs/
-        needId/
-          offers/
-            offerId
-
-      Jadi kita TIDAK menggunakan:
-
-      collectionGroup("offers")
-
-      dan TIDAK membutuhkan index
-      providerId global.
-
-      Kita mengambil kebutuhan terlebih dahulu,
-      kemudian mencari offers pada subcollection.
-    */
+  container.innerHTML =
+    needs
+      .map(
+        createNeedHistoryCard
+      )
+      .join("");
 
 
-    const needsSnapshot =
-      await withTimeout(
+  attachNeedButtons();
 
-        getDocs(
-          query(
-            collection(
-              db,
-              "needs"
-            ),
-            limit(
-              MAX_NEEDS
-            )
-          )
-        )
-
-      );
+}
 
 
-    const needs = [];
+// ============================================================
+// NEED CARD
+// ============================================================
 
-    needsSnapshot.forEach(
-      item => {
+function createNeedHistoryCard(
+  need
+) {
 
-        const need = {
+  const title =
+    escapeHTML(
+      need.title ||
+      "Tanpa judul"
+    );
 
-          id:
-            item.id,
 
-          ...item.data()
+  const description =
+    escapeHTML(
+      truncate(
+        need.description ||
+        "",
+        150
+      )
+    );
 
-        };
 
-        needs.push(
-          need
-        );
+  const budget =
+    formatRupiah(
+      need.budget
+    );
 
-        cachedNeeds.set(
-          need.id,
-          need
+
+  const date =
+    formatDate(
+      need.createdAt
+    );
+
+
+  const status =
+    String(
+      need.status ||
+      "open"
+    ).toLowerCase();
+
+
+  let statusLabel =
+    "Aktif";
+
+
+  if (
+    status === "closed" ||
+    status === "selesai" ||
+    status === "completed"
+  ) {
+
+    statusLabel =
+      "Selesai";
+
+  }
+
+
+  if (
+    status === "cancelled" ||
+    status === "canceled"
+  ) {
+
+    statusLabel =
+      "Dibatalkan";
+
+  }
+
+
+  return `
+
+    <article
+      class="need-history-card"
+      data-need-id="${escapeHTML(
+        need.id
+      )}"
+      style="
+        background:#fff;
+        border:1px solid #e5e7eb;
+        border-radius:16px;
+        padding:16px;
+        margin-bottom:14px;
+        box-shadow:0 4px 14px rgba(0,0,0,.05);
+      "
+    >
+
+      <div style="
+        display:flex;
+        justify-content:space-between;
+        gap:12px;
+        align-items:flex-start;
+      ">
+
+        <div style="
+          flex:1;
+          min-width:0;
+        ">
+
+          <h3 style="
+            margin:0;
+            color:#111827;
+            font-size:17px;
+          ">
+            ${title}
+          </h3>
+
+          <div style="
+            margin-top:6px;
+            font-size:13px;
+            color:#6b7280;
+          ">
+            📅 ${escapeHTML(date)}
+          </div>
+
+        </div>
+
+
+        <span style="
+          flex-shrink:0;
+          padding:6px 10px;
+          border-radius:999px;
+          background:#dcfce7;
+          color:#15803d;
+          font-size:12px;
+          font-weight:700;
+        ">
+          ${escapeHTML(statusLabel)}
+        </span>
+
+      </div>
+
+
+      ${
+        description
+          ? `
+            <p style="
+              margin:12px 0 0;
+              color:#4b5563;
+              font-size:14px;
+              line-height:1.5;
+            ">
+              ${description}
+            </p>
+          `
+          : ""
+      }
+
+
+      <div style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:10px;
+        margin-top:14px;
+        padding-top:14px;
+        border-top:1px solid #f3f4f6;
+      ">
+
+        <div>
+
+          <small style="
+            display:block;
+            color:#6b7280;
+            font-size:11px;
+          ">
+            Budget
+          </small>
+
+          <strong style="
+            color:#2563eb;
+            font-size:16px;
+          ">
+            ${escapeHTML(budget)}
+          </strong>
+
+        </div>
+
+
+        <button
+          type="button"
+          class="view-my-need-btn"
+          data-id="${escapeHTML(
+            need.id
+          )}"
+          style="
+            padding:10px 15px;
+            border:0;
+            border-radius:10px;
+            background:#2563eb;
+            color:#fff;
+            font-weight:700;
+            cursor:pointer;
+          "
+        >
+          Lihat Kebutuhan
+        </button>
+
+      </div>
+
+    </article>
+
+  `;
+
+}
+
+
+// ============================================================
+// ATTACH NEED BUTTONS
+// ============================================================
+
+function attachNeedButtons() {
+
+  document
+    .querySelectorAll(
+      ".view-my-need-btn"
+    )
+    .forEach(
+      button => {
+
+        button.addEventListener(
+          "click",
+          () => {
+
+            const id =
+              button.dataset.id;
+
+
+            if (!id) {
+              return;
+            }
+
+
+            /*
+              Gunakan detail.html.
+
+              Ini sama dengan halaman
+              detail kebutuhan marketplace.
+            */
+
+            window.location.href =
+              "detail.html?id=" +
+              encodeURIComponent(
+                id
+              );
+
+          }
         );
 
       }
     );
 
-
-    /*
-      Urutkan kebutuhan terbaru.
-    */
-
-    needs.sort(
-      (a, b) => {
-
-        return (
-          getTime(
-            b.createdAt
-          ) -
-          getTime(
-            a.createdAt
-          )
-        );
-
-      }
-    );
+}
 
 
-    /*
-      Ambil offers secara paralel.
-    */
+// ============================================================
+// NEED ERROR
+// ============================================================
 
-    const results =
-      await Promise.all(
+function showNeedsError(
+  error
+) {
 
-        needs.map(
-          need =>
-            loadOffersForNeed(
-              need,
-              providerId
-            )
-        )
-
-      );
+  const container =
+    getNeedsContainer();
 
 
-    const offers = [];
+  if (!container) {
+    return;
+  }
 
 
-    results.forEach(
-      result => {
+  let message =
+    "Gagal memuat riwayat kebutuhan.";
 
-        if (
-          Array.isArray(result)
-        ) {
 
-          offers.push(
-            ...result
+  const text =
+    String(
+      error?.message ||
+      ""
+    ).toLowerCase();
+
+
+  if (
+    text.includes(
+      "permission"
+    )
+  ) {
+
+    message =
+      "Firestore Rules menolak akses.";
+
+  } else if (
+    text.includes(
+      "network"
+    )
+  ) {
+
+    message =
+      "Koneksi internet bermasalah.";
+
+  } else if (
+    text.includes(
+      "terlalu lama"
+    )
+  ) {
+
+    message =
+      "Firestore terlalu lama merespons.";
+
+  }
+
+
+  container.innerHTML = `
+
+    <div style="
+      padding:30px 15px;
+      text-align:center;
+    ">
+
+      <div style="
+        font-size:42px;
+        margin-bottom:10px;
+      ">
+        ⚠️
+      </div>
+
+      <strong style="
+        color:#374151;
+      ">
+        ${escapeHTML(message)}
+      </strong>
+
+      <p style="
+        color:#9ca3af;
+        font-size:12px;
+        margin-top:8px;
+      ">
+        ${escapeHTML(
+          error?.message ||
+          ""
+        )}
+      </p>
+
+      <button
+        id="retryNeedsBtn"
+        type="button"
+        style="
+          margin-top:12px;
+          padding:10px 18px;
+          border:0;
+          border-radius:10px;
+          background:#2563eb;
+          color:#fff;
+          font-weight:700;
+        "
+      >
+        Coba Lagi
+      </button>
+
+    </div>
+
+  `;
+
+
+  $("#retryNeedsBtn")
+    ?.addEventListener(
+      "click",
+      () => {
+
+        if (currentUser) {
+
+          loadMyNeeds(
+            currentUser.uid
           );
 
         }
@@ -719,114 +1240,165 @@ async function loadOffers(
       }
     );
 
+}
 
-    /*
-      Urutkan berdasarkan waktu terbaru.
-    */
 
-    offers.sort(
-      (a, b) => {
+// ============================================================
+// UPDATE NEED COUNT
+// ============================================================
 
-        return (
-          getTime(
-            b.createdAt ||
-            b.updatedAt
-          ) -
-          getTime(
-            a.createdAt ||
-            a.updatedAt
-          )
-        );
+function updateNeedCount(
+  count
+) {
+
+  const elements = [
+
+    $("#needCount"),
+
+    $("#totalNeeds"),
+
+    $("#myNeedCount"),
+
+    $("#jumlahKebutuhan"),
+
+    $("#userNeedsCount")
+
+  ];
+
+
+  elements.forEach(
+    element => {
+
+      if (element) {
+
+        element.textContent =
+          String(count);
 
       }
-    );
-
-
-    updateOfferCount(
-      offers.length
-    );
-
-
-    if (
-      offers.length === 0
-    ) {
-
-      showEmptyOffers();
-
-      return;
 
     }
-
-
-    renderOffers(
-      offers
-    );
-
-
-  } catch (error) {
-
-    console.error(
-      "LOAD OFFERS ERROR:",
-      error
-    );
-
-    showOffersError(
-      error
-    );
-
-  } finally {
-
-    isLoadingOffers =
-      false;
-
-  }
+  );
 
 }
 
 
 // ============================================================
-// LOAD OFFERS FOR ONE NEED
+// LOAD MY OFFERS
 // ============================================================
 
-async function loadOffersForNeed(
-  need,
+async function loadMyOffers(
   providerId
 ) {
 
+  if (!providerId) {
+    return;
+  }
+
+
+  if (loadingOffers) {
+    return;
+  }
+
+
+  loadingOffers =
+    true;
+
+
+  const container =
+    getOffersContainer();
+
+
+  if (!container) {
+
+    console.warn(
+      "Container riwayat penawaran tidak ditemukan."
+    );
+
+    loadingOffers =
+      false;
+
+    return;
+  }
+
+
+  container.innerHTML = `
+
+    <div style="
+      padding:25px;
+      text-align:center;
+      color:#6b7280;
+    ">
+
+      <div style="
+        font-size:30px;
+        margin-bottom:8px;
+      ">
+        💰
+      </div>
+
+      <strong>
+        Memuat riwayat penawaran...
+      </strong>
+
+    </div>
+
+  `;
+
+
   try {
 
+    console.log(
+      "💰 Mengambil offers provider:",
+      providerId
+    );
+
+
+    /*
+      STRUKTUR FIRESTORE:
+
+      needs/{needId}/offers/{offerId}
+
+      Karena offers adalah
+      subcollection, gunakan
+      collectionGroup("offers").
+
+      Query:
+
+      providerId == currentUser.uid
+
+      TIDAK menggunakan orderBy.
+    */
+
+
     const offersRef =
-      collection(
+      collectionGroup(
         db,
-        "needs",
-        need.id,
         "offers"
       );
 
 
-    /*
-      Query hanya providerId.
-
-      Tidak memakai orderBy.
-      Tidak membutuhkan composite index.
-    */
-
     const q =
       query(
+
         offersRef,
+
         where(
           "providerId",
           "==",
           providerId
         ),
+
         limit(
-          MAX_OFFERS_PER_NEED
+          MAX_OFFERS
         )
+
       );
 
 
     const snapshot =
-      await getDocs(q);
+      await withTimeout(
+        getDocs(q)
+      );
 
 
     const offers = [];
@@ -840,14 +1412,12 @@ async function loadOffersForNeed(
           id:
             item.id,
 
-          needId:
-            need.id,
+          path:
+            item.ref.path,
 
-          requirementId:
-            need.id,
-
-          need:
-            need,
+          parentNeedId:
+            item.ref.parent.parent?.id ||
+            null,
 
           ...item.data()
 
@@ -857,18 +1427,67 @@ async function loadOffersForNeed(
     );
 
 
-    return offers;
+    offers.sort(
+      (a, b) => {
+
+        return (
+          timestampValue(
+            b.createdAt ||
+            b.timestamp ||
+            b.updatedAt
+          ) -
+          timestampValue(
+            a.createdAt ||
+            a.timestamp ||
+            a.updatedAt
+          )
+        );
+
+      }
+    );
+
+
+    console.log(
+      "💰 Jumlah offers:",
+      offers.length
+    );
+
+
+    updateOfferCount(
+      offers.length
+    );
+
+
+    if (!offers.length) {
+
+      showEmptyOffers();
+
+      return;
+    }
+
+
+    await renderOffers(
+      offers
+    );
 
 
   } catch (error) {
 
-    console.warn(
-      "Gagal mengambil offers:",
-      need.id,
+    console.error(
+      "❌ LOAD OFFERS:",
       error
     );
 
-    return [];
+
+    showOffersError(
+      error
+    );
+
+
+  } finally {
+
+    loadingOffers =
+      false;
 
   }
 
@@ -876,13 +1495,14 @@ async function loadOffersForNeed(
 
 
 // ============================================================
-// EMPTY
+// EMPTY OFFERS
 // ============================================================
 
 function showEmptyOffers() {
 
   const container =
     getOffersContainer();
+
 
   if (!container) {
     return;
@@ -892,33 +1512,32 @@ function showEmptyOffers() {
   container.innerHTML = `
 
     <div style="
-      text-align:center;
       padding:35px 15px;
+      text-align:center;
       color:#6b7280;
     ">
 
       <div style="
         font-size:42px;
-        margin-bottom:12px;
+        margin-bottom:10px;
       ">
         💰
       </div>
 
-      <div style="
-        font-size:17px;
-        font-weight:800;
+      <strong style="
         color:#374151;
+        font-size:16px;
       ">
         Belum ada penawaran
-      </div>
+      </strong>
 
-      <div style="
+      <p style="
         margin-top:7px;
         font-size:14px;
       ">
         Penawaran yang Anda kirim
         akan muncul di sini.
-      </div>
+      </p>
 
     </div>
 
@@ -928,7 +1547,7 @@ function showEmptyOffers() {
 
 
 // ============================================================
-// ERROR
+// OFFER ERROR
 // ============================================================
 
 function showOffersError(
@@ -938,41 +1557,58 @@ function showOffersError(
   const container =
     getOffersContainer();
 
+
   if (!container) {
     return;
   }
+
+
+  const text =
+    String(
+      error?.message ||
+      ""
+    ).toLowerCase();
 
 
   let message =
     "Gagal memuat riwayat penawaran.";
 
 
-  const text =
-    String(
-      error?.message || ""
-    ).toLowerCase();
-
-
   if (
-    text.includes("permission")
+    text.includes(
+      "index"
+    )
   ) {
 
     message =
-      "Firestore menolak akses. Periksa Rules.";
+      "Index Collection Group offers belum aktif.";
 
   } else if (
-    text.includes("network")
+    text.includes(
+      "permission"
+    )
+  ) {
+
+    message =
+      "Firestore Rules menolak akses.";
+
+  } else if (
+    text.includes(
+      "network"
+    )
   ) {
 
     message =
       "Koneksi internet bermasalah.";
 
   } else if (
-    text.includes("terlalu lama")
+    text.includes(
+      "terlalu lama"
+    )
   ) {
 
     message =
-      "Pengambilan data terlalu lama.";
+      "Firestore terlalu lama merespons.";
 
   }
 
@@ -980,8 +1616,8 @@ function showOffersError(
   container.innerHTML = `
 
     <div style="
-      text-align:center;
       padding:30px 15px;
+      text-align:center;
     ">
 
       <div style="
@@ -991,19 +1627,29 @@ function showOffersError(
         ⚠️
       </div>
 
-      <div style="
-        font-weight:800;
+      <strong style="
         color:#374151;
       ">
         ${escapeHTML(message)}
-      </div>
+      </strong>
+
+      <p style="
+        color:#9ca3af;
+        font-size:12px;
+        margin-top:8px;
+      ">
+        ${escapeHTML(
+          error?.message ||
+          ""
+        )}
+      </p>
 
       <button
         id="retryOffersBtn"
         type="button"
         style="
-          margin-top:15px;
-          padding:11px 18px;
+          margin-top:12px;
+          padding:10px 18px;
           border:0;
           border-radius:10px;
           background:#2563eb;
@@ -1026,7 +1672,7 @@ function showOffersError(
 
         if (currentUser) {
 
-          loadOffers(
+          loadMyOffers(
             currentUser.uid
           );
 
@@ -1039,35 +1685,30 @@ function showOffersError(
 
 
 // ============================================================
-// COUNT
+// UPDATE OFFER COUNT
 // ============================================================
 
 function updateOfferCount(
   count
 ) {
 
-  const ids = [
+  const elements = [
 
-    "offerCount",
+    $("#offerCount"),
 
-    "totalOffers",
+    $("#totalOffers"),
 
-    "myOfferCount",
+    $("#myOfferCount"),
 
-    "jumlahPenawaran",
+    $("#jumlahPenawaran"),
 
-    "userOffersCount"
+    $("#userOffersCount")
 
   ];
 
 
-  ids.forEach(
-    id => {
-
-      const element =
-        document.getElementById(
-          id
-        );
+  elements.forEach(
+    element => {
 
       if (element) {
 
@@ -1086,24 +1727,72 @@ function updateOfferCount(
 // RENDER OFFERS
 // ============================================================
 
-function renderOffers(
+async function renderOffers(
   offers
 ) {
 
   const container =
     getOffersContainer();
 
+
   if (!container) {
     return;
   }
 
 
-  container.innerHTML =
-    offers
-      .map(
-        createOfferCard
+  /*
+    PENTING:
+
+    Ambil semua kebutuhan secara paralel.
+
+    Karena parent ID sudah diketahui
+    dari:
+
+    offer.ref.parent.parent.id
+  */
+
+
+  const cards =
+    await Promise.all(
+
+      offers.map(
+        async offer => {
+
+          let requirement =
+            null;
+
+
+          const requirementId =
+            offer.parentNeedId ||
+            offer.requirementId ||
+            offer.needId ||
+            offer.requestId ||
+            offer.postId;
+
+
+          if (requirementId) {
+
+            requirement =
+              await getRequirementFast(
+                requirementId
+              );
+
+          }
+
+
+          return createOfferCard(
+            offer,
+            requirement
+          );
+
+        }
       )
-      .join("");
+
+    );
+
+
+  container.innerHTML =
+    cards.join("");
 
 
   attachOfferButtons();
@@ -1112,319 +1801,88 @@ function renderOffers(
 
 
 // ============================================================
-// CREATE OFFER CARD
+// GET REQUIREMENT FAST
 // ============================================================
 
-function createOfferCard(
-  offer
+async function getRequirementFast(
+  requirementId
 ) {
 
-  const need =
-    offer.need ||
-    cachedNeeds.get(
-      offer.needId ||
-      offer.requirementId
+  if (!requirementId) {
+    return null;
+  }
+
+
+  /*
+    Gunakan cache terlebih dahulu.
+  */
+
+  if (
+    needsCache.has(
+      requirementId
+    )
+  ) {
+
+    return needsCache.get(
+      requirementId
     );
 
-
-  const title =
-    need?.title ||
-    offer.needTitle ||
-    offer.requirementTitle ||
-    offer.title ||
-    "Kebutuhan";
+  }
 
 
-  const description =
-    need?.description ||
-    offer.description ||
-    "";
+  try {
+
+    const ref =
+      doc(
+        db,
+        "needs",
+        requirementId
+      );
 
 
-  const location =
-    need?.location ||
-    need?.city ||
-    offer.location ||
-    "";
+    const snapshot =
+      await getDoc(
+        ref
+      );
 
 
-  const price =
-    offer.price ??
-    offer.offerPrice ??
-    offer.amount ??
-    offer.bidAmount ??
-    0;
+    if (
+      snapshot.exists()
+    ) {
+
+      const need = {
+
+        id:
+          snapshot.id,
+
+        ...snapshot.data()
+
+      };
 
 
-  const duration =
-    offer.duration ||
-    "-";
+      needsCache.set(
+        requirementId,
+        need
+      );
 
 
-  const message =
-    offer.message ||
-    offer.note ||
-    "";
+      return need;
+
+    }
 
 
-  const status =
-    getStatus(
-      offer
+  } catch (error) {
+
+    console.warn(
+      "Gagal mengambil kebutuhan:",
+      requirementId,
+      error
     );
 
-
-  const date =
-    offer.createdAt ||
-    offer.timestamp ||
-    offer.updatedAt;
+  }
 
 
-  const needId =
-    need?.id ||
-    offer.needId ||
-    offer.requirementId;
-
-
-  return `
-
-    <article
-      class="offer-card"
-      data-offer-id="${escapeHTML(
-        offer.id
-      )}"
-      style="
-        background:#fff;
-        border:1px solid #e5e7eb;
-        border-radius:16px;
-        padding:16px;
-        margin-bottom:14px;
-        box-shadow:0 4px 14px rgba(0,0,0,.05);
-      "
-    >
-
-      <div style="
-        display:flex;
-        justify-content:space-between;
-        gap:12px;
-        align-items:flex-start;
-      ">
-
-        <div style="
-          min-width:0;
-          flex:1;
-        ">
-
-          <div style="
-            font-size:17px;
-            font-weight:800;
-            color:#111827;
-          ">
-            ${escapeHTML(title)}
-          </div>
-
-          ${
-            location
-              ? `
-                <div style="
-                  margin-top:6px;
-                  font-size:13px;
-                  color:#6b7280;
-                ">
-                  📍 ${escapeHTML(location)}
-                </div>
-              `
-              : ""
-          }
-
-        </div>
-
-
-        <span style="
-          flex-shrink:0;
-          padding:6px 10px;
-          border-radius:999px;
-          font-size:12px;
-          font-weight:800;
-          background:${getStatusBackground(
-            status
-          )};
-          color:${getStatusColor(
-            status
-          )};
-        ">
-          ${escapeHTML(
-            statusText(
-              status
-            )
-          )}
-        </span>
-
-      </div>
-
-
-      ${
-        description
-          ? `
-            <div style="
-              margin-top:12px;
-              color:#4b5563;
-              font-size:14px;
-              line-height:1.5;
-            ">
-              ${escapeHTML(
-                truncate(
-                  description,
-                  180
-                )
-              )}
-            </div>
-          `
-          : ""
-      }
-
-
-      <div style="
-        display:flex;
-        gap:10px;
-        flex-wrap:wrap;
-        margin-top:14px;
-      ">
-
-        <div style="
-          flex:1;
-          min-width:130px;
-          padding:11px;
-          border-radius:10px;
-          background:#f0fdf4;
-        ">
-
-          <div style="
-            font-size:11px;
-            color:#6b7280;
-          ">
-            Penawaran Anda
-          </div>
-
-          <div style="
-            margin-top:3px;
-            font-size:16px;
-            font-weight:900;
-            color:#16a34a;
-          ">
-            ${formatRupiah(price)}
-          </div>
-
-        </div>
-
-
-        <div style="
-          flex:1;
-          min-width:130px;
-          padding:11px;
-          border-radius:10px;
-          background:#eff6ff;
-        ">
-
-          <div style="
-            font-size:11px;
-            color:#6b7280;
-          ">
-            Pengerjaan
-          </div>
-
-          <div style="
-            margin-top:3px;
-            font-size:14px;
-            font-weight:700;
-            color:#2563eb;
-          ">
-            ${escapeHTML(duration)}
-          </div>
-
-        </div>
-
-
-        <div style="
-          flex:1;
-          min-width:130px;
-          padding:11px;
-          border-radius:10px;
-          background:#f9fafb;
-        ">
-
-          <div style="
-            font-size:11px;
-            color:#6b7280;
-          ">
-            Waktu
-          </div>
-
-          <div style="
-            margin-top:3px;
-            font-size:13px;
-            font-weight:600;
-            color:#374151;
-          ">
-            ${escapeHTML(
-              formatDate(date)
-            )}
-          </div>
-
-        </div>
-
-      </div>
-
-
-      ${
-        message
-          ? `
-            <div style="
-              margin-top:12px;
-              padding:11px;
-              background:#f9fafb;
-              border-radius:10px;
-              color:#4b5563;
-              font-size:13px;
-              line-height:1.5;
-            ">
-              <strong>Pesan:</strong>
-              ${escapeHTML(message)}
-            </div>
-          `
-          : ""
-      }
-
-
-      ${
-        needId
-          ? `
-            <button
-              class="view-requirement-btn"
-              data-id="${escapeHTML(
-                needId
-              )}"
-              type="button"
-              style="
-                width:100%;
-                margin-top:14px;
-                padding:12px;
-                border:1px solid #bfdbfe;
-                border-radius:10px;
-                background:#eff6ff;
-                color:#2563eb;
-                font-weight:800;
-                cursor:pointer;
-              "
-            >
-              👁️ Lihat Kebutuhan
-            </button>
-          `
-          : ""
-      }
-
-    </article>
-
-  `;
+  return null;
 
 }
 
@@ -1438,9 +1896,13 @@ function getStatus(
 ) {
 
   return String(
+
     offer.status ||
+
     offer.offerStatus ||
+
     "pending"
+
   ).toLowerCase();
 
 }
@@ -1474,12 +1936,335 @@ function statusText(
       return "Menunggu";
 
     default:
-      return status;
+      return status || "Menunggu";
 
   }
 
 }
 
+
+// ============================================================
+// OFFER CARD
+// ============================================================
+
+function createOfferCard(
+  offer,
+  requirement
+) {
+
+  const status =
+    getStatus(
+      offer
+    );
+
+
+  const requirementId =
+    requirement?.id ||
+
+    offer.parentNeedId ||
+
+    offer.requirementId ||
+
+    offer.needId ||
+
+    offer.requestId ||
+
+    offer.postId;
+
+
+  const title =
+    requirement?.title ||
+
+    requirement?.name ||
+
+    offer.requirementTitle ||
+
+    offer.needTitle ||
+
+    offer.title ||
+
+    "Kebutuhan";
+
+
+  const description =
+    requirement?.description ||
+
+    offer.description ||
+
+    "";
+
+
+  const price =
+    offer.price ??
+
+    offer.offerPrice ??
+
+    offer.amount ??
+
+    offer.bidAmount ??
+
+    0;
+
+
+  const message =
+    offer.message ||
+
+    offer.note ||
+
+    "";
+
+
+  const location =
+    requirement?.location ||
+
+    requirement?.city ||
+
+    offer.location ||
+
+    "";
+
+
+  const date =
+    offer.createdAt ||
+
+    offer.timestamp ||
+
+    offer.updatedAt;
+
+
+  return `
+
+    <article
+      class="offer-card"
+      data-offer-id="${escapeHTML(
+        offer.id
+      )}"
+      style="
+        background:#fff;
+        border:1px solid #e5e7eb;
+        border-radius:16px;
+        padding:16px;
+        margin-bottom:14px;
+        box-shadow:0 4px 14px rgba(0,0,0,.05);
+      "
+    >
+
+      <div style="
+        display:flex;
+        justify-content:space-between;
+        gap:12px;
+        align-items:flex-start;
+      ">
+
+        <div style="
+          flex:1;
+          min-width:0;
+        ">
+
+          <h3 style="
+            margin:0;
+            color:#111827;
+            font-size:17px;
+          ">
+            ${escapeHTML(title)}
+          </h3>
+
+
+          ${
+            location
+              ? `
+                <div style="
+                  margin-top:6px;
+                  color:#6b7280;
+                  font-size:13px;
+                ">
+                  📍 ${escapeHTML(location)}
+                </div>
+              `
+              : ""
+          }
+
+        </div>
+
+
+        <span style="
+          flex-shrink:0;
+          padding:6px 10px;
+          border-radius:999px;
+          background:${getStatusBackground(
+            status
+          )};
+          color:${getStatusColor(
+            status
+          )};
+          font-size:12px;
+          font-weight:700;
+        ">
+          ${escapeHTML(
+            statusText(status)
+          )}
+        </span>
+
+      </div>
+
+
+      ${
+        description
+          ? `
+            <p style="
+              margin:12px 0 0;
+              color:#4b5563;
+              font-size:14px;
+              line-height:1.5;
+            ">
+              ${escapeHTML(
+                description
+              )}
+            </p>
+          `
+          : ""
+      }
+
+
+      <div style="
+        display:flex;
+        gap:10px;
+        flex-wrap:wrap;
+        margin-top:14px;
+      ">
+
+
+        <div style="
+          flex:1;
+          min-width:140px;
+          padding:11px;
+          border-radius:10px;
+          background:#f0fdf4;
+        ">
+
+          <small style="
+            color:#6b7280;
+            font-size:11px;
+          ">
+            Penawaran Anda
+          </small>
+
+          <div style="
+            margin-top:3px;
+            color:#16a34a;
+            font-size:16px;
+            font-weight:800;
+          ">
+            ${escapeHTML(
+              formatRupiah(price)
+            )}
+          </div>
+
+        </div>
+
+
+        <div style="
+          flex:1;
+          min-width:140px;
+          padding:11px;
+          border-radius:10px;
+          background:#f9fafb;
+        ">
+
+          <small style="
+            color:#6b7280;
+            font-size:11px;
+          ">
+            Waktu
+          </small>
+
+          <div style="
+            margin-top:3px;
+            color:#374151;
+            font-size:13px;
+            font-weight:600;
+          ">
+            ${escapeHTML(
+              formatDate(date)
+            )}
+          </div>
+
+        </div>
+
+      </div>
+
+
+      ${
+        message
+          ? `
+            <div style="
+              margin-top:12px;
+              padding:11px;
+              border-radius:10px;
+              background:#f9fafb;
+              color:#4b5563;
+              font-size:13px;
+              line-height:1.5;
+            ">
+              <strong>
+                Pesan:
+              </strong>
+
+              ${escapeHTML(message)}
+            </div>
+          `
+          : ""
+      }
+
+
+      ${
+        requirementId
+          ? `
+            <button
+              type="button"
+              class="view-requirement-btn"
+              data-id="${escapeHTML(
+                requirementId
+              )}"
+              style="
+                width:100%;
+                margin-top:14px;
+                padding:11px;
+                border:1px solid #bfdbfe;
+                border-radius:10px;
+                background:#eff6ff;
+                color:#2563eb;
+                font-weight:700;
+                cursor:pointer;
+              "
+            >
+              👁️ Lihat Kebutuhan
+            </button>
+          `
+          : `
+            <div style="
+              margin-top:14px;
+              padding:10px;
+              background:#fef2f2;
+              color:#b91c1c;
+              border-radius:10px;
+              font-size:13px;
+            ">
+              Kebutuhan tidak ditemukan.
+            </div>
+          `
+      }
+
+    </article>
+
+  `;
+
+}
+
+
+// ============================================================
+// STATUS COLORS
+// ============================================================
 
 function getStatusBackground(
   status
@@ -1489,7 +2274,9 @@ function getStatusBackground(
     status === "accepted" ||
     status === "diterima"
   ) {
+
     return "#dcfce7";
+
   }
 
 
@@ -1497,7 +2284,9 @@ function getStatusBackground(
     status === "rejected" ||
     status === "ditolak"
   ) {
+
     return "#fee2e2";
+
   }
 
 
@@ -1505,7 +2294,9 @@ function getStatusBackground(
     status === "completed" ||
     status === "selesai"
   ) {
+
     return "#dbeafe";
+
   }
 
 
@@ -1514,7 +2305,9 @@ function getStatusBackground(
     status === "canceled" ||
     status === "dibatalkan"
   ) {
+
     return "#f3f4f6";
+
   }
 
 
@@ -1531,7 +2324,9 @@ function getStatusColor(
     status === "accepted" ||
     status === "diterima"
   ) {
+
     return "#15803d";
+
   }
 
 
@@ -1539,7 +2334,9 @@ function getStatusColor(
     status === "rejected" ||
     status === "ditolak"
   ) {
+
     return "#b91c1c";
+
   }
 
 
@@ -1547,7 +2344,9 @@ function getStatusColor(
     status === "completed" ||
     status === "selesai"
   ) {
+
     return "#1d4ed8";
+
   }
 
 
@@ -1556,7 +2355,9 @@ function getStatusColor(
     status === "canceled" ||
     status === "dibatalkan"
   ) {
+
     return "#4b5563";
+
   }
 
 
@@ -1566,7 +2367,7 @@ function getStatusColor(
 
 
 // ============================================================
-// LIHAT KEBUTUHAN
+// OFFER BUTTON
 // ============================================================
 
 function attachOfferButtons() {
@@ -1582,12 +2383,13 @@ function attachOfferButtons() {
           "click",
           () => {
 
-            const needId =
+            const id =
               button.dataset.id;
 
-            if (!needId) {
 
-              showToast(
+            if (!id) {
+
+              toast(
                 "ID kebutuhan tidak ditemukan.",
                 "error"
               );
@@ -1597,551 +2399,26 @@ function attachOfferButtons() {
             }
 
 
-            openNeedFromHistory(
-              needId
-            );
+            /*
+              Gunakan halaman detail.
+
+              Jika detail.html Anda sudah benar,
+              URL menjadi:
+
+              detail.html?id=XXXXXXXX
+            */
+
+            window.location.href =
+              "detail.html?id=" +
+              encodeURIComponent(
+                id
+              );
 
           }
         );
 
       }
     );
-
-}
-
-
-// ============================================================
-// OPEN NEED FROM HISTORY
-// ============================================================
-
-async function openNeedFromHistory(
-  needId
-) {
-
-  /*
-    PENTING:
-
-    Tidak lagi:
-
-    detail.html?id=...
-
-    Karena itu menyebabkan 404
-    jika detail.html belum tersedia.
-  */
-
-
-  let need =
-    cachedNeeds.get(
-      needId
-    );
-
-
-  /*
-    Kalau belum ada cache,
-    ambil langsung.
-  */
-
-  if (!need) {
-
-    try {
-
-      const snapshot =
-        await withTimeout(
-
-          getDoc(
-            doc(
-              db,
-              "needs",
-              needId
-            )
-          )
-
-        );
-
-
-      if (
-        !snapshot.exists()
-      ) {
-
-        showToast(
-          "Kebutuhan sudah tidak ditemukan.",
-          "error"
-        );
-
-        return;
-
-      }
-
-
-      need = {
-
-        id:
-          snapshot.id,
-
-        ...snapshot.data()
-
-      };
-
-
-      cachedNeeds.set(
-        needId,
-        need
-      );
-
-
-    } catch (error) {
-
-      console.error(
-        "Gagal membuka kebutuhan:",
-        error
-      );
-
-      showToast(
-        "Gagal memuat kebutuhan.",
-        "error"
-      );
-
-      return;
-
-    }
-
-  }
-
-
-  /*
-    Tampilkan detail langsung
-    di halaman profile.
-  */
-
-  showNeedDetail(
-    need
-  );
-
-}
-
-
-// ============================================================
-// DETAIL MODAL
-// ============================================================
-
-function showNeedDetail(
-  need
-) {
-
-  let modal =
-    document.getElementById(
-      "historyNeedModal"
-    );
-
-
-  if (!modal) {
-
-    modal =
-      document.createElement(
-        "div"
-      );
-
-    modal.id =
-      "historyNeedModal";
-
-    modal.className =
-      "modal hidden";
-
-    document.body.appendChild(
-      modal
-    );
-
-  }
-
-
-  const status =
-    String(
-      need.status ||
-      "open"
-    ).toLowerCase();
-
-
-  const owner =
-    need.ownerId ===
-    currentUser?.uid;
-
-
-  modal.innerHTML = `
-
-    <div
-      class="modal-backdrop"
-      id="historyNeedBackdrop"
-    ></div>
-
-
-    <div
-      class="modal-content"
-      style="
-        max-width:600px;
-        width:calc(100% - 24px);
-      "
-    >
-
-      <div class="modal-header">
-
-        <div>
-
-          <span class="section-label">
-            DETAIL KEBUTUHAN
-          </span>
-
-          <h2>
-            ${escapeHTML(
-              need.title ||
-              "Kebutuhan"
-            )}
-          </h2>
-
-        </div>
-
-
-        <button
-          id="closeHistoryNeed"
-          class="modal-close"
-          type="button"
-        >
-          ×
-        </button>
-
-      </div>
-
-
-      <div style="
-        padding:20px;
-      ">
-
-        <div style="
-          display:flex;
-          gap:8px;
-          flex-wrap:wrap;
-          margin-bottom:15px;
-        ">
-
-          <span style="
-            padding:6px 10px;
-            border-radius:999px;
-            background:#eff6ff;
-            color:#2563eb;
-            font-size:12px;
-            font-weight:700;
-          ">
-            ${escapeHTML(
-              getCategory(
-                need.category
-              )
-            )}
-          </span>
-
-
-          <span style="
-            padding:6px 10px;
-            border-radius:999px;
-            background:#f0fdf4;
-            color:#15803d;
-            font-size:12px;
-            font-weight:700;
-          ">
-            ${escapeHTML(status)}
-          </span>
-
-        </div>
-
-
-        <div style="
-          font-size:15px;
-          line-height:1.7;
-          color:#374151;
-        ">
-          ${escapeHTML(
-            need.description ||
-            "Tidak ada deskripsi."
-          )}
-        </div>
-
-
-        <div style="
-          margin-top:20px;
-          padding:16px;
-          border-radius:12px;
-          background:#eff6ff;
-        ">
-
-          <div style="
-            font-size:12px;
-            color:#6b7280;
-          ">
-            Budget
-          </div>
-
-          <div style="
-            margin-top:4px;
-            font-size:24px;
-            font-weight:900;
-            color:#2563eb;
-          ">
-            ${formatRupiah(
-              need.budget
-            )}
-          </div>
-
-        </div>
-
-
-        ${
-          need.deadline
-            ? `
-              <div style="
-                margin-top:14px;
-                padding:12px;
-                border-radius:10px;
-                background:#f9fafb;
-              ">
-                <strong>Deadline:</strong>
-                ${escapeHTML(
-                  need.deadline
-                )}
-              </div>
-            `
-            : ""
-        }
-
-
-        <div style="
-          margin-top:18px;
-          font-size:14px;
-          color:#6b7280;
-        ">
-          👤 Diposting oleh:
-          <strong>
-            ${escapeHTML(
-              need.ownerName ||
-              "Pengguna"
-            )}
-          </strong>
-        </div>
-
-
-        <div style="
-          margin-top:8px;
-          font-size:13px;
-          color:#9ca3af;
-        ">
-          📅 ${escapeHTML(
-            formatDate(
-              need.createdAt
-            )
-          )}
-        </div>
-
-
-        ${
-          owner
-            ? `
-              <div style="
-                margin-top:18px;
-                padding:13px;
-                border-radius:10px;
-                background:#f0fdf4;
-                color:#15803d;
-                font-weight:700;
-              ">
-                👤 Ini adalah kebutuhan Anda.
-              </div>
-            `
-            : ""
-        }
-
-
-        <button
-          id="historyGoHome"
-          type="button"
-          class="btn btn-outline"
-          style="
-            width:100%;
-            margin-top:18px;
-          "
-        >
-          ← Kembali ke Kebutuhan
-        </button>
-
-      </div>
-
-    </div>
-
-  `;
-
-
-  modal.classList.remove(
-    "hidden"
-  );
-
-
-  document.body.classList.add(
-    "modal-open"
-  );
-
-
-  $("#closeHistoryNeed")
-    ?.addEventListener(
-      "click",
-      () => {
-
-        closeHistoryNeed();
-
-      }
-    );
-
-
-  $("#historyNeedBackdrop")
-    ?.addEventListener(
-      "click",
-      () => {
-
-        closeHistoryNeed();
-
-      }
-    );
-
-
-  $("#historyGoHome")
-    ?.addEventListener(
-      "click",
-      () => {
-
-        closeHistoryNeed();
-
-        /*
-          Scroll ke daftar kebutuhan
-          tanpa 404.
-        */
-
-        const needs =
-          document.getElementById(
-            "needs"
-          );
-
-        if (needs) {
-
-          needs.scrollIntoView({
-            behavior:
-              "smooth"
-          });
-
-        }
-
-      }
-    );
-
-}
-
-
-// ============================================================
-// CLOSE DETAIL
-// ============================================================
-
-function closeHistoryNeed() {
-
-  const modal =
-    document.getElementById(
-      "historyNeedModal"
-    );
-
-  if (modal) {
-
-    modal.classList.add(
-      "hidden"
-    );
-
-  }
-
-  document.body.classList.remove(
-    "modal-open"
-  );
-
-}
-
-
-// ============================================================
-// CATEGORY
-// ============================================================
-
-function getCategory(
-  value
-) {
-
-  const categories = {
-
-    design:
-      "🎨 Desain",
-
-    website:
-      "🌐 Website",
-
-    programming:
-      "💻 Programming",
-
-    marketing:
-      "📢 Marketing",
-
-    writing:
-      "✍️ Penulisan",
-
-    video:
-      "🎬 Video",
-
-    translation:
-      "🌍 Terjemahan",
-
-    other:
-      "📦 Lainnya"
-
-  };
-
-
-  return (
-    categories[value] ||
-    categories.other
-  );
-
-}
-
-
-// ============================================================
-// TRUNCATE
-// ============================================================
-
-function truncate(
-  text,
-  length
-) {
-
-  const value =
-    String(
-      text || ""
-    );
-
-
-  if (
-    value.length <= length
-  ) {
-
-    return value;
-
-  }
-
-
-  return (
-    value.substring(
-      0,
-      length
-    ) +
-    "..."
-  );
 
 }
 
@@ -2154,13 +2431,12 @@ async function saveProfile() {
 
   if (!currentUser) {
 
-    showToast(
+    toast(
       "Silakan login terlebih dahulu.",
       "error"
     );
 
     return;
-
   }
 
 
@@ -2170,13 +2446,12 @@ async function saveProfile() {
 
   if (!input) {
 
-    showToast(
+    toast(
       "Kolom nama tidak ditemukan.",
       "error"
     );
 
     return;
-
   }
 
 
@@ -2186,13 +2461,12 @@ async function saveProfile() {
 
   if (!name) {
 
-    showToast(
+    toast(
       "Nama tidak boleh kosong.",
       "error"
     );
 
     return;
-
   }
 
 
@@ -2206,21 +2480,20 @@ async function saveProfile() {
     "Simpan";
 
 
-  if (button) {
-
-    button.disabled =
-      true;
-
-    button.textContent =
-      "Menyimpan...";
-
-  }
-
-
   try {
 
-    await withTimeout(
+    if (button) {
 
+      button.disabled =
+        true;
+
+      button.textContent =
+        "Menyimpan...";
+
+    }
+
+
+    await withTimeout(
       updateProfile(
         currentUser,
         {
@@ -2228,7 +2501,6 @@ async function saveProfile() {
             name
         }
       )
-
     );
 
 
@@ -2237,7 +2509,7 @@ async function saveProfile() {
     );
 
 
-    showToast(
+    toast(
       "Profil berhasil diperbarui.",
       "success"
     );
@@ -2246,11 +2518,12 @@ async function saveProfile() {
   } catch (error) {
 
     console.error(
-      "SAVE PROFILE:",
+      "PROFILE UPDATE:",
       error
     );
 
-    showToast(
+
+    toast(
       "Gagal menyimpan profil.",
       "error"
     );
@@ -2319,10 +2592,6 @@ document.addEventListener(
     }
 
 
-    /*
-      Logout.
-    */
-
     const logoutButton =
       $("#logoutBtn") ||
       $("#btnLogout");
@@ -2332,48 +2601,7 @@ document.addEventListener(
 
       logoutButton.addEventListener(
         "click",
-        async () => {
-
-          try {
-
-            logoutButton.disabled =
-              true;
-
-            logoutButton.textContent =
-              "Keluar...";
-
-
-            await signOut(
-              auth
-            );
-
-
-            window.location.href =
-              "login.html";
-
-
-          } catch (error) {
-
-            console.error(
-              "LOGOUT:",
-              error
-            );
-
-            logoutButton.disabled =
-              false;
-
-            logoutButton.textContent =
-              "🚪 Keluar";
-
-
-            showToast(
-              "Gagal logout.",
-              "error"
-            );
-
-          }
-
-        }
+        logout
       );
 
     }
@@ -2383,15 +2611,64 @@ document.addEventListener(
 
 
 // ============================================================
-// GLOBAL REFRESH
+// LOGOUT
+// ============================================================
+
+async function logout() {
+
+  try {
+
+    const button =
+      $("#logoutBtn") ||
+      $("#btnLogout");
+
+
+    if (button) {
+
+      button.disabled =
+        true;
+
+      button.textContent =
+        "Keluar...";
+
+    }
+
+
+    await auth.signOut();
+
+
+    window.location.href =
+      "login.html";
+
+
+  } catch (error) {
+
+    console.error(
+      "LOGOUT:",
+      error
+    );
+
+
+    toast(
+      "Gagal logout.",
+      "error"
+    );
+
+  }
+
+}
+
+
+// ============================================================
+// GLOBAL RELOAD
 // ============================================================
 
 window.reloadOfferHistory =
-  function () {
+  function() {
 
     if (!currentUser) {
 
-      showToast(
+      toast(
         "Silakan login terlebih dahulu.",
         "error"
       );
@@ -2401,16 +2678,29 @@ window.reloadOfferHistory =
     }
 
 
-    /*
-      Reset state agar bisa
-      dipanggil kembali.
-    */
+    loadMyOffers(
+      currentUser.uid
+    );
 
-    isLoadingOffers =
-      false;
+  };
 
 
-    loadOffers(
+window.reloadNeedHistory =
+  function() {
+
+    if (!currentUser) {
+
+      toast(
+        "Silakan login terlebih dahulu.",
+        "error"
+      );
+
+      return;
+
+    }
+
+
+    loadMyNeeds(
       currentUser.uid
     );
 
@@ -2432,23 +2722,26 @@ window.profileDebug = {
 
   reloadOffers() {
 
-    if (!currentUser) {
-      return;
+    if (currentUser) {
+
+      return loadMyOffers(
+        currentUser.uid
+      );
+
     }
-
-    isLoadingOffers =
-      false;
-
-    return loadOffers(
-      currentUser.uid
-    );
 
   },
 
 
-  getCachedNeeds() {
+  reloadNeeds() {
 
-    return cachedNeeds;
+    if (currentUser) {
+
+      return loadMyNeeds(
+        currentUser.uid
+      );
+
+    }
 
   }
 
@@ -2456,26 +2749,9 @@ window.profileDebug = {
 
 
 // ============================================================
-// ESCAPE
+// START
 // ============================================================
 
-document.addEventListener(
-  "keydown",
-  event => {
-
-    if (
-      event.key ===
-      "Escape"
-    ) {
-
-      closeHistoryNeed();
-
-    }
-
-  }
-);
-
-
 console.log(
-  "✅ profile.js cepat aktif"
+  "✅ profile.js VERSI CEPAT aktif"
 );
