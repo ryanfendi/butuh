@@ -22,7 +22,6 @@ import {
 import {
   getFirestore,
   collection,
-  collectionGroup,
   getDocs,
   query,
   where
@@ -727,63 +726,96 @@ async function loadOffers(user) {
 
   try {
 
-    console.log(
-      "Mulai memuat penawaran..."
+    console.log("Mulai memuat penawaran tanpa Collection Group...");
+
+
+    // Ambil semua kebutuhan terlebih dahulu
+    const needsQuery = query(
+      collection(db, "needs"),
+      where("ownerId", "==", user.uid)
     );
 
 
-    const offersQuery =
-      query(
+    const needsSnapshot =
+      await getDocs(needsQuery);
 
-        collectionGroup(
-          db,
-          "offers"
-        ),
 
-        where(
-          "providerId",
-          "==",
-          user.uid
-        )
+    const needIds = [];
 
+
+    needsSnapshot.forEach((needDoc) => {
+
+      needIds.push(
+        needDoc.id
       );
 
-
-    const snapshot =
-      await getDocs(
-        offersQuery
-      );
+    });
 
 
-    const offers =
-      [];
+    const offers = [];
 
 
-    snapshot.forEach(
-      (docSnap) => {
+    // ========================================================
+    // AMBIL PENAWARAN DARI SETIAP KEBUTUHAN
+    // needs/{needId}/offers/{offerId}
+    // ========================================================
 
-        const parentNeed =
-          docSnap.ref.parent.parent;
+    for (const needId of needIds) {
+
+      try {
+
+        const offersSnapshot =
+          await getDocs(
+            collection(
+              db,
+              "needs",
+              needId,
+              "offers"
+            )
+          );
 
 
-        offers.push({
+        offersSnapshot.forEach((offerDoc) => {
 
-          id:
-            docSnap.id,
+          const data =
+            offerDoc.data();
 
-          needId:
-            parentNeed
-              ? parentNeed.id
-              : "",
 
-          ...docSnap.data()
+          // Hanya ambil penawaran milik user login
+          if (
+            data.providerId === user.uid
+          ) {
+
+            offers.push({
+
+              id:
+                offerDoc.id,
+
+              needId:
+                needId,
+
+              ...data
+
+            });
+
+          }
 
         });
 
+      } catch (offerError) {
+
+        console.error(
+          "Gagal membaca offers dari need:",
+          needId,
+          offerError
+        );
+
       }
-    );
+
+    }
 
 
+    // Urutkan terbaru
     sortNewest(offers);
 
 
@@ -791,6 +823,117 @@ async function loadOffers(user) {
       "Jumlah penawaran:",
       offers.length
     );
+
+
+    // ========================================================
+    // STATISTIK
+    // ========================================================
+
+    if (totalOffers) {
+
+      totalOffers.textContent =
+        offers.length;
+
+    }
+
+
+    let accepted = 0;
+    let completed = 0;
+
+
+    offers.forEach((offer) => {
+
+      const status =
+        String(
+          offer.status || ""
+        ).toLowerCase();
+
+
+      if (
+        status === "accepted" ||
+        status === "diterima"
+      ) {
+
+        accepted++;
+
+      }
+
+
+      if (
+        status === "completed" ||
+        status === "selesai" ||
+        status === "done"
+      ) {
+
+        completed++;
+
+      }
+
+    });
+
+
+    if (acceptedOffers) {
+
+      acceptedOffers.textContent =
+        accepted;
+
+    }
+
+
+    if (completedOffers) {
+
+      completedOffers.textContent =
+        completed;
+
+    }
+
+
+    // ========================================================
+    // TAMPILKAN PENAWARAN
+    // ========================================================
+
+    renderOffers(offers);
+
+
+  } catch (error) {
+
+    console.error(
+      "ERROR LOAD OFFERS:",
+      error
+    );
+
+
+    if (totalOffers) {
+
+      totalOffers.textContent =
+        "0";
+
+    }
+
+
+    if (acceptedOffers) {
+
+      acceptedOffers.textContent =
+        "0";
+
+    }
+
+
+    if (completedOffers) {
+
+      completedOffers.textContent =
+        "0";
+
+    }
+
+
+    showOffersError(
+      error.message
+    );
+
+  }
+
+}
 
 
     // ========================================================
