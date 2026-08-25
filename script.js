@@ -1457,49 +1457,51 @@ async function submitNeed(
   try {
 
     await addDoc(
-      collection(
-        db,
-        "needs"
-      ),
-      {
+  collection(
+    db,
+    "needs",
+    need.id,
+    "offers"
+  ),
+  {
+    needId: need.id,
 
-        title,
+    needTitle:
+      need.title || "Kebutuhan",
 
-        description,
+    providerId:
+      currentUser.uid,
 
-        category,
+    providerName:
+      currentUser.displayName ||
+      currentUser.email?.split("@")[0] ||
+      "Pengguna",
 
-        budget,
+    providerEmail:
+      currentUser.email || "",
 
-        deadline,
+    providerPhoto:
+      currentUser.photoURL || "",
 
-        ownerId:
-          currentUser.uid,
+    price:
+      price,
 
-        ownerName:
-          currentUser.displayName ||
-          currentUser.email?.split("@")[0] ||
-          "Pengguna",
+    duration:
+      duration,
 
-        ownerEmail:
-          currentUser.email ||
-          "",
+    message:
+      message,
 
-        ownerPhoto:
-          currentUser.photoURL ||
-          "",
+    status:
+      "pending",
 
-        status:
-          "open",
+    createdAt:
+      serverTimestamp(),
 
-        createdAt:
-          serverTimestamp(),
-
-        updatedAt:
-          serverTimestamp()
-
-      }
-    );
+    updatedAt:
+      serverTimestamp()
+  }
+);
 
     form.reset();
 
