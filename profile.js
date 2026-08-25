@@ -1,8 +1,6 @@
 // ============================================================
-// PROFILE.JS
-// BUTUH - Profile & Riwayat
-// Firebase v12.1.0
-// VERSI STABIL + CEPAT
+// BUTUH - PROFILE.JS
+// VERSI BARU DARI NOL
 // ============================================================
 
 import {
@@ -19,9 +17,9 @@ import {
 import {
   getFirestore,
   collection,
+  getDocs,
   query,
-  where,
-  getDocs
+  where
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 
@@ -30,23 +28,12 @@ import {
 // ============================================================
 
 const firebaseConfig = {
-  apiKey:
-    "AIzaSyCUFHkwOfNo-JCGHWG3dWcnISoYLg7vGnY",
-
-  authDomain:
-    "butuhin.firebaseapp.com",
-
-  projectId:
-    "butuhin",
-
-  storageBucket:
-    "butuhin.firebasestorage.app",
-
-  messagingSenderId:
-    "331896660506",
-
-  appId:
-    "1:331896660506:web:7a03f433101b81dd74e7a3"
+  apiKey: "AIzaSyCUFHkwOfNo-JCGHWG3dWcnISoYLg7vGnY",
+  authDomain: "butuhin.firebaseapp.com",
+  projectId: "butuhin",
+  storageBucket: "butuhin.firebasestorage.app",
+  messagingSenderId: "331896660506",
+  appId: "1:331896660506:web:7a03f433101b81dd74e7a3"
 };
 
 
@@ -55,13 +42,9 @@ const app =
     ? getApp()
     : initializeApp(firebaseConfig);
 
+const auth = getAuth(app);
 
-const auth =
-  getAuth(app);
-
-
-const db =
-  getFirestore(app);
+const db = getFirestore(app);
 
 
 // ============================================================
@@ -69,21 +52,16 @@ const db =
 // ============================================================
 
 let currentUser = null;
-
 let myNeeds = [];
-
 let myOffers = [];
-
-let loading = false;
 
 
 // ============================================================
 // HELPER
 // ============================================================
 
-function $(id) {
-  return document.getElementById(id);
-}
+const $ = id =>
+  document.getElementById(id);
 
 
 // ============================================================
@@ -103,21 +81,22 @@ onAuthStateChanged(
 
     }
 
+
     currentUser = user;
 
-    updateProfileUI(user);
+    updateProfile(user);
 
-    await loadProfile();
+    await loadAllData();
 
   }
 );
 
 
 // ============================================================
-// PROFILE UI
+// PROFILE
 // ============================================================
 
-function updateProfileUI(user) {
+function updateProfile(user) {
 
   const name =
     user.displayName ||
@@ -152,121 +131,43 @@ function updateProfileUI(user) {
 
 
 // ============================================================
-// LOAD PROFILE
+// LOAD ALL
 // ============================================================
 
-async function loadProfile() {
-
-  if (!currentUser || loading) {
-    return;
-  }
-
-  loading = true;
+async function loadAllData() {
 
   showNeedsLoading();
-
   showOffersLoading();
 
 
   try {
 
-    // ========================================================
-    // AMBIL KEBUTUHAN MILIK USER
-    // ========================================================
-
-    const needsQuery =
-      query(
-        collection(
-          db,
-          "needs"
-        ),
-        where(
-          "ownerId",
-          "==",
-          currentUser.uid
-        )
-      );
-
-
-    const snapshot =
-      await getDocs(
-        needsQuery
-      );
-
-
-    myNeeds = [];
-
-
-    snapshot.forEach(
-      item => {
-
-        myNeeds.push({
-
-          id:
-            item.id,
-
-          ...item.data()
-
-        });
-
-      }
-    );
-
-
-    // terbaru di atas
-    myNeeds.sort(
-      (a, b) =>
-        getTime(b.createdAt) -
-        getTime(a.createdAt)
-    );
-
-
-    // ========================================================
-    // TAMPILKAN KEBUTUHAN SECEPATNYA
-    // ========================================================
+    await loadMyNeeds();
 
     renderNeeds();
 
+    updateNeedCounter();
 
-    setText(
-      "totalNeeds",
-      myNeeds.length
-    );
-
-
-    // ========================================================
-    // AMBIL PENAWARAN
-    // ========================================================
 
     await loadMyOffers();
 
-
-    // ========================================================
-    // RENDER
-    // ========================================================
-
     renderOffers();
 
-    updateStatistics();
+    updateOfferCounters();
 
-    calculateRating();
+    updateRating();
 
 
   } catch (error) {
 
     console.error(
-      "PROFILE LOAD ERROR:",
+      "PROFILE ERROR:",
       error
     );
-
 
     showNeedsError(error);
 
     showOffersError(error);
-
-  } finally {
-
-    loading = false;
 
   }
 
@@ -274,7 +175,52 @@ async function loadProfile() {
 
 
 // ============================================================
-// LOAD OFFERS
+// LOAD MY NEEDS
+// ============================================================
+
+async function loadMyNeeds() {
+
+  const q =
+    query(
+      collection(db, "needs"),
+      where(
+        "ownerId",
+        "==",
+        currentUser.uid
+      )
+    );
+
+
+  const snapshot =
+    await getDocs(q);
+
+
+  myNeeds = [];
+
+
+  snapshot.forEach(
+    item => {
+
+      myNeeds.push({
+        id: item.id,
+        ...item.data()
+      });
+
+    }
+  );
+
+
+  myNeeds.sort(
+    (a, b) =>
+      getTime(b.createdAt) -
+      getTime(a.createdAt)
+  );
+
+}
+
+
+// ============================================================
+// LOAD MY OFFERS
 // ============================================================
 
 async function loadMyOffers() {
@@ -282,118 +228,47 @@ async function loadMyOffers() {
   myOffers = [];
 
 
-  if (!myNeeds.length) {
-
-    renderOffers();
-
-    return;
-
-  }
-
-
   /*
-    Penting:
+    Ambil semua kebutuhan.
 
-    Kita TIDAK menggunakan collectionGroup.
-
-    Kita membaca:
-
-    needs/{needId}/offers
-
+    Kemudian baca subcollection offers
     satu per satu.
 
-    Query hanya providerId milik user.
+    Ini tidak membutuhkan
+    Collection Group Index.
   */
 
-
-  const jobs =
-    myNeeds.map(
-      async need => {
-
-        try {
-
-          const offersRef =
-            collection(
-              db,
-              "needs",
-              need.id,
-              "offers"
-            );
-
-
-          const offerQuery =
-            query(
-              offersRef,
-              where(
-                "providerId",
-                "==",
-                currentUser.uid
-              )
-            );
-
-
-          const offerSnapshot =
-            await getDocs(
-              offerQuery
-            );
-
-
-          offerSnapshot.forEach(
-            item => {
-
-              const data =
-                item.data();
-
-
-              myOffers.push({
-
-                id:
-                  item.id,
-
-                needId:
-                  need.id,
-
-                needTitle:
-                  need.title ||
-                  "Kebutuhan",
-
-                needBudget:
-                  need.budget ||
-                  0,
-
-                ...data
-
-              });
-
-            }
-          );
-
-
-        } catch (error) {
-
-          /*
-            Jangan menghentikan seluruh proses
-            hanya karena satu kebutuhan gagal.
-          */
-
-          console.warn(
-            "Gagal membaca offers:",
-            need.id,
-            error
-          );
-
-        }
-
-      }
+  const needsSnapshot =
+    await getDocs(
+      collection(db, "needs")
     );
 
 
-  await Promise.all(
-    jobs
+  const tasks = [];
+
+
+  needsSnapshot.forEach(
+    needDoc => {
+
+      const need =
+        needDoc.data();
+
+
+      tasks.push(
+
+        loadOffersFromNeed(
+          needDoc.id,
+          need
+        )
+
+      );
+
+    }
   );
 
 
-  // terbaru di atas
+  await Promise.all(tasks);
+
 
   myOffers.sort(
     (a, b) =>
@@ -401,11 +276,86 @@ async function loadMyOffers() {
       getTime(a.createdAt)
   );
 
+}
 
-  console.log(
-    "MY OFFERS:",
-    myOffers
-  );
+
+// ============================================================
+// LOAD OFFERS FROM ONE NEED
+// ============================================================
+
+async function loadOffersFromNeed(
+  needId,
+  need
+) {
+
+  try {
+
+    const offersRef =
+      collection(
+        db,
+        "needs",
+        needId,
+        "offers"
+      );
+
+
+    const q =
+      query(
+        offersRef,
+        where(
+          "providerId",
+          "==",
+          currentUser.uid
+        )
+      );
+
+
+    const snapshot =
+      await getDocs(q);
+
+
+    snapshot.forEach(
+      offerDoc => {
+
+        myOffers.push({
+
+          id:
+            offerDoc.id,
+
+          needId,
+
+          needTitle:
+            need.title ||
+            "Kebutuhan",
+
+          needBudget:
+            need.budget ||
+            0,
+
+          ...offerDoc.data()
+
+        });
+
+      }
+    );
+
+
+  } catch (error) {
+
+    /*
+      Offer dari kebutuhan lain mungkin
+      ditolak Rules.
+
+      Tidak menghentikan profile.
+    */
+
+    console.warn(
+      "Tidak dapat membaca offers:",
+      needId,
+      error.code
+    );
+
+  }
 
 }
 
@@ -428,23 +378,11 @@ function renderNeeds() {
   if (!myNeeds.length) {
 
     container.innerHTML = `
-
       <div class="empty-state">
-
-        <div class="empty-icon">
-          📭
-        </div>
-
-        <strong>
-          Belum ada kebutuhan
-        </strong>
-
-        <p>
-          Anda belum pernah memposting kebutuhan.
-        </p>
-
+        <div class="empty-icon">📭</div>
+        <strong>Belum ada kebutuhan</strong>
+        <p>Anda belum pernah memposting kebutuhan.</p>
       </div>
-
     `;
 
     return;
@@ -453,133 +391,63 @@ function renderNeeds() {
 
 
   container.innerHTML =
-    myNeeds
-      .map(createNeedCard)
-      .join("");
+    myNeeds.map(
+      need => `
+
+        <article class="history-card">
+
+          <div class="history-main">
+
+            <h3>
+              ${escapeHTML(
+                need.title || "Tanpa judul"
+              )}
+            </h3>
+
+            <p>
+              ${escapeHTML(
+                truncate(
+                  need.description || "",
+                  150
+                )
+              )}
+            </p>
+
+            <div class="history-meta">
+
+              <span>
+                ${escapeHTML(
+                  getCategory(need.category)
+                )}
+              </span>
+
+              <span>
+                💰 Rp ${formatMoney(need.budget)}
+              </span>
+
+              <span>
+                📅 ${formatDate(need.createdAt)}
+              </span>
+
+            </div>
+
+          </div>
+
+
+          <button
+            class="btn btn-primary"
+            type="button"
+            onclick="window.viewNeed('${need.id}')"
+          >
+            👁️ Lihat Kebutuhan
+          </button>
+
+        </article>
+
+      `
+    ).join("");
 
 }
-
-
-// ============================================================
-// NEED CARD
-// ============================================================
-
-function createNeedCard(
-  need
-) {
-
-  const status =
-    String(
-      need.status ||
-      "open"
-    ).toLowerCase();
-
-
-  return `
-
-    <article class="history-card">
-
-      <div class="history-main">
-
-        <h3>
-          ${escapeHTML(
-            need.title ||
-            "Tanpa judul"
-          )}
-        </h3>
-
-        <p>
-          ${escapeHTML(
-            truncate(
-              need.description ||
-              "",
-              160
-            )
-          )}
-        </p>
-
-        <div class="history-meta">
-
-          <span>
-            ${escapeHTML(
-              getCategory(
-                need.category
-              )
-            )}
-          </span>
-
-          <span>
-            💰 Rp ${formatMoney(
-              need.budget
-            )}
-          </span>
-
-          <span>
-            📅 ${formatDate(
-              need.createdAt
-            )}
-          </span>
-
-        </div>
-
-      </div>
-
-
-      <div>
-
-        <span
-          class="status ${getStatusClass(status)}"
-        >
-          ${getStatusText(status)}
-        </span>
-
-        <br>
-
-        <button
-          type="button"
-          class="btn btn-primary"
-          style="margin-top:12px"
-          onclick="window.viewNeed('${escapeJS(
-            need.id
-          )}')"
-        >
-          👁️ Lihat Kebutuhan
-        </button>
-
-      </div>
-
-    </article>
-
-  `;
-
-}
-
-
-// ============================================================
-// VIEW NEED
-// ============================================================
-
-window.viewNeed =
-  function(needId) {
-
-    if (!needId) {
-
-      alert(
-        "ID kebutuhan tidak ditemukan."
-      );
-
-      return;
-
-    }
-
-
-    window.location.href =
-      "index.html?need=" +
-      encodeURIComponent(
-        needId
-      );
-
-  };
 
 
 // ============================================================
@@ -600,23 +468,11 @@ function renderOffers() {
   if (!myOffers.length) {
 
     container.innerHTML = `
-
       <div class="empty-state">
-
-        <div class="empty-icon">
-          💰
-        </div>
-
-        <strong>
-          Belum ada penawaran
-        </strong>
-
-        <p>
-          Anda belum pernah mengirim penawaran.
-        </p>
-
+        <div class="empty-icon">💰</div>
+        <strong>Belum ada penawaran</strong>
+        <p>Anda belum pernah mengirim penawaran.</p>
       </div>
-
     `;
 
     return;
@@ -625,129 +481,121 @@ function renderOffers() {
 
 
   container.innerHTML =
-    myOffers
-      .map(createOfferCard)
-      .join("");
+    myOffers.map(
+      offer => {
+
+        const status =
+          String(
+            offer.status || "pending"
+          ).toLowerCase();
+
+
+        return `
+
+          <article class="history-card">
+
+            <div class="history-main">
+
+              <h3>
+                ${escapeHTML(
+                  offer.needTitle
+                )}
+              </h3>
+
+              <div class="offer-price">
+                Rp ${formatMoney(
+                  offer.price
+                )}
+              </div>
+
+              <p>
+                ${escapeHTML(
+                  truncate(
+                    offer.message || "",
+                    180
+                  )
+                )}
+              </p>
+
+              <div class="history-meta">
+
+                <span>
+                  ⏱️ ${escapeHTML(
+                    offer.duration || "-"
+                  )}
+                </span>
+
+                <span>
+                  📅 ${formatDate(
+                    offer.createdAt
+                  )}
+                </span>
+
+              </div>
+
+            </div>
+
+
+            <div>
+
+              <span
+                class="status ${getStatusClass(status)}"
+              >
+                ${getStatusText(status)}
+              </span>
+
+              <br>
+
+              <button
+                type="button"
+                class="btn btn-outline"
+                style="margin-top:12px"
+                onclick="window.viewNeed('${offer.needId}')"
+              >
+                👁️ Lihat Kebutuhan
+              </button>
+
+            </div>
+
+          </article>
+
+        `;
+
+      }
+    ).join("");
 
 }
 
 
 // ============================================================
-// OFFER CARD
+// VIEW NEED
 // ============================================================
 
-function createOfferCard(
-  offer
-) {
+window.viewNeed =
+  function(needId) {
 
-  const status =
-    String(
-      offer.status ||
-      "pending"
-    ).toLowerCase();
+    window.location.href =
+      "index.html?need=" +
+      encodeURIComponent(needId);
 
-
-  return `
-
-    <article class="history-card">
-
-      <div class="history-main">
-
-        <h3>
-          ${escapeHTML(
-            offer.needTitle ||
-            "Kebutuhan"
-          )}
-        </h3>
-
-
-        <div class="offer-price">
-
-          Rp ${formatMoney(
-            offer.price
-          )}
-
-        </div>
-
-
-        <p>
-
-          ${escapeHTML(
-            truncate(
-              offer.message ||
-              "",
-              180
-            )
-          )}
-
-        </p>
-
-
-        <div class="history-meta">
-
-          <span>
-            ⏱️ ${escapeHTML(
-              offer.duration ||
-              "-"
-            )}
-          </span>
-
-          <span>
-            📅 ${formatDate(
-              offer.createdAt
-            )}
-          </span>
-
-        </div>
-
-      </div>
-
-
-      <div>
-
-        <span
-          class="status ${getStatusClass(status)}"
-        >
-          ${getStatusText(status)}
-        </span>
-
-
-        <br>
-
-
-        <button
-          type="button"
-          class="btn btn-outline"
-          style="margin-top:12px"
-          onclick="window.viewNeed('${escapeJS(
-            offer.needId
-          )}')"
-        >
-
-          👁️ Lihat Kebutuhan
-
-        </button>
-
-      </div>
-
-    </article>
-
-  `;
-
-}
+  };
 
 
 // ============================================================
-// STATISTICS
+// COUNTERS
 // ============================================================
 
-function updateStatistics() {
+function updateNeedCounter() {
 
   setText(
     "totalNeeds",
     myNeeds.length
   );
 
+}
+
+
+function updateOfferCounters() {
 
   setText(
     "totalOffers",
@@ -757,42 +605,31 @@ function updateStatistics() {
 
   const accepted =
     myOffers.filter(
-      offer => {
-
-        const status =
+      offer =>
+        [
+          "accepted",
+          "diterima",
+          "success"
+        ].includes(
           String(
-            offer.status ||
-            ""
-          ).toLowerCase();
-
-        return (
-          status === "accepted" ||
-          status === "accept" ||
-          status === "diterima" ||
-          status === "success"
-        );
-
-      }
+            offer.status || ""
+          ).toLowerCase()
+        )
     ).length;
 
 
   const completed =
     myOffers.filter(
-      offer => {
-
-        const status =
+      offer =>
+        [
+          "completed",
+          "complete",
+          "selesai"
+        ].includes(
           String(
-            offer.status ||
-            ""
-          ).toLowerCase();
-
-        return (
-          status === "completed" ||
-          status === "complete" ||
-          status === "selesai"
-        );
-
-      }
+            offer.status || ""
+          ).toLowerCase()
+        )
     ).length;
 
 
@@ -800,7 +637,6 @@ function updateStatistics() {
     "acceptedOffers",
     accepted
   );
-
 
   setText(
     "completedOffers",
@@ -814,7 +650,7 @@ function updateStatistics() {
 // RATING
 // ============================================================
 
-function calculateRating() {
+function updateRating() {
 
   setText(
     "ratingStars",
@@ -835,52 +671,38 @@ function calculateRating() {
 
 function showNeedsLoading() {
 
-  const container =
+  const el =
     $("needsList");
 
+  if (el) {
 
-  if (!container) {
-    return;
+    el.innerHTML = `
+      <div class="loading-state">
+        <div class="spinner"></div>
+        Memuat kebutuhan...
+      </div>
+    `;
+
   }
-
-
-  container.innerHTML = `
-
-    <div class="loading-state">
-
-      <div class="spinner"></div>
-
-      Memuat kebutuhan...
-
-    </div>
-
-  `;
 
 }
 
 
 function showOffersLoading() {
 
-  const container =
+  const el =
     $("offersList");
 
+  if (el) {
 
-  if (!container) {
-    return;
+    el.innerHTML = `
+      <div class="loading-state">
+        <div class="spinner"></div>
+        Memuat penawaran...
+      </div>
+    `;
+
   }
-
-
-  container.innerHTML = `
-
-    <div class="loading-state">
-
-      <div class="spinner"></div>
-
-      Memuat penawaran...
-
-    </div>
-
-  `;
 
 }
 
@@ -891,220 +713,207 @@ function showOffersLoading() {
 
 function showNeedsError(error) {
 
-  const container =
+  const el =
     $("needsList");
 
+  if (el) {
 
-  if (!container) {
-    return;
-  }
-
-
-  container.innerHTML = `
-
-    <div class="error-state">
-
-      <div class="error-icon">
-        ⚠️
+    el.innerHTML = `
+      <div class="error-state">
+        <div class="error-icon">⚠️</div>
+        <strong>Gagal memuat kebutuhan</strong>
+        <p>${escapeHTML(error.message)}</p>
       </div>
+    `;
 
-      <strong>
-        Gagal memuat riwayat kebutuhan
-      </strong>
-
-      <p>
-        ${escapeHTML(
-          error?.message ||
-          "Terjadi kesalahan."
-        )}
-      </p>
-
-      <button
-        class="btn btn-primary"
-        onclick="window.reloadProfile()"
-      >
-        🔄 Coba Lagi
-      </button>
-
-    </div>
-
-  `;
+  }
 
 }
 
 
 function showOffersError(error) {
 
-  const container =
+  const el =
     $("offersList");
 
+  if (el) {
 
-  if (!container) {
-    return;
+    el.innerHTML = `
+      <div class="error-state">
+        <div class="error-icon">⚠️</div>
+        <strong>Gagal memuat penawaran</strong>
+        <p>${escapeHTML(error.message)}</p>
+      </div>
+    `;
+
   }
 
-
-  container.innerHTML = `
-
-    <div class="error-state">
-
-      <div class="error-icon">
-        ⚠️
-      </div>
-
-      <strong>
-        Gagal memuat riwayat penawaran
-      </strong>
-
-      <p>
-        ${escapeHTML(
-          error?.message ||
-          "Terjadi kesalahan."
-        )}
-      </p>
-
-      <button
-        class="btn btn-primary"
-        onclick="window.reloadProfile()"
-      >
-        🔄 Coba Lagi
-      </button>
-
-    </div>
-
-  `;
-
 }
-
-
-// ============================================================
-// RETRY
-// ============================================================
-
-window.reloadProfile =
-  async function() {
-
-    if (loading) {
-      return;
-    }
-
-    await loadProfile();
-
-  };
 
 
 // ============================================================
 // STATUS
 // ============================================================
 
-function getStatusClass(
-  status
-) {
+function getStatusClass(status) {
 
-  switch (
-    String(
-      status ||
-      ""
-    ).toLowerCase()
+  if (
+    [
+      "accepted",
+      "diterima",
+      "success"
+    ].includes(status)
   ) {
-
-    case "accepted":
-    case "accept":
-    case "diterima":
-    case "success":
-      return "status-success";
-
-    case "completed":
-    case "complete":
-    case "selesai":
-      return "status-completed";
-
-    case "rejected":
-    case "cancelled":
-    case "canceled":
-    case "ditolak":
-      return "status-danger";
-
-    default:
-      return "status-pending";
-
+    return "status-success";
   }
+
+
+  if (
+    [
+      "completed",
+      "complete",
+      "selesai"
+    ].includes(status)
+  ) {
+    return "status-completed";
+  }
+
+
+  if (
+    [
+      "rejected",
+      "ditolak",
+      "cancelled"
+    ].includes(status)
+  ) {
+    return "status-danger";
+  }
+
+
+  return "status-pending";
 
 }
 
 
-function getStatusText(
-  status
-) {
+function getStatusText(status) {
 
-  switch (
-    String(
-      status ||
-      ""
-    ).toLowerCase()
+  if (
+    [
+      "accepted",
+      "diterima",
+      "success"
+    ].includes(status)
   ) {
-
-    case "accepted":
-    case "accept":
-    case "diterima":
-    case "success":
-      return "✓ Diterima";
-
-    case "completed":
-    case "complete":
-    case "selesai":
-      return "✓ Selesai";
-
-    case "rejected":
-    case "cancelled":
-    case "canceled":
-    case "ditolak":
-      return "✕ Ditolak";
-
-    default:
-      return "⏳ Menunggu";
-
+    return "✓ Diterima";
   }
+
+
+  if (
+    [
+      "completed",
+      "complete",
+      "selesai"
+    ].includes(status)
+  ) {
+    return "✓ Selesai";
+  }
+
+
+  if (
+    [
+      "rejected",
+      "ditolak",
+      "cancelled"
+    ].includes(status)
+  ) {
+    return "✕ Ditolak";
+  }
+
+
+  return "⏳ Menunggu";
 
 }
 
 
 // ============================================================
-// CATEGORY
+// UTILITIES
 // ============================================================
 
-function getCategory(
-  value
-) {
+function getTime(value) {
+
+  if (!value) {
+    return 0;
+  }
+
+  if (typeof value.toMillis === "function") {
+    return value.toMillis();
+  }
+
+  if (typeof value.toDate === "function") {
+    return value.toDate().getTime();
+  }
+
+  if (typeof value.seconds === "number") {
+    return value.seconds * 1000;
+  }
+
+  const time =
+    new Date(value).getTime();
+
+  return Number.isFinite(time)
+    ? time
+    : 0;
+
+}
+
+
+function formatDate(value) {
+
+  const time =
+    getTime(value);
+
+  if (!time) {
+    return "Baru saja";
+  }
+
+  return new Intl.DateTimeFormat(
+    "id-ID",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric"
+    }
+  ).format(new Date(time));
+
+}
+
+
+function formatMoney(value) {
+
+  const number =
+    Number(value);
+
+  return Number.isFinite(number)
+    ? new Intl.NumberFormat(
+        "id-ID"
+      ).format(number)
+    : "0";
+
+}
+
+
+function getCategory(value) {
 
   const categories = {
-
-    design:
-      "🎨 Desain",
-
-    website:
-      "🌐 Website",
-
-    programming:
-      "💻 Programming",
-
-    marketing:
-      "📢 Marketing",
-
-    writing:
-      "✍️ Penulisan",
-
-    video:
-      "🎬 Video",
-
-    translation:
-      "🌍 Terjemahan",
-
-    other:
-      "📦 Lainnya"
-
+    design: "🎨 Desain",
+    website: "🌐 Website",
+    programming: "💻 Programming",
+    marketing: "📢 Marketing",
+    writing: "✍️ Penulisan",
+    video: "🎬 Video",
+    translation: "🌍 Terjemahan",
+    other: "📦 Lainnya"
   };
-
 
   return (
     categories[value] ||
@@ -1114,314 +923,71 @@ function getCategory(
 }
 
 
-// ============================================================
-// DATE
-// ============================================================
-
-function getTime(
-  value
-) {
-
-  if (!value) {
-    return 0;
-  }
-
-
-  try {
-
-    if (
-      typeof value.toMillis ===
-      "function"
-    ) {
-
-      return value.toMillis();
-
-    }
-
-
-    if (
-      typeof value.toDate ===
-      "function"
-    ) {
-
-      return value
-        .toDate()
-        .getTime();
-
-    }
-
-
-    if (
-      typeof value.seconds ===
-      "number"
-    ) {
-
-      return value.seconds * 1000;
-
-    }
-
-
-    const time =
-      new Date(
-        value
-      ).getTime();
-
-
-    return Number.isFinite(time)
-      ? time
-      : 0;
-
-  } catch {
-
-    return 0;
-
-  }
-
-}
-
-
-function formatDate(
-  value
-) {
-
-  const time =
-    getTime(value);
-
-
-  if (!time) {
-    return "Baru saja";
-  }
-
-
-  return new Intl.DateTimeFormat(
-    "id-ID",
-    {
-      day:
-        "2-digit",
-
-      month:
-        "short",
-
-      year:
-        "numeric"
-    }
-  ).format(
-    new Date(time)
-  );
-
-}
-
-
-// ============================================================
-// MONEY
-// ============================================================
-
-function formatMoney(
-  value
-) {
-
-  const number =
-    Number(value);
-
-
-  if (!Number.isFinite(number)) {
-    return "0";
-  }
-
-
-  return new Intl.NumberFormat(
-    "id-ID"
-  ).format(number);
-
-}
-
-
-// ============================================================
-// TEXT
-// ============================================================
-
-function truncate(
-  text,
-  length
-) {
+function truncate(text, length) {
 
   const value =
-    String(
-      text || ""
-    );
+    String(text || "");
 
-
-  if (
-    value.length <=
-    length
-  ) {
-
-    return value;
-
-  }
-
-
-  return (
-    value.substring(
-      0,
-      length
-    ) +
-    "..."
-  );
+  return value.length > length
+    ? value.substring(0, length) + "..."
+    : value;
 
 }
 
 
-// ============================================================
-// SECURITY
-// ============================================================
+function escapeHTML(value) {
 
-function escapeHTML(
-  value
-) {
-
-  return String(
-    value ?? ""
-  )
-
-    .replace(
-      /&/g,
-      "&amp;"
-    )
-
-    .replace(
-      /</g,
-      "&lt;"
-    )
-
-    .replace(
-      />/g,
-      "&gt;"
-    )
-
-    .replace(
-      /"/g,
-      "&quot;"
-    )
-
-    .replace(
-      /'/g,
-      "&#039;"
-    );
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 
 }
 
 
-function escapeJS(
-  value
-) {
+function setText(id, value) {
 
-  return String(
-    value ?? ""
-  )
+  const el = $(id);
 
-    .replace(
-      /\\/g,
-      "\\\\"
-    )
-
-    .replace(
-      /'/g,
-      "\\'"
-    )
-
-    .replace(
-      /\n/g,
-      "\\n"
-    )
-
-    .replace(
-      /\r/g,
-      "\\r"
-    );
-
-}
-
-
-// ============================================================
-// IMAGE
-// ============================================================
-
-function setImage(
-  id,
-  src
-) {
-
-  const element =
-    $(id);
-
-
-  if (
-    element &&
-    src
-  ) {
-
-    element.src =
-      src;
-
+  if (el) {
+    el.textContent = value ?? "";
   }
 
 }
 
 
-// ============================================================
-// TEXT
-// ============================================================
+function setImage(id, src) {
 
-function setText(
-  id,
-  value
-) {
+  const el = $(id);
 
-  const element =
-    $(id);
-
-
-  if (element) {
-
-    element.textContent =
-      value ?? "";
-
+  if (el && src) {
+    el.src = src;
   }
 
 }
 
 
-// ============================================================
-// AVATAR
-// ============================================================
-
-function createAvatar(
-  name
-) {
+function createAvatar(name) {
 
   const letter =
-    String(
-      name ||
-      "U"
-    )
+    String(name || "U")
       .trim()
       .charAt(0)
       .toUpperCase();
-
 
   return (
     "https://ui-avatars.com/api/" +
     "?name=" +
     encodeURIComponent(letter) +
     "&background=2563eb" +
-    "&color=ffffff" +
-    "&size=256"
+    "&color=ffffff&size=256"
   );
 
 }
 
 
 console.log(
-  "✅ BUTUH profile.js terbaru aktif"
+  "✅ BUTUH profile.js baru aktif"
 );
