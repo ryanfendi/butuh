@@ -8,17 +8,12 @@
     content="width=device-width, initial-scale=1.0"
   >
 
-  <meta
-    name="theme-color"
-    content="#2563eb"
-  >
+  <title>Profil Saya - BUTUH</title>
 
   <meta
     name="description"
     content="Profil pengguna BUTUH"
   >
-
-  <title>Profil Saya - BUTUH</title>
 
   <link
     rel="stylesheet"
@@ -28,719 +23,535 @@
 
 <body>
 
-
-  <!-- =========================================
+  <!-- =====================================================
        HEADER
-  ========================================== -->
+       ===================================================== -->
 
-  <header class="header">
+  <header class="site-header">
 
     <div class="header-inner">
 
-
-      <!-- LOGO -->
-
       <a
         href="index.html"
-        class="logo"
+        class="brand"
       >
-
-        <span class="logo-icon">
+        <div class="brand-icon">
           B
-        </span>
+        </div>
 
-        <span class="logo-text">
-          BUTUH
-        </span>
+        <div>
+          <strong>
+            BUTUH
+          </strong>
 
+          <span>
+            Temukan yang dibutuhkan
+          </span>
+        </div>
       </a>
 
 
-      <!-- NAVIGATION -->
+      <nav class="main-nav">
 
-      <nav class="nav">
+        <a href="index.html">
+          Beranda
+        </a>
 
         <a
-          href="index.html"
-          class="nav-link"
+          href="profile.html"
+          class="active"
         >
-          ← Dashboard
+          Profil
         </a>
 
       </nav>
 
 
-      <!-- USER -->
+      <div class="header-user">
 
-      <div class="user-area">
-
-        <button
-          id="profileButton"
-          class="profile-button"
-          type="button"
+        <img
+          id="profilePhoto"
+          class="header-avatar"
+          src="https://ui-avatars.com/api/?name=U"
+          alt="Foto profil"
         >
 
-          <img
-            id="userPhoto"
-            src=""
-            alt="Foto Profil"
-            referrerpolicy="no-referrer"
-          >
+        <div class="header-user-info">
 
-          <div class="profile-button-text">
+          <strong id="profileName">
+            Memuat...
+          </strong>
 
-            <strong id="userName">
-              Memuat...
-            </strong>
+          <small id="profileEmail">
+            -
+          </small>
 
-            <small id="userEmail">
-              ...
-            </small>
-
-          </div>
-
-        </button>
+        </div>
 
       </div>
-
 
     </div>
 
   </header>
 
 
-
-  <!-- =========================================
+  <!-- =====================================================
        MAIN
-  ========================================== -->
+       ===================================================== -->
 
   <main class="profile-page">
 
+    <!-- ===================================================
+         PROFILE HERO
+         =================================================== -->
 
-    <div class="profile-container">
+    <section class="profile-hero">
 
-
-      <!-- =====================================
-           PROFILE HERO
-      ====================================== -->
-
-      <section class="profile-hero">
+      <div class="profile-hero-bg"></div>
 
 
-        <!-- COVER -->
+      <div class="profile-hero-content">
 
-        <div class="profile-cover">
-
-          <div class="profile-cover-pattern"></div>
-
-        </div>
-
-
-        <!-- PROFILE CONTENT -->
-
-        <div class="profile-main-info">
+        <img
+          id="profilePhoto"
+          class="profile-avatar-large"
+          src="https://ui-avatars.com/api/?name=U"
+          alt="Foto profil"
+        >
 
 
-          <!-- PHOTO -->
+        <div class="profile-user-data">
 
-          <div class="profile-photo-wrapper">
+          <div class="profile-name-row">
 
-            <img
-              id="profilePhoto"
-              src=""
-              alt="Foto Profil"
-              class="profile-photo"
-              referrerpolicy="no-referrer"
-            >
+            <h1 id="profileName">
+              Memuat...
+            </h1>
 
-          </div>
-
-
-          <!-- INFO -->
-
-          <div class="profile-info">
-
-
-            <div class="profile-name-row">
-
-              <h1 id="profileName">
-                Memuat...
-              </h1>
-
-
-              <span class="verified-badge">
-                ✓
-              </span>
-
-            </div>
-
-
-            <p
-              id="profileEmail"
-              class="profile-email"
-            >
-              ...
-            </p>
-
-
-            <!-- MEMBER SINCE -->
-
-            <div class="profile-meta">
-
-              <span>
-                👤 Pengguna BUTUH
-              </span>
-
-              <span>
-                📅 <span id="memberSince">
-                  Memuat...
-                </span>
-              </span>
-
-            </div>
-
-
-          </div>
-
-
-          <!-- RATING -->
-
-          <div class="profile-rating-box">
-
-            <span class="rating-label">
-              Rating
+            <span class="verified-badge">
+              ✓ Terverifikasi
             </span>
 
-
-            <div class="rating-main">
-
-              <span
-                id="profileRating"
-                class="rating-number"
-              >
-                0.0
-              </span>
-
-              <span class="rating-star">
-                ★
-              </span>
-
-            </div>
-
-
-            <small>
-              <span id="ratingCount">
-                0
-              </span>
-
-              ulasan
-            </small>
-
           </div>
 
+
+          <p id="profileEmail">
+            -
+          </p>
+
+
+          <div class="profile-meta">
+
+            <span>
+              🇮🇩 Indonesia
+            </span>
+
+            <span>
+              •
+            </span>
+
+            <span>
+              Pengguna BUTUH
+            </span>
+
+          </div>
 
         </div>
 
 
-      </section>
+        <div class="profile-actions">
+
+          <a
+            href="index.html"
+            class="btn btn-primary"
+          >
+            + Posting Kebutuhan
+          </a>
+
+        </div>
+
+      </div>
+
+    </section>
 
 
+    <!-- ===================================================
+         STATISTICS
+         =================================================== -->
 
-      <!-- =====================================
-           STATISTICS
-      ====================================== -->
-
-      <section class="profile-stats-section">
+    <section class="stats-grid">
 
 
-        <div class="profile-section-title">
+      <div class="stat-card">
+
+        <div class="stat-icon blue">
+          📋
+        </div>
+
+        <div>
+
+          <span>
+            Kebutuhan
+          </span>
+
+          <strong id="needTotal">
+            0
+          </strong>
+
+        </div>
+
+      </div>
+
+
+      <div class="stat-card">
+
+        <div class="stat-icon purple">
+          🤝
+        </div>
+
+        <div>
+
+          <span>
+            Penawaran
+          </span>
+
+          <strong id="offerTotal">
+            0
+          </strong>
+
+        </div>
+
+      </div>
+
+
+      <div class="stat-card">
+
+        <div class="stat-icon yellow">
+          ⭐
+        </div>
+
+        <div>
+
+          <span>
+            Rating
+          </span>
+
+          <strong id="ratingValue">
+            0.0
+          </strong>
+
+        </div>
+
+      </div>
+
+
+      <div class="stat-card">
+
+        <div class="stat-icon green">
+          ✅
+        </div>
+
+        <div>
+
+          <span>
+            Selesai
+          </span>
+
+          <strong id="completedTotal">
+            0
+          </strong>
+
+        </div>
+
+      </div>
+
+
+    </section>
+
+
+    <!-- ===================================================
+         RATING
+         =================================================== -->
+
+    <section class="rating-card">
+
+      <div class="rating-left">
+
+        <div class="rating-big">
+          <span id="ratingBig">
+            0.0
+          </span>
+
+          <span class="rating-star">
+            ★
+          </span>
+        </div>
+
+
+        <div class="rating-label">
+          Rating pengguna
+        </div>
+
+      </div>
+
+
+      <div class="rating-center">
+
+        <div class="rating-title">
+          Reputasi
+        </div>
+
+        <div class="stars-large">
+          ★★★★★
+        </div>
+
+        <p>
+          Rating akan bertambah setelah transaksi
+          selesai dan pengguna memberikan penilaian.
+        </p>
+
+      </div>
+
+
+      <div class="rating-right">
+
+        <div class="rating-count">
+          <strong id="ratingCount">
+            0
+          </strong>
+
+          <span>
+            penilaian
+          </span>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ===================================================
+         CONTENT
+         =================================================== -->
+
+    <div class="profile-content">
+
+
+      <!-- =================================================
+           MY NEEDS
+           ================================================= -->
+
+      <section class="profile-section">
+
+        <div class="section-heading">
 
           <div>
 
             <span class="section-label">
-              STATISTIK
+              AKTIVITAS
             </span>
 
             <h2>
-              Aktivitas Saya
+              Riwayat Kebutuhan
             </h2>
-
-          </div>
-
-        </div>
-
-
-        <div class="profile-stats-grid">
-
-
-          <!-- NEEDS -->
-
-          <div class="profile-stat-card">
-
-            <div class="profile-stat-icon">
-              📌
-            </div>
-
-
-            <div>
-
-              <strong id="totalNeeds">
-                0
-              </strong>
-
-              <span>
-                Total Kebutuhan
-              </span>
-
-            </div>
-
-          </div>
-
-
-
-          <!-- ACTIVE NEEDS -->
-
-          <div class="profile-stat-card">
-
-            <div class="profile-stat-icon">
-              🔥
-            </div>
-
-
-            <div>
-
-              <strong id="activeUserNeeds">
-                0
-              </strong>
-
-              <span>
-                Kebutuhan Aktif
-              </span>
-
-            </div>
-
-          </div>
-
-
-
-          <!-- OFFERS -->
-
-          <div class="profile-stat-card">
-
-            <div class="profile-stat-icon">
-              💰
-            </div>
-
-
-            <div>
-
-              <strong id="totalOffers">
-                0
-              </strong>
-
-              <span>
-                Total Penawaran
-              </span>
-
-            </div>
-
-          </div>
-
-
-
-          <!-- ACCEPTED -->
-
-          <div class="profile-stat-card">
-
-            <div class="profile-stat-icon">
-              🤝
-            </div>
-
-
-            <div>
-
-              <strong id="acceptedOffers">
-                0
-              </strong>
-
-              <span>
-                Penawaran Diterima
-              </span>
-
-            </div>
-
-          </div>
-
-
-        </div>
-
-
-      </section>
-
-
-
-      <!-- =====================================
-           RATING DETAILS
-      ====================================== -->
-
-      <section class="rating-details-section">
-
-
-        <div class="profile-section-title">
-
-          <div>
-
-            <span class="section-label">
-              REPUTASI
-            </span>
-
-            <h2>
-              Rating & Kepercayaan
-            </h2>
-
-          </div>
-
-        </div>
-
-
-        <div class="rating-details-card">
-
-
-          <div class="rating-big">
-
-            <div class="rating-big-number">
-
-              <span id="ratingAverage">
-                0.0
-              </span>
-
-              <span>
-                /5
-              </span>
-
-            </div>
-
-
-            <div
-              id="ratingStars"
-              class="rating-stars"
-            >
-              ☆ ☆ ☆ ☆ ☆
-            </div>
-
 
             <p>
-              Berdasarkan
-              <strong id="ratingTotal">
-                0
-              </strong>
-              penilaian
+              Semua kebutuhan yang pernah Anda posting.
             </p>
 
           </div>
 
 
-          <!-- RATING BREAKDOWN -->
-
-          <div class="rating-breakdown">
-
-
-            <div class="rating-row">
-
-              <span>
-                5 ★
-              </span>
-
-              <div class="rating-bar">
-
-                <div
-                  id="ratingBar5"
-                  class="rating-fill"
-                  style="width:0%"
-                ></div>
-
-              </div>
-
-              <strong id="ratingCount5">
-                0
-              </strong>
-
-            </div>
-
-
-            <div class="rating-row">
-
-              <span>
-                4 ★
-              </span>
-
-              <div class="rating-bar">
-
-                <div
-                  id="ratingBar4"
-                  class="rating-fill"
-                  style="width:0%"
-                ></div>
-
-              </div>
-
-              <strong id="ratingCount4">
-                0
-              </strong>
-
-            </div>
-
-
-            <div class="rating-row">
-
-              <span>
-                3 ★
-              </span>
-
-              <div class="rating-bar">
-
-                <div
-                  id="ratingBar3"
-                  class="rating-fill"
-                  style="width:0%"
-                ></div>
-
-              </div>
-
-              <strong id="ratingCount3">
-                0
-              </strong>
-
-            </div>
-
-
-            <div class="rating-row">
-
-              <span>
-                2 ★
-              </span>
-
-              <div class="rating-bar">
-
-                <div
-                  id="ratingBar2"
-                  class="rating-fill"
-                  style="width:0%"
-                ></div>
-
-              </div>
-
-              <strong id="ratingCount2">
-                0
-              </strong>
-
-            </div>
-
-
-            <div class="rating-row">
-
-              <span>
-                1 ★
-              </span>
-
-              <div class="rating-bar">
-
-                <div
-                  id="ratingBar1"
-                  class="rating-fill"
-                  style="width:0%"
-                ></div>
-
-              </div>
-
-              <strong id="ratingCount1">
-                0
-              </strong>
-
-            </div>
-
-
-          </div>
-
+          <a
+            href="index.html"
+            class="btn btn-outline"
+          >
+            + Tambah
+          </a>
 
         </div>
 
 
+        <div
+          id="myNeedsList"
+          class="history-list"
+        >
+
+          <div class="loading-box">
+
+            <div class="loading-spinner"></div>
+
+            <strong>
+              Memuat kebutuhan...
+            </strong>
+
+          </div>
+
+        </div>
+
       </section>
 
 
+      <!-- =================================================
+           MY OFFERS
+           ================================================= -->
 
-      <!-- =====================================
-           ACTIVITY HISTORY
-      ====================================== -->
+      <section class="profile-section">
 
-      <section class="history-section">
-
-
-        <div class="profile-section-title">
+        <div class="section-heading">
 
           <div>
 
             <span class="section-label">
-              RIWAYAT
+              AKTIVITAS
             </span>
 
             <h2>
-              Aktivitas Terbaru
+              Riwayat Penawaran
             </h2>
 
-          </div>
-
-        </div>
-
-
-        <!-- TABS -->
-
-        <div
-          id="historyTabs"
-          class="history-tabs"
-        >
-
-          <button
-            class="history-tab active"
-            data-tab="needs"
-            type="button"
-          >
-
-            📌 Kebutuhan Saya
-
-            <span
-              id="tabNeedsCount"
-              class="tab-count"
-            >
-              0
-            </span>
-
-          </button>
-
-
-          <button
-            class="history-tab"
-            data-tab="offers"
-            type="button"
-          >
-
-            💰 Penawaran Saya
-
-            <span
-              id="tabOffersCount"
-              class="tab-count"
-            >
-              0
-            </span>
-
-          </button>
-
-
-        </div>
-
-
-
-        <!-- ===================================
-             NEEDS PANEL
-        ==================================== -->
-
-        <div
-          id="needsHistoryPanel"
-          class="history-panel active"
-        >
-
-
-          <div
-            id="needsHistoryList"
-            class="history-list"
-          >
-
-            <div class="history-loading">
-
-              <div class="loading-spinner"></div>
-
-              Memuat riwayat kebutuhan...
-
-            </div>
+            <p>
+              Semua penawaran yang pernah Anda kirim.
+            </p>
 
           </div>
 
-
         </div>
 
 
-
-        <!-- ===================================
-             OFFERS PANEL
-        ==================================== -->
-
         <div
-          id="offersHistoryPanel"
-          class="history-panel"
+          id="myOffersList"
+          class="history-list"
         >
 
+          <div class="loading-box">
 
-          <div
-            id="offersHistoryList"
-            class="history-list"
-          >
+            <div class="loading-spinner"></div>
 
-            <div class="history-loading">
-
-              <div class="loading-spinner"></div>
-
-              Memuat riwayat penawaran...
-
-            </div>
+            <strong>
+              Memuat penawaran...
+            </strong>
 
           </div>
 
-
         </div>
-
 
       </section>
 
 
-    </div>
+      <!-- =================================================
+           CARA KERJA
+           ================================================= -->
 
+      <section class="how-section">
+
+        <div class="section-heading center">
+
+          <span class="section-label">
+            BUTUH
+          </span>
+
+          <h2>
+            Bangun reputasi Anda
+          </h2>
+
+          <p>
+            Semakin banyak transaksi selesai,
+            semakin tinggi kepercayaan pengguna lain.
+          </p>
+
+        </div>
+
+
+        <div class="steps-grid">
+
+
+          <div class="step-card">
+
+            <div class="step-number">
+              1
+            </div>
+
+            <h3>
+              Temukan kebutuhan
+            </h3>
+
+            <p>
+              Cari kebutuhan yang sesuai
+              dengan kemampuan Anda.
+            </p>
+
+          </div>
+
+
+          <div class="step-card">
+
+            <div class="step-number">
+              2
+            </div>
+
+            <h3>
+              Kirim penawaran
+            </h3>
+
+            <p>
+              Tentukan harga dan waktu
+              pengerjaan yang Anda tawarkan.
+            </p>
+
+          </div>
+
+
+          <div class="step-card">
+
+            <div class="step-number">
+              3
+            </div>
+
+            <h3>
+              Selesaikan pekerjaan
+            </h3>
+
+            <p>
+              Kerjakan sesuai kesepakatan
+              dengan pemilik kebutuhan.
+            </p>
+
+          </div>
+
+
+          <div class="step-card">
+
+            <div class="step-number">
+              4
+            </div>
+
+            <h3>
+              Dapatkan rating
+            </h3>
+
+            <p>
+              Transaksi yang selesai dapat
+              menghasilkan rating positif.
+            </p>
+
+          </div>
+
+
+        </div>
+
+      </section>
+
+    </div>
 
   </main>
 
 
-
-  <!-- =========================================
-       LOGOUT
-  ========================================== -->
-
-  <section class="profile-bottom-actions">
-
-    <a
-      href="index.html"
-      class="btn btn-outline"
-    >
-      ← Kembali ke Dashboard
-    </a>
-
-
-    <button
-      id="logoutBtn"
-      class="btn profile-logout-button"
-      type="button"
-    >
-      🚪 Keluar dari Akun
-    </button>
-
-  </section>
-
-
-
-  <!-- =========================================
+  <!-- =====================================================
        FOOTER
-  ========================================== -->
+       ===================================================== -->
 
-  <footer class="footer">
+  <footer class="site-footer">
 
     <div class="footer-inner">
 
@@ -751,31 +562,45 @@
         </strong>
 
         <p>
-          Hubungkan kebutuhan dengan solusi.
+          Hubungkan kebutuhan dengan orang
+          yang bisa membantu.
         </p>
 
       </div>
 
 
-      <div class="footer-copy">
-        © 2026 BUTUH
+      <div class="footer-links">
+
+        <a href="index.html">
+          Beranda
+        </a>
+
+        <a href="profile.html">
+          Profil
+        </a>
+
       </div>
+
+    </div>
+
+
+    <div class="footer-bottom">
+
+      © 2026 BUTUH. Semua hak dilindungi.
 
     </div>
 
   </footer>
 
 
-
-  <!-- =========================================
-       PROFILE SCRIPT
-  ========================================== -->
+  <!-- =====================================================
+       FIREBASE PROFILE SCRIPT
+       ===================================================== -->
 
   <script
     type="module"
-    src="./profile.js"
+    src="profile.js"
   ></script>
-
 
 </body>
 </html>
