@@ -1856,47 +1856,57 @@ async function submitOffer(
   try {
 
     await addDoc(
-      collection(
-        db,
-        "needs",
-        need.id,
-        "offers"
-      ),
-      {
 
-        providerId:
-          currentUser.uid,
+  collection(
+    db,
+    "needs",
+    need.id,
+    "offers"
+  ),
 
-        providerName:
-          currentUser.displayName ||
-          currentUser.email?.split("@")[0] ||
-          "Pengguna",
+  {
 
-        providerEmail:
-          currentUser.email ||
-          "",
+    needId:
+      need.id,
 
-        providerPhoto:
-          currentUser.photoURL ||
-          "",
+    needTitle:
+      need.title ||
+      "Kebutuhan",
 
-        price,
+    providerId:
+      currentUser.uid,
 
-        duration,
+    providerName:
+      currentUser.displayName ||
+      currentUser.email?.split("@")[0] ||
+      "Pengguna",
 
-        message,
+    providerEmail:
+      currentUser.email ||
+      "",
 
-        status:
-          "pending",
+    providerPhoto:
+      currentUser.photoURL ||
+      "",
 
-        createdAt:
-          serverTimestamp(),
+    price,
 
-        updatedAt:
-          serverTimestamp()
+    duration,
 
-      }
-    );
+    message,
+
+    status:
+      "pending",
+
+    createdAt:
+      serverTimestamp(),
+
+    updatedAt:
+      serverTimestamp()
+
+  }
+
+);
 
     form.reset();
 
