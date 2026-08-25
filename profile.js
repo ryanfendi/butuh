@@ -1,737 +1,1326 @@
 import {
-  auth,
-  db
-} from "./firebase.js";
+  initializeApp
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+
 
 import {
+  getAuth,
   onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+
 
 import {
+  getFirestore,
   collection,
-  getDocs,
+  collectionGroup,
   query,
-  where
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  where,
+  getDocs
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
-const $ = (id) => document.getElementById(id);
+
+/* =====================================================
+   FIREBASE
+===================================================== */
+
+const firebaseConfig = {
+
+  apiKey:
+    "AIzaSyCUFHkwOfNo-JCGHWG3dWcnISoYLg7vGnY",
+
+  authDomain:
+    "butuhin.firebaseapp.com",
+
+  projectId:
+    "butuhin",
+
+  storageBucket:
+    "butuhin.firebasestorage.app",
+
+  messagingSenderId:
+    "331896660506",
+
+  appId:
+    "1:331896660506:web:7a03f433101b81dd74e7a3"
+
+};
+
+
+const app =
+  initializeApp(
+    firebaseConfig
+  );
+
+
+const auth =
+  getAuth(app);
+
+
+const db =
+  getFirestore(app);
+
+
+/* =====================================================
+   GLOBAL
+===================================================== */
 
 let currentUser = null;
 
-document.addEventListener("DOMContentLoaded", () => {
-  onAuthStateChanged(auth, async (user) => {
+const $ = id =>
+  document.getElementById(id);
+
+
+/* =====================================================
+   AUTH
+===================================================== */
+
+onAuthStateChanged(
+  auth,
+  async user => {
+
     if (!user) {
-      window.location.href = "login.html";
+
+      window.location.href =
+        "login.html";
+
       return;
+
     }
 
-    currentUser = user;
 
-    renderProfileHeader(user);
-    await loadProfileData(user.uid);
-  });
-});
+    currentUser =
+      user;
 
 
-/* =========================
+    renderProfile(
+      user
+    );
+
+
+    await loadProfile();
+
+  }
+);
+
+
+/* =====================================================
    PROFILE HEADER
-========================= */
+===================================================== */
 
-function renderProfileHeader(user) {
+function renderProfile(
+  user
+) {
+
   const name =
     user.displayName ||
     user.email?.split("@")[0] ||
     "Pengguna";
 
-  const email = user.email || "";
+
+  const email =
+    user.email ||
+    "";
+
 
   const photo =
     user.photoURL ||
-    "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/user.svg";
-
-  if ($("profileName")) {
-    $("profileName").textContent = name;
-  }
-
-  if ($("profileEmail")) {
-    $("profileEmail").textContent = email;
-  }
-
-  if ($("profilePhoto")) {
-    $("profilePhoto").src = photo;
-  }
-
-  if ($("userName")) {
-    $("userName").textContent = name;
-  }
-
-  if ($("userEmail")) {
-    $("userEmail").textContent = email;
-  }
-
-  if ($("userPhoto")) {
-    $("userPhoto").src = photo;
-  }
-}
-
-
-/* =========================
-   LOAD ALL PROFILE DATA
-========================= */
-
-async function loadProfileData(uid) {
-  try {
-    showLoading();
-
-    const [
-      needs,
-      offers
-    ] = await Promise.all([
-      loadNeeds(uid),
-      loadOffers(uid)
-    ]);
-
-    renderStatistics(needs, offers);
-    renderNeeds(needs);
-    renderOffers(offers);
-
-  } catch (error) {
-    console.error(error);
-
-    showError(
-      "Gagal memuat data",
-      friendlyError(error)
-    );
-  }
-}
-
-
-/* =========================
-   LOAD NEEDS
-========================= */
-
-async function loadNeeds(uid) {
-  const result = [];
-
-  try {
-    const q = query(
-      collection(db, "needs"),
-      where("ownerId", "==", uid)
+    avatar(
+      name
     );
 
-    const snapshot = await getDocs(q);
-
-    snapshot.forEach((doc) => {
-      result.push({
-        id: doc.id,
-        ...doc.data()
-      });
-    });
-
-    // Urutkan di JavaScript
-    result.sort((a, b) => {
-      return getTimestamp(b.createdAt) -
-             getTimestamp(a.createdAt);
-    });
-
-    return result;
-
-  } catch (error) {
-    console.error("loadNeeds:", error);
-
-    throw new Error(
-      "Gagal memuat riwayat kebutuhan: " +
-      friendlyError(error)
-    );
-  }
-}
-
-
-/* =========================
-   LOAD OFFERS
-========================= */
-
-async function loadOffers(uid) {
-  const result = [];
-
-  try {
-    const q = query(
-      collection(db, "offers"),
-      where("providerId", "==", uid)
-    );
-
-    const snapshot = await getDocs(q);
-
-    snapshot.forEach((doc) => {
-      result.push({
-        id: doc.id,
-        ...doc.data()
-      });
-    });
-
-    // Urutkan di JavaScript
-    result.sort((a, b) => {
-      return getTimestamp(b.createdAt) -
-             getTimestamp(a.createdAt);
-    });
-
-    return result;
-
-  } catch (error) {
-    console.error("loadOffers:", error);
-
-    throw new Error(
-      "Gagal memuat riwayat penawaran: " +
-      friendlyError(error)
-    );
-  }
-}
-
-
-/* =========================
-   STATISTICS
-========================= */
-
-function renderStatistics(needs, offers) {
-
-  const totalNeeds = needs.length;
-  const totalOffers = offers.length;
-
-  const acceptedOffers =
-    offers.filter(o =>
-      o.status === "accepted" ||
-      o.status === "diterima"
-    ).length;
-
-  const completedOffers =
-    offers.filter(o =>
-      o.status === "completed" ||
-      o.status === "selesai"
-    ).length;
-
-  const ratingValues = [];
-
-  needs.forEach(n => {
-    if (typeof n.rating === "number") {
-      ratingValues.push(n.rating);
-    }
-
-    if (typeof n.ratingValue === "number") {
-      ratingValues.push(n.ratingValue);
-    }
-  });
-
-  offers.forEach(o => {
-    if (typeof o.rating === "number") {
-      ratingValues.push(o.rating);
-    }
-
-    if (typeof o.ratingValue === "number") {
-      ratingValues.push(o.ratingValue);
-    }
-  });
-
-  const rating =
-    ratingValues.length > 0
-      ? ratingValues.reduce((a, b) => a + b, 0) /
-        ratingValues.length
-      : 0;
-
-  setText("totalNeeds", totalNeeds);
-  setText("totalOffers", totalOffers);
-  setText("acceptedOffers", acceptedOffers);
-  setText("completedOffers", completedOffers);
 
   setText(
-    "userRating",
-    rating > 0
-      ? rating.toFixed(1)
-      : "—"
+    "profileName",
+    name
   );
 
-  renderStars(rating);
+
+  setText(
+    "profileEmail",
+    email
+  );
+
+
+  setImage(
+    "profilePhoto",
+    photo
+  );
+
 }
 
 
-/* =========================
-   RENDER NEEDS
-========================= */
+/* =====================================================
+   LOAD PROFILE
+===================================================== */
 
-function renderNeeds(needs) {
+async function loadProfile() {
+
+  try {
+
+    showLoading();
+
+
+    /*
+      1. Kebutuhan milik user
+    */
+
+    const needs =
+      await loadNeeds();
+
+
+    /*
+      2. Penawaran milik user
+
+      Collection:
+      needs/{needId}/offers/{offerId}
+
+      collectionGroup("offers")
+      memungkinkan kita mengambil
+      semua subcollection offers.
+    */
+
+    const offers =
+      await loadOffers();
+
+
+    /*
+      3. Statistik
+    */
+
+    renderStatistics(
+      needs,
+      offers
+    );
+
+
+    /*
+      4. Riwayat
+    */
+
+    renderNeeds(
+      needs
+    );
+
+
+    renderOffers(
+      offers
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "PROFILE ERROR:",
+      error
+    );
+
+
+    showError(
+      error
+    );
+
+  }
+
+}
+
+
+/* =====================================================
+   LOAD NEEDS
+===================================================== */
+
+async function loadNeeds() {
+
+  const result = [];
+
+
+  const q =
+    query(
+
+      collection(
+        db,
+        "needs"
+      ),
+
+      where(
+        "ownerId",
+        "==",
+        currentUser.uid
+      )
+
+    );
+
+
+  const snapshot =
+    await getDocs(
+      q
+    );
+
+
+  snapshot.forEach(
+    item => {
+
+      result.push({
+
+        id:
+          item.id,
+
+        ...item.data()
+
+      });
+
+    }
+  );
+
+
+  /*
+    Urutkan di browser.
+    Tidak membutuhkan composite index.
+  */
+
+  result.sort(
+    (a, b) =>
+      getTime(
+        b.createdAt
+      ) -
+      getTime(
+        a.createdAt
+      )
+  );
+
+
+  return result;
+
+}
+
+
+/* =====================================================
+   LOAD OFFERS
+===================================================== */
+
+async function loadOffers() {
+
+  const result = [];
+
+
+  /*
+    PENTING:
+
+    Database:
+    needs/{needId}/offers/{offerId}
+
+    Jadi kita memakai collectionGroup.
+  */
+
+  const q =
+    query(
+
+      collectionGroup(
+        db,
+        "offers"
+      ),
+
+      where(
+        "providerId",
+        "==",
+        currentUser.uid
+      )
+
+    );
+
+
+  const snapshot =
+    await getDocs(
+      q
+    );
+
+
+  snapshot.forEach(
+    item => {
+
+      const data =
+        item.data();
+
+
+      /*
+        Ambil needId
+        dari parent path.
+
+        Path:
+        needs / NEED_ID / offers / OFFER_ID
+      */
+
+      const path =
+        item.ref.path.split("/");
+
+
+      const needId =
+        path[1];
+
+
+      result.push({
+
+        id:
+          item.id,
+
+        needId,
+
+        ...data
+
+      });
+
+    }
+  );
+
+
+  /*
+    Urutkan lokal.
+  */
+
+  result.sort(
+    (a, b) =>
+      getTime(
+        b.createdAt
+      ) -
+      getTime(
+        a.createdAt
+      )
+  );
+
+
+  /*
+    Ambil judul kebutuhan
+    untuk setiap penawaran.
+  */
+
+  await Promise.all(
+
+    result.map(
+      async offer => {
+
+        try {
+
+          const needQuery =
+            query(
+              collection(
+                db,
+                "needs"
+              ),
+              where(
+                "__name__",
+                "==",
+                offer.needId
+              )
+            );
+
+
+          const needSnapshot =
+            await getDocs(
+              needQuery
+            );
+
+
+          if (
+            !needSnapshot.empty
+          ) {
+
+            const need =
+              needSnapshot.docs[0].data();
+
+
+            offer.needTitle =
+              need.title ||
+              "Kebutuhan";
+
+          } else {
+
+            offer.needTitle =
+              "Kebutuhan";
+
+          }
+
+        } catch {
+
+          offer.needTitle =
+            "Kebutuhan";
+
+        }
+
+      }
+    )
+
+  );
+
+
+  return result;
+
+}
+
+
+/* =====================================================
+   STATISTICS
+===================================================== */
+
+function renderStatistics(
+  needs,
+  offers
+) {
+
+  const accepted =
+    offers.filter(
+      offer => {
+
+        const status =
+          String(
+            offer.status ||
+            ""
+          ).toLowerCase();
+
+
+        return (
+          status === "accepted" ||
+          status === "diterima"
+        );
+
+      }
+    ).length;
+
+
+  const completed =
+    offers.filter(
+      offer => {
+
+        const status =
+          String(
+            offer.status ||
+            ""
+          ).toLowerCase();
+
+
+        return (
+          status === "completed" ||
+          status === "selesai"
+        );
+
+      }
+    ).length;
+
+
+  setText(
+    "totalNeeds",
+    needs.length
+  );
+
+
+  setText(
+    "totalOffers",
+    offers.length
+  );
+
+
+  setText(
+    "acceptedOffers",
+    accepted
+  );
+
+
+  setText(
+    "completedOffers",
+    completed
+  );
+
+
+  /*
+    Rating.
+
+    Jika belum ada field rating
+    pada database, tampilkan
+    "Belum ada rating".
+  */
+
+  const ratings = [];
+
+
+  needs.forEach(
+    item => {
+
+      if (
+        typeof item.rating ===
+        "number"
+      ) {
+
+        ratings.push(
+          item.rating
+        );
+
+      }
+
+    }
+  );
+
+
+  offers.forEach(
+    item => {
+
+      if (
+        typeof item.rating ===
+        "number"
+      ) {
+
+        ratings.push(
+          item.rating
+        );
+
+      }
+
+    }
+  );
+
+
+  if (
+    ratings.length === 0
+  ) {
+
+    setText(
+      "ratingValue",
+      "Belum ada rating"
+    );
+
+    setText(
+      "ratingStars",
+      "☆☆☆☆☆"
+    );
+
+    return;
+
+  }
+
+
+  const average =
+    ratings.reduce(
+      (a, b) =>
+        a + b,
+      0
+    ) /
+    ratings.length;
+
+
+  setText(
+    "ratingValue",
+    average.toFixed(1) +
+    " / 5"
+  );
+
+
+  const rounded =
+    Math.round(
+      average
+    );
+
+
+  setText(
+    "ratingStars",
+
+    "★".repeat(
+      rounded
+    ) +
+
+    "☆".repeat(
+      5 - rounded
+    )
+
+  );
+
+}
+
+
+/* =====================================================
+   RENDER NEEDS
+===================================================== */
+
+function renderNeeds(
+  needs
+) {
 
   const container =
-    $("needsList") ||
-    $("needsContainer") ||
-    $("riwayatKebutuhan");
+    $("needsList");
 
-  if (!container) return;
 
-  if (needs.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">📋</div>
-        <h3>Belum ada kebutuhan</h3>
-        <p>Anda belum pernah memposting kebutuhan.</p>
-
-        <a href="index.html" class="btn-primary">
-          + Tambah Kebutuhan
-        </a>
-      </div>
-    `;
-
+  if (!container) {
     return;
   }
 
-  container.innerHTML = needs.map(need => {
 
-    const title =
-      escapeHTML(
-        need.title ||
-        need.nama ||
-        need.name ||
-        "Tanpa judul"
-      );
+  if (
+    needs.length === 0
+  ) {
 
-    const description =
-      escapeHTML(
-        need.description ||
-        need.deskripsi ||
-        ""
-      );
+    container.innerHTML = `
 
-    const budget =
-      formatRupiah(
-        need.budget ??
-        need.price ??
-        need.anggaran
-      );
+      <div class="empty-state">
 
-    const status =
-      need.status ||
-      "aktif";
+        <div class="empty-icon">
+          📋
+        </div>
 
-    return `
-      <div class="history-card">
+        <h3>
+          Belum ada kebutuhan
+        </h3>
 
-        <div class="history-main">
+        <p>
+          Anda belum pernah memposting kebutuhan.
+        </p>
 
-          <h3>${title}</h3>
+        <a
+          href="index.html"
+          class="btn btn-primary"
+        >
+          + Tambah Kebutuhan
+        </a>
 
-          ${
-            description
-              ? `<p>${description}</p>`
-              : ""
-          }
+      </div>
 
-          <div class="history-meta">
+    `;
 
-            <span>
-              💰 ${budget}
-            </span>
+    return;
 
-            <span>
-              📅 ${formatDate(need.createdAt)}
-            </span>
+  }
 
+
+  container.innerHTML =
+    needs.map(
+      need => `
+
+        <div class="history-card">
+
+          <div class="history-main">
+
+            <h3>
+              ${escapeHTML(
+                need.title ||
+                "Tanpa judul"
+              )}
+            </h3>
+
+            <p>
+              ${escapeHTML(
+                truncate(
+                  need.description ||
+                  "",
+                  180
+                )
+              )}
+            </p>
+
+            <div class="history-meta">
+
+              <span>
+                💰 Rp ${formatMoney(
+                  need.budget
+                )}
+              </span>
+
+              <span>
+                📅 ${formatDate(
+                  need.createdAt
+                )}
+              </span>
+
+            </div>
+
+          </div>
+
+
+          <div
+            class="status
+              ${statusClass(
+                need.status
+              )}"
+          >
+            ${statusLabel(
+              need.status
+            )}
           </div>
 
         </div>
 
-        <div class="status ${statusClass(status)}">
-          ${statusLabel(status)}
-        </div>
+      `
+    ).join("");
 
-      </div>
-    `;
-
-  }).join("");
 }
 
 
-/* =========================
+/* =====================================================
    RENDER OFFERS
-========================= */
+===================================================== */
 
-function renderOffers(offers) {
+function renderOffers(
+  offers
+) {
 
   const container =
-    $("offersList") ||
-    $("offersContainer") ||
-    $("riwayatPenawaran");
+    $("offersList");
 
-  if (!container) return;
 
-  if (offers.length === 0) {
+  if (!container) {
+    return;
+  }
+
+
+  if (
+    offers.length === 0
+  ) {
 
     container.innerHTML = `
+
       <div class="empty-state">
 
-        <div class="empty-icon">💬</div>
+        <div class="empty-icon">
+          💬
+        </div>
 
-        <h3>Belum ada penawaran</h3>
+        <h3>
+          Belum ada penawaran
+        </h3>
 
         <p>
           Anda belum pernah mengirim penawaran.
         </p>
 
-        <a href="index.html" class="btn-primary">
+        <a
+          href="index.html#needs"
+          class="btn btn-primary"
+        >
           🔎 Cari Kebutuhan
         </a>
 
       </div>
+
     `;
 
     return;
+
   }
 
-  container.innerHTML = offers.map(offer => {
 
-    const title =
-      escapeHTML(
-        offer.needTitle ||
-        offer.title ||
-        offer.needName ||
-        "Kebutuhan"
-      );
+  container.innerHTML =
+    offers.map(
+      offer => `
 
-    const price =
-      formatRupiah(
-        offer.price ??
-        offer.amount ??
-        offer.offerPrice ??
-        offer.harga
-      );
+        <div class="history-card">
 
-    const message =
-      escapeHTML(
-        offer.message ||
-        offer.description ||
-        offer.pesan ||
-        ""
-      );
+          <div class="history-main">
 
-    const status =
-      offer.status ||
-      "menunggu";
+            <h3>
+              ${escapeHTML(
+                offer.needTitle ||
+                "Kebutuhan"
+              )}
+            </h3>
 
-    return `
-      <div class="history-card">
 
-        <div class="history-main">
+            <div class="offer-price">
+              💰 Rp ${formatMoney(
+                offer.price
+              )}
+            </div>
 
-          <h3>${title}</h3>
 
-          <div class="offer-price">
-            💰 ${price}
+            <p>
+              ${escapeHTML(
+                offer.message ||
+                ""
+              )}
+            </p>
+
+
+            <div class="history-meta">
+
+              <span>
+                ⏱️ ${escapeHTML(
+                  offer.duration ||
+                  "-"
+                )}
+              </span>
+
+              <span>
+                📅 ${formatDate(
+                  offer.createdAt
+                )}
+              </span>
+
+            </div>
+
           </div>
 
-          ${
-            message
-              ? `<p>${message}</p>`
-              : ""
-          }
 
-          <div class="history-meta">
-
-            <span>
-              📅 ${formatDate(offer.createdAt)}
-            </span>
-
+          <div
+            class="status
+              ${statusClass(
+                offer.status
+              )}"
+          >
+            ${statusLabel(
+              offer.status
+            )}
           </div>
 
         </div>
 
-        <div class="status ${statusClass(status)}">
-          ${statusLabel(status)}
-        </div>
+      `
+    ).join("");
 
-      </div>
-    `;
-
-  }).join("");
 }
 
 
-/* =========================
+/* =====================================================
    LOADING
-========================= */
+===================================================== */
 
 function showLoading() {
 
-  [
-    "needsList",
-    "needsContainer",
-    "riwayatKebutuhan",
-    "offersList",
-    "offersContainer",
-    "riwayatPenawaran"
-  ].forEach(id => {
+  if ($("needsList")) {
 
-    const el = $(id);
+    $("needsList").innerHTML = `
 
-    if (el) {
-      el.innerHTML = `
-        <div class="loading-state">
-          <div class="spinner"></div>
-          <p>Memuat data...</p>
-        </div>
-      `;
-    }
+      <div class="loading-state">
 
-  });
+        <div class="spinner"></div>
+
+        Memuat kebutuhan...
+
+      </div>
+
+    `;
+
+  }
+
+
+  if ($("offersList")) {
+
+    $("offersList").innerHTML = `
+
+      <div class="loading-state">
+
+        <div class="spinner"></div>
+
+        Memuat penawaran...
+
+      </div>
+
+    `;
+
+  }
+
 }
 
 
-/* =========================
+/* =====================================================
    ERROR
-========================= */
+===================================================== */
 
-function showError(title, message) {
+function showError(
+  error
+) {
+
+  const message =
+    error?.message ||
+    "Terjadi kesalahan.";
+
 
   const html = `
+
     <div class="error-state">
 
-      <div class="error-icon">⚠️</div>
+      <div class="error-icon">
+        ⚠️
+      </div>
 
-      <h3>${escapeHTML(title)}</h3>
+      <h3>
+        Gagal memuat data
+      </h3>
 
-      <p>${escapeHTML(message)}</p>
+      <p>
+        ${escapeHTML(
+          message
+        )}
+      </p>
 
       <button
-        class="btn-primary"
-        onclick="location.reload()">
+        class="btn btn-primary"
+        onclick="location.reload()"
+      >
         Coba Lagi
       </button>
 
     </div>
+
   `;
 
-  const needs =
-    $("needsList") ||
-    $("needsContainer") ||
-    $("riwayatKebutuhan");
 
-  const offers =
-    $("offersList") ||
-    $("offersContainer") ||
-    $("riwayatPenawaran");
+  if ($("needsList")) {
 
-  if (needs) needs.innerHTML = html;
-  if (offers) offers.innerHTML = html;
+    $("needsList").innerHTML =
+      html;
+
+  }
+
+
+  if ($("offersList")) {
+
+    $("offersList").innerHTML =
+      html;
+
+  }
+
 }
 
 
-/* =========================
+/* =====================================================
    HELPERS
-========================= */
+===================================================== */
 
-function setText(id, value) {
+function setText(
+  id,
+  value
+) {
 
-  const el = $(id);
+  const el =
+    $(id);
 
   if (el) {
-    el.textContent = value;
+
+    el.textContent =
+      value;
+
   }
+
 }
 
 
-function getTimestamp(value) {
+function setImage(
+  id,
+  value
+) {
 
-  if (!value) return 0;
+  const el =
+    $(id);
 
-  if (
-    typeof value === "object" &&
-    typeof value.toMillis === "function"
-  ) {
-    return value.toMillis();
+  if (el) {
+
+    el.src =
+      value;
+
   }
 
+}
+
+
+function getTime(
+  value
+) {
+
+  if (!value) {
+    return 0;
+  }
+
+
   if (
-    typeof value === "object" &&
+    typeof value.toMillis ===
+    "function"
+  ) {
+
+    return value.toMillis();
+
+  }
+
+
+  if (
+    typeof value.toDate ===
+    "function"
+  ) {
+
+    return value
+      .toDate()
+      .getTime();
+
+  }
+
+
+  if (
     value.seconds
   ) {
-    return value.seconds * 1000;
+
+    return (
+      value.seconds *
+      1000
+    );
+
   }
 
-  const date = new Date(value);
 
-  return isNaN(date.getTime())
+  const date =
+    new Date(
+      value
+    );
+
+
+  return isNaN(
+    date.getTime()
+  )
     ? 0
     : date.getTime();
+
 }
 
 
-function formatDate(value) {
+function formatDate(
+  value
+) {
 
-  const timestamp = getTimestamp(value);
+  const time =
+    getTime(
+      value
+    );
 
-  if (!timestamp) return "-";
 
-  return new Date(timestamp).toLocaleDateString(
+  if (!time) {
+    return "Baru saja";
+  }
+
+
+  return new Intl.DateTimeFormat(
     "id-ID",
     {
       day: "2-digit",
       month: "short",
       year: "numeric"
     }
+  ).format(
+    new Date(time)
   );
+
 }
 
 
-function formatRupiah(value) {
-
-  if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
-    return "Tidak ditentukan";
-  }
+function formatMoney(
+  value
+) {
 
   const number =
     Number(
-      String(value)
-        .replace(/[^\d.-]/g, "")
+      value
     );
 
-  if (isNaN(number)) {
-    return escapeHTML(String(value));
+
+  if (
+    !Number.isFinite(
+      number
+    )
+  ) {
+
+    return "0";
+
   }
+
 
   return new Intl.NumberFormat(
-    "id-ID",
-    {
-      style: "currency",
-      currency: "IDR",
-      maximumFractionDigits: 0
-    }
-  ).format(number);
+    "id-ID"
+  ).format(
+    number
+  );
+
 }
 
 
-function statusLabel(status) {
+function statusLabel(
+  status
+) {
 
-  const s =
-    String(status)
-      .toLowerCase();
+  const value =
+    String(
+      status ||
+      "pending"
+    ).toLowerCase();
+
 
   const labels = {
-    aktif: "Aktif",
-    open: "Aktif",
-    pending: "Menunggu",
-    menunggu: "Menunggu",
-    accepted: "Diterima",
-    diterima: "Diterima",
-    rejected: "Ditolak",
-    ditolak: "Ditolak",
-    completed: "Selesai",
-    selesai: "Selesai",
-    cancelled: "Dibatalkan",
-    dibatalkan: "Dibatalkan"
+
+    open:
+      "Aktif",
+
+    active:
+      "Aktif",
+
+    aktif:
+      "Aktif",
+
+    pending:
+      "Menunggu",
+
+    accepted:
+      "Diterima",
+
+    diterima:
+      "Diterima",
+
+    rejected:
+      "Ditolak",
+
+    ditolak:
+      "Ditolak",
+
+    completed:
+      "Selesai",
+
+    selesai:
+      "Selesai",
+
+    cancelled:
+      "Dibatalkan",
+
+    dibatalkan:
+      "Dibatalkan"
+
   };
 
-  return labels[s] || escapeHTML(status);
-}
-
-
-function statusClass(status) {
-
-  const s =
-    String(status)
-      .toLowerCase();
-
-  if (
-    s === "accepted" ||
-    s === "diterima"
-  ) {
-    return "status-success";
-  }
-
-  if (
-    s === "completed" ||
-    s === "selesai"
-  ) {
-    return "status-completed";
-  }
-
-  if (
-    s === "rejected" ||
-    s === "ditolak" ||
-    s === "cancelled" ||
-    s === "dibatalkan"
-  ) {
-    return "status-danger";
-  }
-
-  return "status-pending";
-}
-
-
-function renderStars(rating) {
-
-  const container =
-    $("ratingStars");
-
-  if (!container) return;
-
-  if (!rating) {
-    container.textContent = "☆☆☆☆☆";
-    return;
-  }
-
-  const rounded =
-    Math.round(rating);
-
-  container.textContent =
-    "★".repeat(rounded) +
-    "☆".repeat(5 - rounded);
-}
-
-
-function friendlyError(error) {
-
-  const code =
-    error?.code || "";
-
-  if (
-    code === "permission-denied"
-  ) {
-    return "Akses Firestore ditolak. Periksa Firestore Rules.";
-  }
-
-  if (
-    String(error?.message)
-      .toLowerCase()
-      .includes("index")
-  ) {
-    return "Query Firestore masih membutuhkan index. Versi ini seharusnya tidak menggunakan composite index.";
-  }
 
   return (
-    error?.message ||
-    "Terjadi kesalahan."
+    labels[value] ||
+    escapeHTML(
+      status ||
+      "Menunggu"
+    )
   );
+
 }
 
 
-function escapeHTML(value) {
+function statusClass(
+  status
+) {
 
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+  const value =
+    String(
+      status ||
+      "pending"
+    ).toLowerCase();
+
+
+  if (
+    value === "accepted" ||
+    value === "diterima"
+  ) {
+
+    return "status-success";
+
+  }
+
+
+  if (
+    value === "completed" ||
+    value === "selesai"
+  ) {
+
+    return "status-completed";
+
+  }
+
+
+  if (
+    value === "rejected" ||
+    value === "ditolak" ||
+    value === "cancelled" ||
+    value === "dibatalkan"
+  ) {
+
+    return "status-danger";
+
+  }
+
+
+  return "status-pending";
+
 }
 
 
-/* =========================
-   GLOBAL
-========================= */
+function truncate(
+  text,
+  length
+) {
 
-window.loadProfileData =
-  () => {
-    if (currentUser) {
-      loadProfileData(currentUser.uid);
-    }
-  };
+  const value =
+    String(
+      text ||
+      ""
+    );
+
+
+  return value.length >
+    length
+
+    ? value.substring(
+        0,
+        length
+      ) + "..."
+
+    : value;
+
+}
+
+
+function escapeHTML(
+  value
+) {
+
+  return String(
+    value ??
+    ""
+  )
+
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+
+    .replace(
+      /</g,
+      "&lt;"
+    )
+
+    .replace(
+      />/g,
+      "&gt;"
+    )
+
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+
+    .replace(
+      /'/g,
+      "&#039;"
+    );
+
+}
+
+
+function avatar(
+  name
+) {
+
+  return (
+    "https://ui-avatars.com/api/" +
+    "?name=" +
+    encodeURIComponent(
+      String(
+        name ||
+        "U"
+      ).charAt(0)
+    ) +
+    "&background=2563eb" +
+    "&color=ffffff" +
+    "&size=256"
+  );
+
+}
