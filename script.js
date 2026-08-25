@@ -1,8 +1,7 @@
 // ============================================================
 // BUTUH - SCRIPT.JS
-// Marketplace Kebutuhan
-// Firebase v12.1.0
-// VERSI CEPAT + DETAIL + PENAWARAN
+// VERSI BARU DARI NOL
+// Firebase 12.1.0
 // ============================================================
 
 import {
@@ -20,19 +19,19 @@ import {
 import {
   getFirestore,
   collection,
-  addDoc,
-  getDocs,
-  getDoc,
   doc,
+  getDoc,
+  getDocs,
+  addDoc,
   query,
   where,
-  updateDoc,
+  onSnapshot,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 
 // ============================================================
-// FIREBASE CONFIG
+// FIREBASE
 // ============================================================
 
 const firebaseConfig = {
@@ -45,16 +44,13 @@ const firebaseConfig = {
 };
 
 
-// ============================================================
-// INIT
-// ============================================================
-
 const app =
   getApps().length
     ? getApp()
     : initializeApp(firebaseConfig);
 
 const auth = getAuth(app);
+
 const db = getFirestore(app);
 
 
@@ -63,13 +59,10 @@ const db = getFirestore(app);
 // ============================================================
 
 let currentUser = null;
-
 let needsCache = [];
-
-let unsubscribeAuth = null;
+let unsubscribeNeeds = null;
 
 let isSubmittingNeed = false;
-
 let isSubmittingOffer = false;
 
 
@@ -77,30 +70,27 @@ let isSubmittingOffer = false;
 // HELPER
 // ============================================================
 
-const $ = id =>
-  document.getElementById(id);
+const $ = id => document.getElementById(id);
 
 
 // ============================================================
 // AUTH
 // ============================================================
 
-onAuthStateChanged(
-  auth,
-  user => {
+onAuthStateChanged(auth, user => {
 
-    currentUser = user;
+  currentUser = user || null;
 
-    updateUserUI(user);
+  updateUserUI(user);
 
-    if (user) {
-      loadNeeds();
-    } else {
-      showLoggedOut();
-    }
-
+  if (unsubscribeNeeds) {
+    unsubscribeNeeds();
+    unsubscribeNeeds = null;
   }
-);
+
+  loadNeeds();
+
+});
 
 
 // ============================================================
@@ -115,41 +105,20 @@ function updateUserUI(user) {
     "Pengguna";
 
   const email =
-    user?.email || "";
+    user?.email ||
+    "";
 
   const photo =
     user?.photoURL ||
-    avatar(name);
+    createAvatar(name);
 
-  setText(
-    "userName",
-    name
-  );
+  setText("userName", name);
+  setText("menuUserName", name);
+  setText("userEmail", email);
+  setText("menuUserEmail", email);
 
-  setText(
-    "menuUserName",
-    name
-  );
-
-  setText(
-    "userEmail",
-    email
-  );
-
-  setText(
-    "menuUserEmail",
-    email
-  );
-
-  setImage(
-    "userPhoto",
-    photo
-  );
-
-  setImage(
-    "menuUserPhoto",
-    photo
-  );
+  setImage("userPhoto", photo);
+  setImage("menuUserPhoto", photo);
 
 }
 
@@ -158,10 +127,9 @@ function updateUserUI(user) {
 // LOAD NEEDS
 // ============================================================
 
-async function loadNeeds() {
+function loadNeeds() {
 
-  const container =
-    $("needsList");
+  const container = $("needsList");
 
   if (!container) {
     return;
@@ -174,99 +142,61 @@ async function loadNeeds() {
     </div>
   `;
 
-  try {
 
-    /*
-      Tidak memakai orderBy.
-      Tidak membutuhkan composite index.
-    */
+  const needsRef =
+    collection(db, "needs");
 
-    const snapshot =
-      await getDocs(
-        collection(
-          db,
-          "needs"
-        )
-      );
 
-    const needs = [];
+  unsubscribeNeeds =
+    onSnapshot(
+      needsRef,
 
-    snapshot.forEach(
-      item => {
+      snapshot => {
 
-        needs.push({
-          id: item.id,
-          ...item.data()
+        const needs = [];
+
+        snapshot.forEach(item => {
+
+          needs.push({
+            id: item.id,
+            ...item.data()
+          });
+
         });
+
+
+        needs.sort(
+          (a, b) =>
+            getTime(b.createdAt) -
+            getTime(a.createdAt)
+        );
+
+
+        needsCache = needs;
+
+        renderNeeds(needs);
+
+        updateCounters(needs);
+
+      },
+
+      error => {
+
+        console.error(
+          "LOAD NEEDS ERROR:",
+          error
+        );
+
+        container.innerHTML = `
+          <div class="loading-box">
+            <div class="empty-icon">⚠️</div>
+            <strong>Gagal memuat kebutuhan</strong>
+            <small>${escapeHTML(error.message)}</small>
+          </div>
+        `;
 
       }
     );
-
-    needs.sort(
-      (a, b) =>
-        getTime(b.createdAt) -
-        getTime(a.createdAt)
-    );
-
-    needsCache = needs;
-
-    renderNeeds(
-      needs
-    );
-
-    updateBasicCounters(
-      needs
-    );
-
-    /*
-      Counter penawaran dijalankan
-      setelah kebutuhan tampil.
-    */
-
-    loadMyOfferCountFast(
-      needs
-    );
-
-  } catch (error) {
-
-    console.error(
-      "LOAD NEEDS:",
-      error
-    );
-
-    container.innerHTML = `
-      <div class="loading-box">
-        <div class="empty-icon">⚠️</div>
-
-        <strong>
-          Gagal memuat kebutuhan
-        </strong>
-
-        <small>
-          ${escapeHTML(
-            error.message ||
-            "Terjadi kesalahan."
-          )}
-        </small>
-
-        <button
-          id="retryNeedsBtn"
-          class="btn btn-primary"
-          type="button"
-          style="margin-top:15px"
-        >
-          🔄 Coba Lagi
-        </button>
-      </div>
-    `;
-
-    $("retryNeedsBtn")
-      ?.addEventListener(
-        "click",
-        loadNeeds
-      );
-
-  }
 
 }
 
@@ -275,42 +205,31 @@ async function loadNeeds() {
 // RENDER NEEDS
 // ============================================================
 
-function renderNeeds(
-  needs
-) {
+function renderNeeds(needs) {
 
-  const container =
-    $("needsList");
+  const container = $("needsList");
 
   if (!container) {
     return;
   }
+
 
   if (!needs.length) {
 
     container.innerHTML = `
       <div class="loading-box">
         <div class="empty-icon">📭</div>
-
-        <strong>
-          Belum ada kebutuhan
-        </strong>
-
-        <small>
-          Jadilah yang pertama memposting kebutuhan.
-        </small>
+        <strong>Belum ada kebutuhan</strong>
+        <small>Jadilah yang pertama memposting kebutuhan.</small>
       </div>
     `;
 
     return;
   }
 
+
   container.innerHTML =
-    needs
-      .map(
-        createNeedCard
-      )
-      .join("");
+    needs.map(createNeedCard).join("");
 
 }
 
@@ -319,76 +238,36 @@ function renderNeeds(
 // NEED CARD
 // ============================================================
 
-function createNeedCard(
-  need
-) {
+function createNeedCard(need) {
 
-  const title =
-    escapeHTML(
-      need.title ||
-      "Tanpa judul"
-    );
+  const isOwner =
+    need.ownerId === currentUser?.uid;
 
-  const description =
-    escapeHTML(
-      truncate(
-        need.description ||
-        "",
-        160
-      )
-    );
-
-  const category =
-    escapeHTML(
-      getCategory(
-        need.category
-      )
-    );
-
-  const budget =
-    formatMoney(
-      need.budget
-    );
-
-  const owner =
-    need.ownerId ===
-    currentUser?.uid;
-
-  const status =
-    String(
-      need.status ||
-      "open"
-    ).toLowerCase();
-
-  const active =
-    status === "open" ||
-    status === "active" ||
-    status === "aktif";
 
   return `
-    <article
-      class="need-card"
-      data-id="${escapeHTML(
-        need.id
-      )}"
-    >
+
+    <article class="need-card">
 
       <div class="need-card-top">
 
         <div>
 
           <span class="need-category">
-            ${category}
+            ${escapeHTML(
+              getCategory(need.category)
+            )}
           </span>
 
           <h3>
-            ${title}
+            ${escapeHTML(
+              need.title || "Tanpa judul"
+            )}
           </h3>
 
         </div>
 
         ${
-          owner
+          isOwner
             ? `
               <span class="status-badge status-open">
                 👤 Milik Anda
@@ -399,949 +278,58 @@ function createNeedCard(
 
       </div>
 
+
       <p class="need-description">
-        ${description}
+
+        ${escapeHTML(
+          truncate(
+            need.description || "",
+            160
+          )
+        )}
+
       </p>
+
 
       <div class="need-footer">
 
         <div>
 
           <div class="need-budget">
-            Rp ${budget}
+            Rp ${formatMoney(need.budget)}
           </div>
 
           <div class="need-date">
-            ${formatDate(
-              need.createdAt
-            )}
+            ${formatDate(need.createdAt)}
           </div>
 
         </div>
 
+
         <button
+          type="button"
           class="btn ${
-            owner
+            isOwner
               ? "btn-outline"
               : "btn-primary"
           }"
-          type="button"
           data-action="detail"
-          data-id="${escapeHTML(
-            need.id
-          )}"
+          data-id="${escapeHTML(need.id)}"
         >
+
           ${
-            owner
-              ? "Lihat"
-              : active
-                ? "Tawarkan"
-                : "Lihat"
+            isOwner
+              ? "👁️ Lihat"
+              : "💰 Tawarkan"
           }
+
         </button>
 
       </div>
 
     </article>
+
   `;
-
-}
-
-
-// ============================================================
-// COUNTERS
-// ============================================================
-
-function updateBasicCounters(
-  needs
-) {
-
-  const active =
-    needs.filter(
-      item => {
-
-        const status =
-          String(
-            item.status ||
-            "open"
-          ).toLowerCase();
-
-        return (
-          status === "open" ||
-          status === "active" ||
-          status === "aktif"
-        );
-
-      }
-    ).length;
-
-  const mine =
-    needs.filter(
-      item =>
-        item.ownerId ===
-        currentUser?.uid
-    ).length;
-
-  setText(
-    "activeNeedsCount",
-    active
-  );
-
-  setText(
-    "userNeedsCount",
-    mine
-  );
-
-}
-
-
-// ============================================================
-// MY OFFER COUNT
-// ============================================================
-
-async function loadMyOfferCountFast(
-  needs
-) {
-
-  if (!currentUser) {
-
-    setText(
-      "userOffersCount",
-      "0"
-    );
-
-    return;
-  }
-
-  if (!needs.length) {
-
-    setText(
-      "userOffersCount",
-      "0"
-    );
-
-    return;
-  }
-
-  try {
-
-    const requests =
-      needs.map(
-        async need => {
-
-          try {
-
-            const ref =
-              collection(
-                db,
-                "needs",
-                need.id,
-                "offers"
-              );
-
-            const q =
-              query(
-                ref,
-                where(
-                  "providerId",
-                  "==",
-                  currentUser.uid
-                )
-              );
-
-            const snap =
-              await getDocs(q);
-
-            return snap.size;
-
-          } catch {
-
-            return 0;
-
-          }
-
-        }
-      );
-
-    const result =
-      await Promise.all(
-        requests
-      );
-
-    const total =
-      result.reduce(
-        (sum, value) =>
-          sum + value,
-        0
-      );
-
-    setText(
-      "userOffersCount",
-      total
-    );
-
-  } catch {
-
-    setText(
-      "userOffersCount",
-      "0"
-    );
-
-  }
-
-}
-
-
-// ============================================================
-// OPEN DETAIL
-// ============================================================
-
-window.openNeedDetail =
-  async function(
-    needId
-  ) {
-
-    if (!needId) {
-      alert(
-        "ID kebutuhan tidak ditemukan."
-      );
-      return;
-    }
-
-    const cached =
-      needsCache.find(
-        item =>
-          item.id === needId
-      );
-
-    if (cached) {
-
-      await showNeedDetail(
-        cached
-      );
-
-      return;
-    }
-
-    try {
-
-      const ref =
-        doc(
-          db,
-          "needs",
-          needId
-        );
-
-      const snap =
-        await getDoc(ref);
-
-      if (!snap.exists()) {
-
-        alert(
-          "Kebutuhan tidak ditemukan."
-        );
-
-        return;
-      }
-
-      await showNeedDetail({
-        id: snap.id,
-        ...snap.data()
-      });
-
-    } catch (error) {
-
-      console.error(
-        "DETAIL:",
-        error
-      );
-
-      alert(
-        "Gagal membuka kebutuhan."
-      );
-
-    }
-
-  };
-
-
-// ============================================================
-// DETAIL MODAL
-// ============================================================
-
-async function showNeedDetail(
-  need
-) {
-
-  let modal =
-    $("detailModal");
-
-  if (!modal) {
-
-    modal =
-      document.createElement(
-        "div"
-      );
-
-    modal.id =
-      "detailModal";
-
-    modal.className =
-      "modal hidden";
-
-    document.body.appendChild(
-      modal
-    );
-
-  }
-
-  const owner =
-    need.ownerId ===
-    currentUser?.uid;
-
-  let offersHTML = "";
-
-  /*
-    Hanya pemilik kebutuhan yang
-    mengambil daftar penawaran.
-  */
-
-  if (owner) {
-
-    offersHTML =
-      await getOffersHTML(
-        need.id
-      );
-
-  }
-
-  modal.innerHTML = `
-
-    <div
-      class="modal-backdrop"
-      id="detailBackdrop"
-    ></div>
-
-    <div class="modal-content">
-
-      <div class="modal-header">
-
-        <div>
-
-          <span class="section-label">
-            DETAIL KEBUTUHAN
-          </span>
-
-          <h2>
-            ${escapeHTML(
-              need.title ||
-              "Kebutuhan"
-            )}
-          </h2>
-
-        </div>
-
-        <button
-          class="modal-close"
-          id="closeDetail"
-          type="button"
-        >
-          ×
-        </button>
-
-      </div>
-
-      <div style="padding:22px">
-
-        <p style="
-          line-height:1.7;
-          color:#374151;
-        ">
-          ${escapeHTML(
-            need.description ||
-            ""
-          )}
-        </p>
-
-        <div style="
-          background:#eff6ff;
-          padding:18px;
-          border-radius:14px;
-          margin:20px 0;
-        ">
-
-          <small>
-            Budget
-          </small>
-
-          <div style="
-            font-size:25px;
-            font-weight:800;
-            color:#2563eb;
-          ">
-            Rp ${formatMoney(
-              need.budget
-            )}
-          </div>
-
-        </div>
-
-        <div style="
-          line-height:1.9;
-          color:#4b5563;
-        ">
-
-          👤
-          ${escapeHTML(
-            need.ownerName ||
-            "Pengguna"
-          )}
-
-          <br>
-
-          📂
-          ${escapeHTML(
-            getCategory(
-              need.category
-            )
-          )}
-
-          <br>
-
-          📅
-          ${formatDate(
-            need.createdAt
-          )}
-
-          ${
-            need.deadline
-              ? `
-                <br>
-                ⏰ Deadline:
-                ${escapeHTML(
-                  need.deadline
-                )}
-              `
-              : ""
-          }
-
-        </div>
-
-        ${
-          owner
-            ? `
-              <div style="
-                margin-top:25px;
-              ">
-
-                <h3>
-                  💰 Penawaran Masuk
-                </h3>
-
-                <div id="detailOffers">
-                  ${offersHTML}
-                </div>
-
-              </div>
-            `
-            : `
-              <button
-                id="detailOfferButton"
-                class="btn btn-primary"
-                type="button"
-                style="
-                  width:100%;
-                  margin-top:25px;
-                "
-              >
-                💰 Ajukan Penawaran
-              </button>
-            `
-        }
-
-      </div>
-
-    </div>
-  `;
-
-  modal.classList.remove(
-    "hidden"
-  );
-
-  document.body.classList.add(
-    "modal-open"
-  );
-
-  $("closeDetail")
-    ?.addEventListener(
-      "click",
-      () =>
-        closeModal(
-          "detailModal"
-        )
-    );
-
-  $("detailBackdrop")
-    ?.addEventListener(
-      "click",
-      () =>
-        closeModal(
-          "detailModal"
-        )
-    );
-
-  if (!owner) {
-
-    $("detailOfferButton")
-      ?.addEventListener(
-        "click",
-        () => {
-
-          closeModal(
-            "detailModal"
-          );
-
-          openOfferForm(
-            need
-          );
-
-        }
-      );
-
-  }
-
-}
-
-
-// ============================================================
-// GET OFFERS FOR OWNER
-// ============================================================
-
-async function getOffersHTML(
-  needId
-) {
-
-  try {
-
-    const ref =
-      collection(
-        db,
-        "needs",
-        needId,
-        "offers"
-      );
-
-    const snap =
-      await getDocs(ref);
-
-    if (snap.empty) {
-
-      return `
-        <div style="
-          padding:20px;
-          text-align:center;
-          color:#667085;
-        ">
-          📭 Belum ada penawaran.
-        </div>
-      `;
-
-    }
-
-    const offers = [];
-
-    snap.forEach(
-      item => {
-
-        offers.push({
-          id: item.id,
-          ...item.data()
-        });
-
-      }
-    );
-
-    offers.sort(
-      (a, b) =>
-        getTime(b.createdAt) -
-        getTime(a.createdAt)
-    );
-
-    return offers
-      .map(
-        offer =>
-          createOwnerOfferCard(
-            needId,
-            offer
-          )
-      )
-      .join("");
-
-  } catch (error) {
-
-    console.error(
-      "GET OFFERS:",
-      error
-    );
-
-    return `
-      <div style="
-        padding:15px;
-        background:#fef2f2;
-        color:#dc2626;
-        border-radius:10px;
-      ">
-        ⚠️ Gagal memuat penawaran.
-      </div>
-    `;
-
-  }
-
-}
-
-
-// ============================================================
-// OWNER OFFER CARD
-// ============================================================
-
-function createOwnerOfferCard(
-  needId,
-  offer
-) {
-
-  const status =
-    String(
-      offer.status ||
-      "pending"
-    ).toLowerCase();
-
-  const canAccept =
-    status === "pending";
-
-  return `
-    <div style="
-      border:1px solid #e5e7eb;
-      border-radius:14px;
-      padding:16px;
-      margin-top:12px;
-    ">
-
-      <strong>
-        ${escapeHTML(
-          offer.providerName ||
-          "Penyedia"
-        )}
-      </strong>
-
-      <div style="
-        color:#2563eb;
-        font-size:20px;
-        font-weight:800;
-        margin-top:6px;
-      ">
-        Rp ${formatMoney(
-          offer.price
-        )}
-      </div>
-
-      <div style="
-        margin-top:8px;
-        color:#667085;
-      ">
-        ⏱️
-        ${escapeHTML(
-          offer.duration ||
-          "-"
-        )}
-      </div>
-
-      <p style="
-        line-height:1.6;
-      ">
-        ${escapeHTML(
-          offer.message ||
-          ""
-        )}
-      </p>
-
-      <span class="status ${
-        getStatusClass(
-          status
-        )
-      }">
-        ${getStatusText(
-          status
-        )}
-      </span>
-
-      ${
-        canAccept
-          ? `
-            <div style="
-              display:flex;
-              gap:8px;
-              margin-top:15px;
-            ">
-
-              <button
-                class="btn btn-primary"
-                type="button"
-                data-accept-offer="true"
-                data-need-id="${escapeHTML(
-                  needId
-                )}"
-                data-offer-id="${escapeHTML(
-                  offer.id
-                )}"
-              >
-                ✓ Terima
-              </button>
-
-              <button
-                class="btn btn-outline"
-                type="button"
-                data-reject-offer="true"
-                data-need-id="${escapeHTML(
-                  needId
-                )}"
-                data-offer-id="${escapeHTML(
-                  offer.id
-                )}"
-              >
-                ✕ Tolak
-              </button>
-
-            </div>
-          `
-          : ""
-      }
-
-    </div>
-  `;
-
-}
-
-
-// ============================================================
-// ACCEPT OFFER
-// ============================================================
-
-async function acceptOffer(
-  needId,
-  offerId
-) {
-
-  if (!currentUser) {
-    return;
-  }
-
-  const confirmed =
-    confirm(
-      "Terima penawaran ini?"
-    );
-
-  if (!confirmed) {
-    return;
-  }
-
-  try {
-
-    const needRef =
-      doc(
-        db,
-        "needs",
-        needId
-      );
-
-    const offerRef =
-      doc(
-        db,
-        "needs",
-        needId,
-        "offers",
-        offerId
-      );
-
-    const needSnap =
-      await getDoc(
-        needRef
-      );
-
-    if (!needSnap.exists()) {
-
-      alert(
-        "Kebutuhan tidak ditemukan."
-      );
-
-      return;
-    }
-
-    const need =
-      needSnap.data();
-
-    if (
-      need.ownerId !==
-      currentUser.uid
-    ) {
-
-      alert(
-        "Anda bukan pemilik kebutuhan."
-      );
-
-      return;
-    }
-
-    await updateDoc(
-      offerRef,
-      {
-        status:
-          "accepted",
-
-        updatedAt:
-          serverTimestamp()
-      }
-    );
-
-    await updateDoc(
-      needRef,
-      {
-        status:
-          "accepted",
-
-        acceptedOfferId:
-          offerId,
-
-        updatedAt:
-          serverTimestamp()
-      }
-    );
-
-    alert(
-      "✅ Penawaran berhasil diterima."
-    );
-
-    closeModal(
-      "detailModal"
-    );
-
-    /*
-      Refresh kebutuhan agar
-      status langsung berubah.
-    */
-
-    await loadNeeds();
-
-  } catch (error) {
-
-    console.error(
-      "ACCEPT OFFER:",
-      error
-    );
-
-    alert(
-      "Gagal menerima penawaran:\n\n" +
-      error.message
-    );
-
-  }
-
-}
-
-
-// ============================================================
-// REJECT OFFER
-// ============================================================
-
-async function rejectOffer(
-  needId,
-  offerId
-) {
-
-  if (!currentUser) {
-    return;
-  }
-
-  const confirmed =
-    confirm(
-      "Tolak penawaran ini?"
-    );
-
-  if (!confirmed) {
-    return;
-  }
-
-  try {
-
-    const needRef =
-      doc(
-        db,
-        "needs",
-        needId
-      );
-
-    const offerRef =
-      doc(
-        db,
-        "needs",
-        needId,
-        "offers",
-        offerId
-      );
-
-    const needSnap =
-      await getDoc(
-        needRef
-      );
-
-    if (!needSnap.exists()) {
-      return;
-    }
-
-    if (
-      needSnap.data().ownerId !==
-      currentUser.uid
-    ) {
-
-      alert(
-        "Anda bukan pemilik kebutuhan."
-      );
-
-      return;
-    }
-
-    await updateDoc(
-      offerRef,
-      {
-        status:
-          "rejected",
-
-        updatedAt:
-          serverTimestamp()
-      }
-    );
-
-    alert(
-      "Penawaran ditolak."
-    );
-
-    closeModal(
-      "detailModal"
-    );
-
-    await loadNeeds();
-
-  } catch (error) {
-
-    console.error(
-      "REJECT OFFER:",
-      error
-    );
-
-    alert(
-      "Gagal menolak penawaran."
-    );
-
-  }
 
 }
 
@@ -1350,150 +338,15 @@ async function rejectOffer(
 // POST NEED
 // ============================================================
 
-async function submitNeed(
-  event
-) {
-
-  event.preventDefault();
-
-  if (isSubmittingNeed) {
-    return;
-  }
-
-  if (!currentUser) {
-
-    window.location.href =
-      "login.html";
-
-    return;
-  }
-
-  const form =
-    event.target;
-
-  const title =
-    String(
-      form.title?.value ||
-      ""
-    ).trim();
-
-  const description =
-    String(
-      form.description?.value ||
-      ""
-    ).trim();
-
-  const category =
-    form.category?.value ||
-    "other";
-
-  const rawBudget =
-    String(
-      form.budget?.value ||
-      ""
-    ).trim();
-
-  const budget =
-    Number(
-      rawBudget
-    );
-
-  const deadline =
-    form.deadline?.value ||
-    "";
-
-  if (!title) {
-
-    alert(
-      "Judul kebutuhan wajib diisi."
-    );
-
-    return;
-  }
-
-  if (!description) {
-
-    alert(
-      "Deskripsi wajib diisi."
-    );
-
-    return;
-  }
-
-  if (
-    !Number.isFinite(
-      budget
-    ) ||
-    budget <= 0
-  ) {
-
-    alert(
-      "Budget tidak valid."
-    );
-
-    return;
-  }
-
-  isSubmittingNeed =
-    true;
-
-  const button =
-    $("submitNeed");
-
-  const original =
-    button?.innerHTML ||
-    "🚀 Posting Kebutuhan";
-
-  if (button) {
-
-    button.disabled =
-      true;
-
-    button.innerHTML =
-      "⏳ Menyimpan...";
-
-  }
-
-  try {
-
-    await addDoc(
-  collection(
-    db,
-    "needs",
-    need.id,
-    "offers"
-  ),
-  {
-    needId: need.id,
-
-    needTitle:
-      need.title || "Kebutuhan",
-
-    providerId:
-      currentUser.uid,
-
-    providerName:
-      currentUser.displayName ||
-      currentUser.email?.split("@")[0] ||
-      "Pengguna",
-
-    providerEmail:
-      currentUser.email || "",
-
-    providerPhoto:
-      currentUser.photoURL || "",
-
 async function submitNeed(event) {
 
   event.preventDefault();
 
+
   if (isSubmittingNeed) {
     return;
   }
 
-  // ==========================================================
-  // CEK LOGIN
-  // ==========================================================
 
   if (!currentUser) {
 
@@ -1505,104 +358,44 @@ async function submitNeed(event) {
   }
 
 
-  // ==========================================================
-  // FORM
-  // ==========================================================
-
   const form = event.target;
 
-  if (!form) {
-    alert("Form kebutuhan tidak ditemukan.");
-    return;
-  }
-
-
-  // ==========================================================
-  // AMBIL DATA
-  // ==========================================================
-
   const title =
-    String(
-      form.elements["title"]?.value || ""
-    ).trim();
-
+    String(form.title?.value || "").trim();
 
   const description =
-    String(
-      form.elements["description"]?.value || ""
-    ).trim();
-
+    String(form.description?.value || "").trim();
 
   const category =
-    String(
-      form.elements["category"]?.value || "other"
-    ).trim();
-
-
-  const rawBudget =
-    String(
-      form.elements["budget"]?.value || ""
-    ).trim();
-
+    String(form.category?.value || "other");
 
   const budget =
-    Number(rawBudget);
-
+    Number(form.budget?.value);
 
   const deadline =
-    String(
-      form.elements["deadline"]?.value || ""
-    ).trim();
+    String(form.deadline?.value || "").trim();
 
-
-  // ==========================================================
-  // VALIDASI
-  // ==========================================================
 
   if (!title) {
-
-    alert(
-      "Judul kebutuhan wajib diisi."
-    );
-
+    alert("Judul kebutuhan wajib diisi.");
     return;
   }
-
 
   if (!description) {
-
-    alert(
-      "Deskripsi kebutuhan wajib diisi."
-    );
-
+    alert("Deskripsi kebutuhan wajib diisi.");
     return;
   }
 
-
-  if (
-    rawBudget === "" ||
-    !Number.isFinite(budget) ||
-    budget <= 0
-  ) {
-
-    alert(
-      "Masukkan budget yang valid."
-    );
-
+  if (!Number.isFinite(budget) || budget <= 0) {
+    alert("Masukkan budget yang valid.");
     return;
   }
 
-
-  // ==========================================================
-  // LOCK BUTTON
-  // ==========================================================
 
   isSubmittingNeed = true;
 
 
-  const button =
-    $("submitNeed");
-
+  const button = $("submitNeed");
 
   const originalText =
     button?.innerHTML ||
@@ -1610,32 +403,20 @@ async function submitNeed(event) {
 
 
   if (button) {
-
     button.disabled = true;
-
-    button.innerHTML =
-      "⏳ Menyimpan...";
-
+    button.innerHTML = "⏳ Menyimpan...";
   }
 
-
-  // ==========================================================
-  // SIMPAN KE FIRESTORE
-  // ==========================================================
 
   try {
 
     const needData = {
 
-      title: title,
-
-      description: description,
-
-      category: category,
-
-      budget: budget,
-
-      deadline: deadline,
+      title,
+      description,
+      category,
+      budget,
+      deadline,
 
       ownerId:
         currentUser.uid,
@@ -1665,112 +446,40 @@ async function submitNeed(event) {
     };
 
 
-    console.log(
-      "Menyimpan kebutuhan:",
-      needData
-    );
-
-
     await addDoc(
-      collection(
-        db,
-        "needs"
-      ),
+      collection(db, "needs"),
       needData
     );
 
-
-    // ========================================================
-    // BERHASIL
-    // ========================================================
 
     form.reset();
 
-
-    closeNeedModal();
-
+    closeModal("needModal");
 
     showToast(
       "✅ Kebutuhan berhasil diposting!"
     );
 
 
-    console.log(
-      "✅ Kebutuhan berhasil disimpan"
-    );
-
-
   } catch (error) {
 
     console.error(
-      "SUBMIT NEED ERROR:",
+      "POST NEED ERROR:",
       error
     );
-
 
     alert(
       "Gagal menyimpan kebutuhan:\n\n" +
       error.message
     );
-
 
   } finally {
 
     isSubmittingNeed = false;
 
-
     if (button) {
-
       button.disabled = false;
-
-      button.innerHTML =
-        originalText;
-
-    }
-
-  }
-
-}
-
-    form.reset();
-
-    closeNeedModal();
-
-    showToast(
-      "✅ Kebutuhan berhasil diposting!"
-    );
-
-    /*
-      Refresh cepat.
-    */
-
-    await loadNeeds();
-
-  } catch (error) {
-
-    console.error(
-      "POST NEED:",
-      error
-    );
-
-    alert(
-      "Gagal menyimpan kebutuhan:\n\n" +
-      error.message
-    );
-
-  } finally {
-
-    isSubmittingNeed =
-      false;
-
-    if (button) {
-
-      button.disabled =
-        false;
-
-      button.innerHTML =
-        original;
-
+      button.innerHTML = originalText;
     }
 
   }
@@ -1779,12 +488,243 @@ async function submitNeed(event) {
 
 
 // ============================================================
-// OFFER FORM
+// OPEN DETAIL
 // ============================================================
 
-function openOfferForm(
-  need
-) {
+window.openNeedDetail =
+  async function(needId) {
+
+    if (!needId) {
+      return;
+    }
+
+
+    let need =
+      needsCache.find(
+        item => item.id === needId
+      );
+
+
+    if (!need) {
+
+      try {
+
+        const snapshot =
+          await getDoc(
+            doc(db, "needs", needId)
+          );
+
+
+        if (!snapshot.exists()) {
+
+          alert(
+            "Kebutuhan tidak ditemukan."
+          );
+
+          return;
+        }
+
+
+        need = {
+          id: snapshot.id,
+          ...snapshot.data()
+        };
+
+      } catch (error) {
+
+        console.error(error);
+
+        alert(
+          "Gagal membuka kebutuhan."
+        );
+
+        return;
+
+      }
+
+    }
+
+
+    showNeedDetail(need);
+
+  };
+
+
+// ============================================================
+// SHOW DETAIL
+// ============================================================
+
+function showNeedDetail(need) {
+
+  let modal = $("detailModal");
+
+  if (!modal) {
+
+    modal =
+      document.createElement("div");
+
+    modal.id = "detailModal";
+    modal.className = "modal";
+
+    document.body.appendChild(modal);
+
+  }
+
+
+  const isOwner =
+    need.ownerId === currentUser?.uid;
+
+
+  modal.innerHTML = `
+
+    <div class="modal-backdrop"></div>
+
+    <div class="modal-content">
+
+      <div class="modal-header">
+
+        <div>
+
+          <span class="section-label">
+            DETAIL KEBUTUHAN
+          </span>
+
+          <h2>
+            ${escapeHTML(
+              need.title || "Kebutuhan"
+            )}
+          </h2>
+
+        </div>
+
+        <button
+          type="button"
+          class="modal-close"
+          id="closeDetail"
+        >
+          ×
+        </button>
+
+      </div>
+
+
+      <div style="padding:22px">
+
+        <p style="line-height:1.7">
+
+          ${escapeHTML(
+            need.description || ""
+          )}
+
+        </p>
+
+
+        <div style="
+          padding:16px;
+          margin:20px 0;
+          border-radius:12px;
+          background:#eff6ff;
+        ">
+
+          <small>Budget</small>
+
+          <div style="
+            font-size:24px;
+            font-weight:800;
+          ">
+            Rp ${formatMoney(need.budget)}
+          </div>
+
+        </div>
+
+
+        <p>
+          👤 ${escapeHTML(
+            need.ownerName || "Pengguna"
+          )}
+        </p>
+
+        <p>
+          📂 ${escapeHTML(
+            getCategory(need.category)
+          )}
+        </p>
+
+        ${
+          isOwner
+            ? `
+              <div style="
+                padding:14px;
+                border-radius:10px;
+                background:#f0fdf4;
+              ">
+                👤 Ini adalah kebutuhan Anda.
+              </div>
+            `
+            : `
+              <button
+                id="openOfferButton"
+                class="btn btn-primary"
+                type="button"
+                style="
+                  width:100%;
+                  margin-top:20px;
+                "
+              >
+                💰 Ajukan Penawaran
+              </button>
+            `
+        }
+
+      </div>
+
+    </div>
+
+  `;
+
+
+  modal.classList.remove("hidden");
+
+  document.body.classList.add(
+    "modal-open"
+  );
+
+
+  modal
+    .querySelector(".modal-backdrop")
+    ?.addEventListener(
+      "click",
+      () => closeModal("detailModal")
+    );
+
+
+  $("closeDetail")
+    ?.addEventListener(
+      "click",
+      () => closeModal("detailModal")
+    );
+
+
+  $("openOfferButton")
+    ?.addEventListener(
+      "click",
+      () => {
+
+        closeModal("detailModal");
+
+        openOfferModal(need);
+
+      }
+    );
+
+}
+
+
+// ============================================================
+// OFFER MODAL
+// ============================================================
+
+function openOfferModal(need) {
 
   if (!currentUser) {
 
@@ -1792,36 +732,30 @@ function openOfferForm(
       "login.html";
 
     return;
+
   }
+
 
   let modal =
     $("offerModal");
 
+
   if (!modal) {
 
     modal =
-      document.createElement(
-        "div"
-      );
+      document.createElement("div");
 
-    modal.id =
-      "offerModal";
+    modal.id = "offerModal";
+    modal.className = "modal";
 
-    modal.className =
-      "modal hidden";
-
-    document.body.appendChild(
-      modal
-    );
+    document.body.appendChild(modal);
 
   }
 
+
   modal.innerHTML = `
 
-    <div
-      class="modal-backdrop"
-      id="offerBackdrop"
-    ></div>
+    <div class="modal-backdrop"></div>
 
     <div class="modal-content">
 
@@ -1834,45 +768,45 @@ function openOfferForm(
           </span>
 
           <h2>
-            💰 Ajukan Penawaran
+            Ajukan Penawaran
           </h2>
 
           <p>
             ${escapeHTML(
-              need.title ||
-              "Kebutuhan"
+              need.title
             )}
           </p>
 
         </div>
 
         <button
-          id="closeOffer"
-          class="modal-close"
           type="button"
+          class="modal-close"
+          id="closeOffer"
         >
           ×
         </button>
 
       </div>
 
+
       <form id="offerForm">
 
         <div class="form-group">
 
           <label>
-            Harga Penawaran (Rp)
+            Harga Penawaran
           </label>
 
           <input
             name="price"
             type="number"
             min="1"
-            step="1"
             required
           >
 
         </div>
+
 
         <div class="form-group">
 
@@ -1883,12 +817,11 @@ function openOfferForm(
           <input
             name="duration"
             type="text"
-            maxlength="100"
-            placeholder="Contoh: 3 hari"
             required
           >
 
         </div>
+
 
         <div class="form-group">
 
@@ -1899,11 +832,11 @@ function openOfferForm(
           <textarea
             name="message"
             rows="5"
-            maxlength="2000"
             required
           ></textarea>
 
         </div>
+
 
         <div class="modal-actions">
 
@@ -1928,51 +861,40 @@ function openOfferForm(
       </form>
 
     </div>
+
   `;
 
-  modal.classList.remove(
-    "hidden"
-  );
 
-  document.body.classList.add(
-    "modal-open"
-  );
+  modal.classList.remove("hidden");
+
 
   $("closeOffer")
     ?.addEventListener(
       "click",
-      () =>
-        closeModal(
-          "offerModal"
-        )
+      () => closeModal("offerModal")
     );
+
 
   $("cancelOffer")
     ?.addEventListener(
       "click",
-      () =>
-        closeModal(
-          "offerModal"
-        )
+      () => closeModal("offerModal")
     );
 
-  $("offerBackdrop")
+
+  modal
+    .querySelector(".modal-backdrop")
     ?.addEventListener(
       "click",
-      () =>
-        closeModal(
-          "offerModal"
-        )
+      () => closeModal("offerModal")
     );
+
 
   $("offerForm")
     ?.addEventListener(
       "submit",
       event =>
-        submitOffer(
-          event,
-          need
-        )
+        submitOffer(event, need)
     );
 
 }
@@ -1982,181 +904,143 @@ function openOfferForm(
 // SUBMIT OFFER
 // ============================================================
 
-async function submitOffer(
-  event,
-  need
-) {
+async function submitOffer(event, need) {
 
   event.preventDefault();
+
 
   if (isSubmittingOffer) {
     return;
   }
 
+
   if (!currentUser) {
 
-    window.location.href =
-      "login.html";
+    alert("Silakan login terlebih dahulu.");
 
     return;
+
   }
 
-  const form =
-    event.target;
+
+  if (!need?.id) {
+
+    alert(
+      "Data kebutuhan tidak ditemukan."
+    );
+
+    return;
+
+  }
+
+
+  const form = event.target;
 
   const price =
-    Number(
-      form.price?.value
-    );
+    Number(form.price?.value);
 
   const duration =
     String(
-      form.duration?.value ||
-      ""
+      form.duration?.value || ""
     ).trim();
 
   const message =
     String(
-      form.message?.value ||
-      ""
+      form.message?.value || ""
     ).trim();
 
-  if (
-    !Number.isFinite(price) ||
-    price <= 0
-  ) {
 
-    alert(
-      "Harga penawaran tidak valid."
-    );
-
+  if (!Number.isFinite(price) || price <= 0) {
+    alert("Harga penawaran tidak valid.");
     return;
   }
 
   if (!duration) {
-
-    alert(
-      "Lama pengerjaan wajib diisi."
-    );
-
+    alert("Lama pengerjaan wajib diisi.");
     return;
   }
 
   if (!message) {
-
-    alert(
-      "Pesan penawaran wajib diisi."
-    );
-
+    alert("Pesan penawaran wajib diisi.");
     return;
   }
 
-  /*
-    Pemilik tidak boleh menawarkan
-    kepada kebutuhannya sendiri.
-  */
 
-  if (
-    need.ownerId ===
-    currentUser.uid
-  ) {
+  isSubmittingOffer = true;
 
-    alert(
-      "Anda tidak dapat menawarkan kebutuhan sendiri."
-    );
-
-    return;
-  }
-
-  isSubmittingOffer =
-    true;
 
   const button =
     $("submitOffer");
 
+  const originalText =
+    button?.innerHTML ||
+    "💰 Kirim Penawaran";
+
+
   if (button) {
-
-    button.disabled =
-      true;
-
-    button.innerHTML =
-      "⏳ Mengirim...";
-
+    button.disabled = true;
+    button.innerHTML = "⏳ Mengirim...";
   }
+
 
   try {
 
     await addDoc(
 
-  collection(
-    db,
-    "needs",
-    need.id,
-    "offers"
-  ),
+      collection(
+        db,
+        "needs",
+        need.id,
+        "offers"
+      ),
 
-  {
+      {
 
-    needId:
-      need.id,
+        providerId:
+          currentUser.uid,
 
-    needTitle:
-      need.title ||
-      "Kebutuhan",
+        providerName:
+          currentUser.displayName ||
+          currentUser.email?.split("@")[0] ||
+          "Pengguna",
 
-    providerId:
-      currentUser.uid,
+        providerEmail:
+          currentUser.email ||
+          "",
 
-    providerName:
-      currentUser.displayName ||
-      currentUser.email?.split("@")[0] ||
-      "Pengguna",
+        providerPhoto:
+          currentUser.photoURL ||
+          "",
 
-    providerEmail:
-      currentUser.email ||
-      "",
+        price,
+        duration,
+        message,
 
-    providerPhoto:
-      currentUser.photoURL ||
-      "",
+        status:
+          "pending",
 
-    price,
+        createdAt:
+          serverTimestamp(),
 
-    duration,
+        updatedAt:
+          serverTimestamp()
 
-    message,
+      }
 
-    status:
-      "pending",
-
-    createdAt:
-      serverTimestamp(),
-
-    updatedAt:
-      serverTimestamp()
-
-  }
-
-);
-
-    form.reset();
-
-    closeModal(
-      "offerModal"
     );
+
+
+    closeModal("offerModal");
 
     showToast(
       "🤝 Penawaran berhasil dikirim!"
     );
 
-    loadMyOfferCountFast(
-      needsCache
-    );
 
   } catch (error) {
 
     console.error(
-      "SUBMIT OFFER:",
+      "SUBMIT OFFER ERROR:",
       error
     );
 
@@ -2167,17 +1051,11 @@ async function submitOffer(
 
   } finally {
 
-    isSubmittingOffer =
-      false;
+    isSubmittingOffer = false;
 
     if (button) {
-
-      button.disabled =
-        false;
-
-      button.innerHTML =
-        "💰 Kirim Penawaran";
-
+      button.disabled = false;
+      button.innerHTML = originalText;
     }
 
   }
@@ -2186,7 +1064,53 @@ async function submitOffer(
 
 
 // ============================================================
-// NEED MODAL
+// COUNTERS
+// ============================================================
+
+function updateCounters(needs) {
+
+  const active =
+    needs.filter(
+      need => {
+
+        const status =
+          String(
+            need.status || "open"
+          ).toLowerCase();
+
+        return [
+          "open",
+          "active",
+          "aktif"
+        ].includes(status);
+
+      }
+    ).length;
+
+
+  const mine =
+    needs.filter(
+      need =>
+        need.ownerId ===
+        currentUser?.uid
+    ).length;
+
+
+  setText(
+    "activeNeedsCount",
+    active
+  );
+
+  setText(
+    "userNeedsCount",
+    mine
+  );
+
+}
+
+
+// ============================================================
+// MODAL
 // ============================================================
 
 function openNeedModal() {
@@ -2197,18 +1121,20 @@ function openNeedModal() {
       "login.html";
 
     return;
+
   }
+
 
   const modal =
     $("needModal");
+
 
   if (!modal) {
     return;
   }
 
-  modal.classList.remove(
-    "hidden"
-  );
+
+  modal.classList.remove("hidden");
 
   document.body.classList.add(
     "modal-open"
@@ -2217,33 +1143,15 @@ function openNeedModal() {
 }
 
 
-function closeNeedModal() {
+function closeModal(id) {
 
-  closeModal(
-    "needModal"
-  );
-
-}
-
-
-// ============================================================
-// CLOSE MODAL
-// ============================================================
-
-function closeModal(
-  id
-) {
-
-  const modal =
-    $(id);
+  const modal = $(id);
 
   if (!modal) {
     return;
   }
 
-  modal.classList.add(
-    "hidden"
-  );
+  modal.classList.add("hidden");
 
   document.body.classList.remove(
     "modal-open"
@@ -2260,9 +1168,7 @@ async function logout() {
 
   try {
 
-    await signOut(
-      auth
-    );
+    await signOut(auth);
 
     window.location.href =
       "login.html";
@@ -2270,7 +1176,7 @@ async function logout() {
   } catch (error) {
 
     alert(
-      "Gagal logout:\n" +
+      "Gagal logout: " +
       error.message
     );
 
@@ -2292,6 +1198,281 @@ function openProfile() {
 
 
 // ============================================================
+// URL NEED
+// ============================================================
+
+function openNeedFromURL() {
+
+  const params =
+    new URLSearchParams(
+      window.location.search
+    );
+
+  const needId =
+    params.get("need");
+
+
+  if (!needId) {
+    return;
+  }
+
+
+  const waitForData =
+    setInterval(
+      () => {
+
+        const need =
+          needsCache.find(
+            item => item.id === needId
+          );
+
+
+        if (need) {
+
+          clearInterval(waitForData);
+
+          window.openNeedDetail(needId);
+
+          window.history.replaceState(
+            {},
+            document.title,
+            "index.html"
+          );
+
+        }
+
+      },
+      150
+    );
+
+
+  setTimeout(
+    () => clearInterval(waitForData),
+    10000
+  );
+
+}
+
+
+// ============================================================
+// UTILITIES
+// ============================================================
+
+function setText(id, value) {
+
+  const element = $(id);
+
+  if (element) {
+    element.textContent = value ?? "";
+  }
+
+}
+
+
+function setImage(id, src) {
+
+  const element = $(id);
+
+  if (element && src) {
+    element.src = src;
+  }
+
+}
+
+
+function getTime(value) {
+
+  if (!value) {
+    return 0;
+  }
+
+  if (
+    typeof value.toMillis ===
+    "function"
+  ) {
+    return value.toMillis();
+  }
+
+  if (
+    typeof value.toDate ===
+    "function"
+  ) {
+    return value.toDate().getTime();
+  }
+
+  if (
+    typeof value.seconds ===
+    "number"
+  ) {
+    return value.seconds * 1000;
+  }
+
+  const time =
+    new Date(value).getTime();
+
+  return Number.isFinite(time)
+    ? time
+    : 0;
+
+}
+
+
+function formatDate(value) {
+
+  const time = getTime(value);
+
+  if (!time) {
+    return "Baru saja";
+  }
+
+  return new Intl.DateTimeFormat(
+    "id-ID",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric"
+    }
+  ).format(new Date(time));
+
+}
+
+
+function formatMoney(value) {
+
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return "0";
+  }
+
+  return new Intl.NumberFormat(
+    "id-ID"
+  ).format(number);
+
+}
+
+
+function getCategory(value) {
+
+  const categories = {
+    design: "🎨 Desain",
+    website: "🌐 Website",
+    programming: "💻 Programming",
+    marketing: "📢 Marketing",
+    writing: "✍️ Penulisan",
+    video: "🎬 Video",
+    translation: "🌍 Terjemahan",
+    other: "📦 Lainnya"
+  };
+
+  return (
+    categories[value] ||
+    categories.other
+  );
+
+}
+
+
+function truncate(text, length) {
+
+  const value =
+    String(text || "");
+
+  return value.length > length
+    ? value.substring(0, length) + "..."
+    : value;
+
+}
+
+
+function escapeHTML(value) {
+
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+}
+
+
+function createAvatar(name) {
+
+  const letter =
+    String(name || "U")
+      .trim()
+      .charAt(0)
+      .toUpperCase();
+
+  return (
+    "https://ui-avatars.com/api/" +
+    "?name=" +
+    encodeURIComponent(letter) +
+    "&background=2563eb" +
+    "&color=ffffff" +
+    "&size=256"
+  );
+
+}
+
+
+// ============================================================
+// TOAST
+// ============================================================
+
+function showToast(message) {
+
+  let toast = $("butuhToast");
+
+  if (!toast) {
+
+    toast =
+      document.createElement("div");
+
+    toast.id = "butuhToast";
+
+    Object.assign(
+      toast.style,
+      {
+        position: "fixed",
+        left: "50%",
+        bottom: "25px",
+        transform: "translateX(-50%)",
+        zIndex: "999999",
+        padding: "13px 20px",
+        borderRadius: "999px",
+        background: "#111827",
+        color: "#ffffff",
+        fontWeight: "700",
+        boxShadow:
+          "0 10px 30px rgba(0,0,0,.2)"
+      }
+    );
+
+    document.body.appendChild(toast);
+
+  }
+
+
+  toast.textContent = message;
+
+  toast.style.display = "block";
+
+  clearTimeout(toast._timer);
+
+  toast._timer =
+    setTimeout(
+      () => {
+        toast.style.display = "none";
+      },
+      3000
+    );
+
+}
+
+
+// ============================================================
 // EVENTS
 // ============================================================
 
@@ -2305,113 +1486,42 @@ document.addEventListener(
         submitNeed
       );
 
-    $("openNeedModal")
-      ?.addEventListener(
-        "click",
-        openNeedModal
-      );
 
-    $("heroPostButton")
-      ?.addEventListener(
-        "click",
-        openNeedModal
-      );
-
-    $("desktopPostButton")
-      ?.addEventListener(
-        "click",
-        openNeedModal
-      );
-
-    $("mobilePostButton")
-      ?.addEventListener(
-        "click",
-        openNeedModal
-      );
-
-    $("closeNeedModal")
-      ?.addEventListener(
-        "click",
-        closeNeedModal
-      );
-
-    $("cancelNeed")
-      ?.addEventListener(
-        "click",
-        closeNeedModal
-      );
-
-    $("needBackdrop")
-      ?.addEventListener(
-        "click",
-        closeNeedModal
-      );
-
-
-    // PROFILE
-
-    $("profileButton")
-      ?.addEventListener(
-        "click",
-        event => {
-
-          event.stopPropagation();
-
-          $("profileMenu")
-            ?.classList.toggle(
-              "hidden"
-            );
-
-        }
-      );
-
-    $("profilePageBtn")
-      ?.addEventListener(
-        "click",
-        openProfile
-      );
-
-    $("logoutBtn")
-      ?.addEventListener(
-        "click",
-        logout
-      );
-
-
-    // OUTSIDE PROFILE
-
-    document.addEventListener(
-      "click",
-      event => {
-
-        const menu =
-          $("profileMenu");
-
-        const button =
-          $("profileButton");
-
-        if (
-          menu &&
-          button &&
-          !menu.contains(
-            event.target
-          ) &&
-          !button.contains(
-            event.target
-          )
-        ) {
-
-          menu.classList.add(
-            "hidden"
-          );
-
-        }
-
+    [
+      "openNeedModal",
+      "heroPostButton",
+      "desktopPostButton",
+      "mobilePostButton"
+    ].forEach(
+      id => {
+        $(id)?.addEventListener(
+          "click",
+          openNeedModal
+        );
       }
     );
 
 
-    // NEED DETAIL
+    $("closeNeedModal")
+      ?.addEventListener(
+        "click",
+        () => closeModal("needModal")
+      );
+
+
+    $("cancelNeed")
+      ?.addEventListener(
+        "click",
+        () => closeModal("needModal")
+      );
+
+
+    $("needBackdrop")
+      ?.addEventListener(
+        "click",
+        () => closeModal("needModal")
+      );
+
 
     $("needsList")
       ?.addEventListener(
@@ -2427,639 +1537,64 @@ document.addEventListener(
             return;
           }
 
-          const id =
-            button.dataset.id;
-
-          if (id) {
-
-            window.openNeedDetail(
-              id
-            );
-
-          }
+          window.openNeedDetail(
+            button.dataset.id
+          );
 
         }
       );
 
 
-    // ACCEPT OFFER
+    $("profileButton")
+      ?.addEventListener(
+        "click",
+        event => {
 
-    document.addEventListener(
-      "click",
-      event => {
+          event.stopPropagation();
 
-        const accept =
-          event.target.closest(
-            "[data-accept-offer='true']"
-          );
-
-        if (accept) {
-
-          acceptOffer(
-            accept.dataset.needId,
-            accept.dataset.offerId
-          );
-
-          return;
-        }
-
-        const reject =
-          event.target.closest(
-            "[data-reject-offer='true']"
-          );
-
-        if (reject) {
-
-          rejectOffer(
-            reject.dataset.needId,
-            reject.dataset.offerId
-          );
+          $("profileMenu")
+            ?.classList.toggle("hidden");
 
         }
-
-      }
-    );
+      );
 
 
-    // ESC
+    $("profilePageBtn")
+      ?.addEventListener(
+        "click",
+        openProfile
+      );
+
+
+    $("logoutBtn")
+      ?.addEventListener(
+        "click",
+        logout
+      );
+
 
     document.addEventListener(
       "keydown",
       event => {
 
-        if (
-          event.key ===
-          "Escape"
-        ) {
+        if (event.key === "Escape") {
 
-          closeModal(
-            "needModal"
-          );
-
-          closeModal(
-            "detailModal"
-          );
-
-          closeModal(
-            "offerModal"
-          );
+          closeModal("needModal");
+          closeModal("detailModal");
+          closeModal("offerModal");
 
         }
 
       }
     );
 
+
+    openNeedFromURL();
+
   }
 );
-
-
-// ============================================================
-// GLOBAL API
-// ============================================================
-
-window.butuhApp = {
-
-  getUser() {
-    return currentUser;
-  },
-
-  getNeeds() {
-    return needsCache;
-  },
-
-  reload() {
-    loadNeeds();
-  }
-
-};
-
-
-// ============================================================
-// OPEN NEED FROM PROFILE
-// ============================================================
-
-function openNeedFromURL() {
-
-  const params =
-    new URLSearchParams(
-      window.location.search
-    );
-
-  const needId =
-    params.get("need");
-
-  if (!needId) {
-    return;
-  }
-
-  let attempts = 0;
-
-  const timer =
-    setInterval(
-      () => {
-
-        attempts++;
-
-        if (
-          typeof window.openNeedDetail ===
-          "function"
-        ) {
-
-          clearInterval(
-            timer
-          );
-
-          window.openNeedDetail(
-            needId
-          );
-
-          window.history.replaceState(
-            {},
-            document.title,
-            "index.html"
-          );
-
-          return;
-
-        }
-
-        if (
-          attempts >= 100
-        ) {
-
-          clearInterval(
-            timer
-          );
-
-        }
-
-      },
-      100
-    );
-
-}
-
-
-if (
-  document.readyState ===
-  "loading"
-) {
-
-  document.addEventListener(
-    "DOMContentLoaded",
-    openNeedFromURL
-  );
-
-} else {
-
-  openNeedFromURL();
-
-}
 
 
 console.log(
-  "✅ BUTUH script.js VERSI TERBARU aktif"
+  "✅ BUTUH script.js baru aktif"
 );
-
-
-// ============================================================
-// COMMON HELPERS
-// ============================================================
-
-function setText(
-  id,
-  value
-) {
-
-  const element =
-    $(id);
-
-  if (element) {
-
-    element.textContent =
-      String(
-        value ?? ""
-      );
-
-  }
-
-}
-
-
-function setImage(
-  id,
-  src
-) {
-
-  const element =
-    $(id);
-
-  if (
-    element &&
-    src
-  ) {
-
-    element.src =
-      src;
-
-  }
-
-}
-
-
-function getTime(
-  value
-) {
-
-  if (!value) {
-    return 0;
-  }
-
-  try {
-
-    if (
-      typeof value.toMillis ===
-      "function"
-    ) {
-
-      return value.toMillis();
-
-    }
-
-    if (
-      typeof value.toDate ===
-      "function"
-    ) {
-
-      return value
-        .toDate()
-        .getTime();
-
-    }
-
-    if (
-      typeof value.seconds ===
-      "number"
-    ) {
-
-      return value.seconds * 1000;
-
-    }
-
-    const time =
-      new Date(
-        value
-      ).getTime();
-
-    return Number.isFinite(
-      time
-    )
-      ? time
-      : 0;
-
-  } catch {
-
-    return 0;
-
-  }
-
-}
-
-
-function formatDate(
-  value
-) {
-
-  const time =
-    getTime(value);
-
-  if (!time) {
-    return "Baru saja";
-  }
-
-  return new Intl.DateTimeFormat(
-    "id-ID",
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric"
-    }
-  ).format(
-    new Date(time)
-  );
-
-}
-
-
-function formatMoney(
-  value
-) {
-
-  const number =
-    Number(value);
-
-  if (
-    !Number.isFinite(
-      number
-    )
-  ) {
-
-    return "0";
-
-  }
-
-  return new Intl.NumberFormat(
-    "id-ID"
-  ).format(
-    number
-  );
-
-}
-
-
-function getCategory(
-  value
-) {
-
-  const categories = {
-
-    design: "🎨 Desain",
-
-    website: "🌐 Website",
-
-    programming: "💻 Programming",
-
-    marketing: "📢 Marketing",
-
-    writing: "✍️ Penulisan",
-
-    video: "🎬 Video",
-
-    translation: "🌍 Terjemahan",
-
-    other: "📦 Lainnya"
-
-  };
-
-  return (
-    categories[value] ||
-    categories.other
-  );
-
-}
-
-
-function truncate(
-  text,
-  length
-) {
-
-  const value =
-    String(
-      text ||
-      ""
-    );
-
-  return value.length <= length
-    ? value
-    : value.substring(
-        0,
-        length
-      ) + "...";
-
-}
-
-
-function escapeHTML(
-  value
-) {
-
-  return String(
-    value ?? ""
-  )
-    .replace(
-      /&/g,
-      "&amp;"
-    )
-    .replace(
-      /</g,
-      "&lt;"
-    )
-    .replace(
-      />/g,
-      "&gt;"
-    )
-    .replace(
-      /"/g,
-      "&quot;"
-    )
-    .replace(
-      /'/g,
-      "&#039;"
-    );
-
-}
-
-
-function getStatusClass(
-  status
-) {
-
-  switch (
-    String(
-      status ||
-      ""
-    ).toLowerCase()
-  ) {
-
-    case "accepted":
-    case "accept":
-    case "diterima":
-    case "success":
-      return "status-success";
-
-    case "completed":
-    case "complete":
-    case "selesai":
-      return "status-completed";
-
-    case "rejected":
-    case "cancelled":
-    case "canceled":
-    case "ditolak":
-      return "status-danger";
-
-    default:
-      return "status-pending";
-
-  }
-
-}
-
-
-function getStatusText(
-  status
-) {
-
-  switch (
-    String(
-      status ||
-      ""
-    ).toLowerCase()
-  ) {
-
-    case "accepted":
-    case "accept":
-    case "diterima":
-    case "success":
-      return "✓ Diterima";
-
-    case "completed":
-    case "complete":
-    case "selesai":
-      return "✓ Selesai";
-
-    case "rejected":
-    case "cancelled":
-    case "canceled":
-    case "ditolak":
-      return "✕ Ditolak";
-
-    default:
-      return "⏳ Menunggu";
-
-  }
-
-}
-
-
-function avatar(
-  name
-) {
-
-  const first =
-    String(
-      name ||
-      "U"
-    )
-      .trim()
-      .charAt(0)
-      .toUpperCase();
-
-  return (
-    "https://ui-avatars.com/api/" +
-    "?name=" +
-    encodeURIComponent(first) +
-    "&background=2563eb" +
-    "&color=ffffff" +
-    "&size=256"
-  );
-
-}
-
-
-function showToast(
-  message
-) {
-
-  let toast =
-    $("butuhToast");
-
-  if (!toast) {
-
-    toast =
-      document.createElement(
-        "div"
-      );
-
-    toast.id =
-      "butuhToast";
-
-    Object.assign(
-      toast.style,
-      {
-        position: "fixed",
-        left: "50%",
-        bottom: "25px",
-        transform: "translateX(-50%)",
-        zIndex: "999999",
-        padding: "13px 20px",
-        borderRadius: "999px",
-        background: "#111827",
-        color: "#fff",
-        fontWeight: "700",
-        fontSize: "14px",
-        boxShadow:
-          "0 10px 30px rgba(0,0,0,.2)"
-      }
-    );
-
-    document.body.appendChild(
-      toast
-    );
-
-  }
-
-  toast.textContent =
-    message;
-
-  toast.style.display =
-    "block";
-
-  clearTimeout(
-    toast._timer
-  );
-
-  toast._timer =
-    setTimeout(
-      () => {
-        toast.style.display =
-          "none";
-      },
-      3000
-    );
-
-}
-
-
-function showLoggedOut() {
-
-  const container =
-    $("needsList");
-
-  if (container) {
-
-    container.innerHTML = `
-      <div class="loading-box">
-        <div class="empty-icon">
-          🔐
-        </div>
-
-        <strong>
-          Silakan login
-        </strong>
-
-        <small>
-          Login untuk melihat kebutuhan.
-        </small>
-      </div>
-    `;
-
-  }
-
-  setText(
-    "activeNeedsCount",
-    "0"
-  );
-
-  setText(
-    "userNeedsCount",
-    "0"
-  );
-
-  setText(
-    "userOffersCount",
-    "0"
-  );
-
-}
