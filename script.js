@@ -2663,36 +2663,6 @@ console.log(
   "✅ BUTUH script.js VERSI CEPAT aktif"
 );
 
-document.addEventListener(
-  "DOMContentLoaded",
-  () => {
-
-    const params =
-      new URLSearchParams(
-        window.location.search
-      );
-
-    const needId =
-      params.get("need");
-
-
-    if (needId) {
-
-      setTimeout(
-        () => {
-
-          window.openNeedDetail(
-            needId
-          );
-
-        },
-        300
-      );
-
-    }
-
-  }
-);
 
 /* =====================================================
    OPEN NEED FROM PROFILE
