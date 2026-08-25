@@ -1,3 +1,10 @@
+// ============================================================
+// SCRIPT.JS
+// BUTUH - Marketplace Kebutuhan
+// Firebase v12.1.0
+// VERSI CEPAT
+// ============================================================
+
 import {
   initializeApp
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
@@ -22,9 +29,9 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 
-/* =====================================================
-   FIREBASE
-===================================================== */
+// ============================================================
+// FIREBASE CONFIG
+// ============================================================
 
 const firebaseConfig = {
 
@@ -49,6 +56,10 @@ const firebaseConfig = {
 };
 
 
+// ============================================================
+// INIT
+// ============================================================
+
 const app =
   initializeApp(firebaseConfig);
 
@@ -59,21 +70,32 @@ const db =
   getFirestore(app);
 
 
-/* =====================================================
-   GLOBAL
-===================================================== */
+// ============================================================
+// STATE
+// ============================================================
 
 let currentUser = null;
+
 let unsubscribeNeeds = null;
-let isSubmitting = false;
+
+let isSubmittingNeed = false;
+
+let isSubmittingOffer = false;
+
+let needsCache = [];
+
+
+// ============================================================
+// HELPER
+// ============================================================
 
 const $ = id =>
   document.getElementById(id);
 
 
-/* =====================================================
-   AUTH
-===================================================== */
+// ============================================================
+// AUTH
+// ============================================================
 
 onAuthStateChanged(
   auth,
@@ -89,6 +111,14 @@ onAuthStateChanged(
 
     } else {
 
+      if (unsubscribeNeeds) {
+
+        unsubscribeNeeds();
+
+        unsubscribeNeeds = null;
+
+      }
+
       showLoggedOut();
 
     }
@@ -97,18 +127,11 @@ onAuthStateChanged(
 );
 
 
-/* =====================================================
-   USER UI
-===================================================== */
+// ============================================================
+// USER UI
+// ============================================================
 
 function updateUserUI(user) {
-
-  const photo =
-    user?.photoURL ||
-    avatar(
-      user?.displayName ||
-      "U"
-    );
 
   const name =
     user?.displayName ||
@@ -119,16 +142,10 @@ function updateUserUI(user) {
     user?.email ||
     "";
 
+  const photo =
+    user?.photoURL ||
+    avatar(name);
 
-  setImage(
-    "userPhoto",
-    photo
-  );
-
-  setImage(
-    "menuUserPhoto",
-    photo
-  );
 
   setText(
     "userName",
@@ -150,12 +167,23 @@ function updateUserUI(user) {
     email
   );
 
+
+  setImage(
+    "userPhoto",
+    photo
+  );
+
+  setImage(
+    "menuUserPhoto",
+    photo
+  );
+
 }
 
 
-/* =====================================================
-   LOAD NEEDS
-===================================================== */
+// ============================================================
+// LOAD NEEDS
+// ============================================================
 
 function loadNeeds() {
 
@@ -174,35 +202,43 @@ function loadNeeds() {
   }
 
 
-  const ref =
+  /*
+    TIDAK memakai orderBy().
+
+    Keuntungan:
+
+    - tidak membutuhkan composite index
+    - query sederhana
+    - lebih cepat
+  */
+
+  const needsRef =
     collection(
       db,
       "needs"
     );
 
 
-  /*
-    TIDAK MENGGUNAKAN orderBy.
-
-    Tujuannya agar tidak membutuhkan
-    composite index.
-  */
-
   unsubscribeNeeds =
     onSnapshot(
 
-      ref,
+      needsRef,
 
       snapshot => {
 
         const needs = [];
 
+
         snapshot.forEach(
           item => {
 
             needs.push({
-              id: item.id,
+
+              id:
+                item.id,
+
               ...item.data()
+
             });
 
           }
@@ -210,26 +246,54 @@ function loadNeeds() {
 
 
         /*
-          Urutkan di browser.
+          Sort di browser.
         */
 
         needs.sort(
           (a, b) => {
 
             return (
-              getTime(b.createdAt) -
-              getTime(a.createdAt)
+              getTime(
+                b.createdAt
+              ) -
+              getTime(
+                a.createdAt
+              )
             );
 
           }
         );
 
 
+        needsCache =
+          needs;
+
+
+        /*
+          LANGSUNG TAMPILKAN.
+        */
+
         renderNeeds(
           needs
         );
 
-        updateCounters(
+
+        /*
+          LANGSUNG UPDATE
+          COUNTER DASAR.
+        */
+
+        updateBasicCounters(
+          needs
+        );
+
+
+        /*
+          Hitung offers di belakang.
+          Tidak menghambat render.
+        */
+
+        loadMyOfferCountFast(
           needs
         );
 
@@ -238,11 +302,13 @@ function loadNeeds() {
       error => {
 
         console.error(
-          "Firestore:",
+          "Firestore load error:",
           error
         );
 
+
         container.innerHTML = `
+
           <div class="loading-box">
 
             <div class="empty-icon">
@@ -255,12 +321,30 @@ function loadNeeds() {
 
             <small>
               ${escapeHTML(
-                error.message
+                error.message ||
+                "Terjadi kesalahan."
               )}
             </small>
 
+            <button
+              id="retryNeedsBtn"
+              class="btn btn-primary"
+              style="margin-top:15px"
+              type="button"
+            >
+              🔄 Coba Lagi
+            </button>
+
           </div>
+
         `;
+
+
+        $("retryNeedsBtn")
+          ?.addEventListener(
+            "click",
+            loadNeeds
+          );
 
       }
 
@@ -269,9 +353,9 @@ function loadNeeds() {
 }
 
 
-/* =====================================================
-   RENDER NEEDS
-===================================================== */
+// ============================================================
+// RENDER NEEDS
+// ============================================================
 
 function renderNeeds(
   needs
@@ -285,9 +369,7 @@ function renderNeeds(
   }
 
 
-  if (
-    needs.length === 0
-  ) {
+  if (!needs.length) {
 
     container.innerHTML = `
 
@@ -324,9 +406,9 @@ function renderNeeds(
 }
 
 
-/* =====================================================
-   NEED CARD
-===================================================== */
+// ============================================================
+// CREATE NEED CARD
+// ============================================================
 
 function createNeedCard(
   need
@@ -381,10 +463,19 @@ function createNeedCard(
     ).toLowerCase();
 
 
+  const isActive =
+    status === "open" ||
+    status === "active" ||
+    status === "aktif";
+
+
   return `
 
     <article
       class="need-card"
+      data-id="${escapeHTML(
+        need.id
+      )}"
     >
 
       <div class="need-card-top">
@@ -444,13 +535,18 @@ function createNeedCard(
                 : "btn-primary"
             }"
             type="button"
-            onclick="window.openNeedDetail('${need.id}')"
+            data-action="detail"
+            data-id="${escapeHTML(
+              need.id
+            )}"
           >
 
             ${
               owner
                 ? "Lihat"
-                : "Tawarkan"
+                : isActive
+                  ? "Tawarkan"
+                  : "Lihat"
             }
 
           </button>
@@ -466,11 +562,11 @@ function createNeedCard(
 }
 
 
-/* =====================================================
-   COUNTERS
-===================================================== */
+// ============================================================
+// COUNTERS
+// ============================================================
 
-function updateCounters(
+function updateBasicCounters(
   needs
 ) {
 
@@ -512,33 +608,43 @@ function updateCounters(
     mine
   );
 
-
-  /*
-    Hitung penawaran pengguna
-    dari semua kebutuhan.
-
-    Karena offers adalah
-    subcollection:
-    needs/{needId}/offers
-  */
-
-  loadMyOfferCount(
-    needs
-  );
-
 }
 
 
-/* =====================================================
-   COUNT MY OFFERS
-===================================================== */
+// ============================================================
+// COUNT MY OFFERS
+// ============================================================
 
-async function loadMyOfferCount(
+async function loadMyOfferCountFast(
   needs
 ) {
 
   if (!currentUser) {
+
+    setText(
+      "userOffersCount",
+      "0"
+    );
+
     return;
+
+  }
+
+
+  /*
+    Jangan membuat loading kebutuhan
+    menunggu proses ini.
+  */
+
+  if (!needs.length) {
+
+    setText(
+      "userOffersCount",
+      "0"
+    );
+
+    return;
+
   }
 
 
@@ -547,42 +653,68 @@ async function loadMyOfferCount(
 
   try {
 
-    await Promise.all(
+    /*
+      Maksimal proses paralel.
 
+      Struktur:
+
+      needs/{needId}/offers
+    */
+
+    const promises =
       needs.map(
         async need => {
 
-          const offersRef =
-            collection(
-              db,
-              "needs",
-              need.id,
-              "offers"
-            );
+          try {
+
+            const offersRef =
+              collection(
+                db,
+                "needs",
+                need.id,
+                "offers"
+              );
 
 
-          const q =
-            query(
-              offersRef,
-              where(
-                "providerId",
-                "==",
-                currentUser.uid
-              )
-            );
+            const q =
+              query(
+                offersRef,
+                where(
+                  "providerId",
+                  "==",
+                  currentUser.uid
+                )
+              );
 
 
-          const snapshot =
-            await getDocs(q);
+            const snapshot =
+              await getDocs(q);
 
 
-          total +=
-            snapshot.size;
+            return snapshot.size;
+
+          } catch {
+
+            return 0;
+
+          }
 
         }
-      )
+      );
 
-    );
+
+    const results =
+      await Promise.all(
+        promises
+      );
+
+
+    total =
+      results.reduce(
+        (sum, value) =>
+          sum + value,
+        0
+      );
 
 
     setText(
@@ -590,11 +722,10 @@ async function loadMyOfferCount(
       total
     );
 
-
   } catch (error) {
 
-    console.error(
-      "Gagal menghitung penawaran:",
+    console.warn(
+      "Offer counter:",
       error
     );
 
@@ -608,9 +739,9 @@ async function loadMyOfferCount(
 }
 
 
-/* =====================================================
-   POST NEED
-===================================================== */
+// ============================================================
+// POST NEED
+// ============================================================
 
 async function submitNeed(
   event
@@ -619,7 +750,7 @@ async function submitNeed(
   event.preventDefault();
 
 
-  if (isSubmitting) {
+  if (isSubmittingNeed) {
     return;
   }
 
@@ -639,26 +770,39 @@ async function submitNeed(
 
 
   const title =
-    form.title.value.trim();
+    String(
+      form.title?.value ||
+      ""
+    ).trim();
 
 
   const description =
-    form.description.value.trim();
+    String(
+      form.description?.value ||
+      ""
+    ).trim();
 
 
   const category =
-    form.category.value ||
+    form.category?.value ||
     "other";
+
+
+  const rawBudget =
+    String(
+      form.budget?.value ||
+      ""
+    ).trim();
 
 
   const budget =
     Number(
-      form.budget.value
+      rawBudget
     );
 
 
   const deadline =
-    form.deadline.value ||
+    form.deadline?.value ||
     "";
 
 
@@ -685,6 +829,7 @@ async function submitNeed(
 
 
   if (
+    rawBudget === "" ||
     !Number.isFinite(budget) ||
     budget <= 0
   ) {
@@ -698,7 +843,8 @@ async function submitNeed(
   }
 
 
-  isSubmitting = true;
+  isSubmittingNeed =
+    true;
 
 
   const button =
@@ -706,12 +852,14 @@ async function submitNeed(
 
 
   const original =
-    button?.innerHTML;
+    button?.innerHTML ||
+    "🚀 Posting Kebutuhan";
 
 
   if (button) {
 
-    button.disabled = true;
+    button.disabled =
+      true;
 
     button.innerHTML =
       "⏳ Menyimpan...";
@@ -720,6 +868,10 @@ async function submitNeed(
 
 
   try {
+
+    /*
+      Simpan langsung.
+    */
 
     await addDoc(
 
@@ -770,12 +922,17 @@ async function submitNeed(
     );
 
 
+    /*
+      Reset form.
+    */
+
     form.reset();
 
 
     /*
-      Modal langsung ditutup
-      setelah Firestore selesai.
+      TUTUP MODAL
+      segera setelah Firestore
+      mengonfirmasi penyimpanan.
     */
 
     closeNeedModal();
@@ -789,17 +946,21 @@ async function submitNeed(
   } catch (error) {
 
     console.error(
+      "Submit need:",
       error
     );
 
+
     alert(
-      "Gagal menyimpan: " +
+      "Gagal menyimpan kebutuhan:\n\n" +
       error.message
     );
 
   } finally {
 
-    isSubmitting = false;
+    isSubmittingNeed =
+      false;
+
 
     if (button) {
 
@@ -816,18 +977,49 @@ async function submitNeed(
 }
 
 
-/* =====================================================
-   NEED DETAIL
-===================================================== */
+// ============================================================
+// OPEN NEED DETAIL
+// ============================================================
 
 window.openNeedDetail =
   async function(
     needId
   ) {
 
+    if (!needId) {
+      return;
+    }
+
+
+    /*
+      Cari dulu dari cache.
+
+      Ini jauh lebih cepat daripada
+      langsung request Firestore.
+    */
+
+    const cached =
+      needsCache.find(
+        item =>
+          item.id ===
+          needId
+      );
+
+
+    if (cached) {
+
+      showNeedDetail(
+        cached
+      );
+
+      return;
+
+    }
+
+
     try {
 
-      const ref =
+      const reference =
         doc(
           db,
           "needs",
@@ -837,13 +1029,11 @@ window.openNeedDetail =
 
       const snapshot =
         await getDoc(
-          ref
+          reference
         );
 
 
-      if (
-        !snapshot.exists()
-      ) {
+      if (!snapshot.exists()) {
 
         alert(
           "Kebutuhan tidak ditemukan."
@@ -854,20 +1044,14 @@ window.openNeedDetail =
       }
 
 
-      const need = {
+      showNeedDetail({
 
         id:
           snapshot.id,
 
         ...snapshot.data()
 
-      };
-
-
-      showNeedDetail(
-        need
-      );
-
+      });
 
     } catch (error) {
 
@@ -884,9 +1068,9 @@ window.openNeedDetail =
   };
 
 
-/* =====================================================
-   DETAIL MODAL
-===================================================== */
+// ============================================================
+// NEED DETAIL MODAL
+// ============================================================
 
 function showNeedDetail(
   need
@@ -948,6 +1132,7 @@ function showNeedDetail(
 
         </div>
 
+
         <button
           class="modal-close"
           id="closeDetail"
@@ -961,7 +1146,10 @@ function showNeedDetail(
 
       <div style="padding:22px">
 
-        <p>
+        <p style="
+          line-height:1.7;
+          color:#374151;
+        ">
           ${escapeHTML(
             need.description ||
             ""
@@ -997,13 +1185,48 @@ function showNeedDetail(
         </div>
 
 
-        <p>
+        <div style="
+          color:#4b5563;
+          line-height:1.8;
+        ">
+
           👤
           ${escapeHTML(
             need.ownerName ||
             "Pengguna"
           )}
-        </p>
+
+          <br>
+
+          📂
+          ${escapeHTML(
+            getCategory(
+              need.category
+            )
+          )}
+
+          <br>
+
+          📅
+          ${escapeHTML(
+            formatDate(
+              need.createdAt
+            )
+          )}
+
+          ${
+            need.deadline
+              ? `
+                <br>
+                ⏰ Deadline:
+                ${escapeHTML(
+                  need.deadline
+                )}
+              `
+              : ""
+          }
+
+        </div>
 
 
         ${
@@ -1011,14 +1234,14 @@ function showNeedDetail(
             ? `
               <div
                 style="
-                  margin-top:15px;
+                  margin-top:20px;
                   padding:14px;
                   background:#f0fdf4;
                   color:#15803d;
                   border-radius:10px;
                 "
               >
-                Ini adalah kebutuhan Anda.
+                👤 Ini adalah kebutuhan Anda.
               </div>
             `
             : `
@@ -1026,7 +1249,10 @@ function showNeedDetail(
                 id="detailOfferButton"
                 class="btn btn-primary btn-large"
                 type="button"
-                style="width:100%;margin-top:20px"
+                style="
+                  width:100%;
+                  margin-top:20px;
+                "
               >
                 💰 Ajukan Penawaran
               </button>
@@ -1043,6 +1269,7 @@ function showNeedDetail(
   modal.classList.remove(
     "hidden"
   );
+
 
   document.body.classList.add(
     "modal-open"
@@ -1080,6 +1307,7 @@ function showNeedDetail(
             "detailModal"
           );
 
+
           openOfferForm(
             need
           );
@@ -1092,9 +1320,9 @@ function showNeedDetail(
 }
 
 
-/* =====================================================
-   OFFER FORM
-===================================================== */
+// ============================================================
+// OFFER FORM
+// ============================================================
 
 function openOfferForm(
   need
@@ -1179,15 +1407,6 @@ function openOfferForm(
 
       <form id="offerForm">
 
-        <input
-          type="hidden"
-          name="needId"
-          value="${escapeHTML(
-            need.id
-          )}"
-        >
-
-
         <div class="form-group">
 
           <label>
@@ -1251,6 +1470,7 @@ function openOfferForm(
             Batal
           </button>
 
+
           <button
             type="submit"
             id="submitOffer"
@@ -1271,6 +1491,7 @@ function openOfferForm(
   modal.classList.remove(
     "hidden"
   );
+
 
   document.body.classList.add(
     "modal-open"
@@ -1320,9 +1541,9 @@ function openOfferForm(
 }
 
 
-/* =====================================================
-   SUBMIT OFFER
-===================================================== */
+// ============================================================
+// SUBMIT OFFER
+// ============================================================
 
 async function submitOffer(
   event,
@@ -1330,6 +1551,11 @@ async function submitOffer(
 ) {
 
   event.preventDefault();
+
+
+  if (isSubmittingOffer) {
+    return;
+  }
 
 
   if (!currentUser) {
@@ -1346,17 +1572,9 @@ async function submitOffer(
     event.target;
 
 
-  /*
-    Ambil string dahulu,
-    lalu Number.
-
-    Ini menghindari masalah
-    "nilai yang valid".
-  */
-
   const rawPrice =
     String(
-      form.price.value ||
+      form.price?.value ||
       ""
     ).trim();
 
@@ -1368,11 +1586,17 @@ async function submitOffer(
 
 
   const duration =
-    form.duration.value.trim();
+    String(
+      form.duration?.value ||
+      ""
+    ).trim();
 
 
   const message =
-    form.message.value.trim();
+    String(
+      form.message?.value ||
+      ""
+    ).trim();
 
 
   if (
@@ -1412,25 +1636,34 @@ async function submitOffer(
   }
 
 
+  isSubmittingOffer =
+    true;
+
+
   const button =
     $("submitOffer");
 
 
   const original =
-    button.innerHTML;
+    button?.innerHTML ||
+    "💰 Kirim Penawaran";
 
 
-  button.disabled =
-    true;
+  if (button) {
 
-  button.innerHTML =
-    "⏳ Mengirim...";
+    button.disabled =
+      true;
+
+    button.innerHTML =
+      "⏳ Mengirim...";
+
+  }
 
 
   try {
 
     /*
-      STRUKTUR DATABASE SAAT INI:
+      STRUKTUR:
 
       needs/{needId}/offers/{offerId}
     */
@@ -1495,34 +1728,72 @@ async function submitOffer(
     );
 
 
+    /*
+      Update counter.
+    */
+
+    const counter =
+      $("userOffersCount");
+
+
+    if (counter) {
+
+      const old =
+        Number(
+          counter.textContent
+        );
+
+
+      if (
+        Number.isFinite(old)
+      ) {
+
+        counter.textContent =
+          String(
+            old + 1
+          );
+
+      }
+
+    }
+
   } catch (error) {
 
     console.error(
-      "Offer:",
+      "Submit offer:",
       error
     );
 
+
     alert(
-      "Gagal mengirim penawaran: " +
+      "Gagal mengirim penawaran:\n\n" +
       error.message
     );
 
   } finally {
 
-    button.disabled =
+    isSubmittingOffer =
       false;
 
-    button.innerHTML =
-      original;
+
+    if (button) {
+
+      button.disabled =
+        false;
+
+      button.innerHTML =
+        original;
+
+    }
 
   }
 
 }
 
 
-/* =====================================================
-   MODAL
-===================================================== */
+// ============================================================
+// NEED MODAL
+// ============================================================
 
 function openNeedModal() {
 
@@ -1549,9 +1820,9 @@ function openNeedModal() {
     "hidden"
   );
 
+
   document.body.classList.add(
     "modal-open"
-  
   );
 
 }
@@ -1565,6 +1836,10 @@ function closeNeedModal() {
 
 }
 
+
+// ============================================================
+// CLOSE MODAL
+// ============================================================
 
 function closeModal(
   id
@@ -1583,6 +1858,7 @@ function closeModal(
     "hidden"
   );
 
+
   document.body.classList.remove(
     "modal-open"
   );
@@ -1590,9 +1866,9 @@ function closeModal(
 }
 
 
-/* =====================================================
-   LOGOUT
-===================================================== */
+// ============================================================
+// LOGOUT
+// ============================================================
 
 async function logout() {
 
@@ -1602,13 +1878,19 @@ async function logout() {
       auth
     );
 
+
     window.location.href =
       "login.html";
 
   } catch (error) {
 
+    console.error(
+      error
+    );
+
+
     alert(
-      "Gagal logout: " +
+      "Gagal logout:\n" +
       error.message
     );
 
@@ -1617,9 +1899,9 @@ async function logout() {
 }
 
 
-/* =====================================================
-   PROFILE
-===================================================== */
+// ============================================================
+// PROFILE
+// ============================================================
 
 function openProfile() {
 
@@ -1629,41 +1911,60 @@ function openProfile() {
 }
 
 
-/* =====================================================
-   HELPERS
-===================================================== */
+// ============================================================
+// TEXT
+// ============================================================
 
 function setText(
   id,
   value
 ) {
 
-  const el =
+  const element =
     $(id);
 
-  if (el) {
-    el.textContent =
-      value;
+
+  if (element) {
+
+    element.textContent =
+      String(
+        value ?? ""
+      );
+
   }
 
 }
 
+
+// ============================================================
+// IMAGE
+// ============================================================
 
 function setImage(
   id,
   src
 ) {
 
-  const el =
+  const element =
     $(id);
 
-  if (el) {
-    el.src =
+
+  if (
+    element &&
+    src
+  ) {
+
+    element.src =
       src;
+
   }
 
 }
 
+
+// ============================================================
+// FIRESTORE TIME
+// ============================================================
 
 function getTime(
   value
@@ -1674,54 +1975,72 @@ function getTime(
   }
 
 
-  if (
-    typeof value.toMillis ===
-    "function"
-  ) {
+  try {
 
-    return value.toMillis();
+    if (
+      typeof value.toMillis ===
+      "function"
+    ) {
+
+      return value.toMillis();
+
+    }
+
+
+    if (
+      typeof value.toDate ===
+      "function"
+    ) {
+
+      return value
+        .toDate()
+        .getTime();
+
+    }
+
+
+    if (
+      value.seconds !==
+      undefined
+    ) {
+
+      return (
+        Number(
+          value.seconds
+        ) * 1000
+      );
+
+    }
+
+
+    const date =
+      new Date(
+        value
+      );
+
+
+    const time =
+      date.getTime();
+
+
+    return Number.isNaN(
+      time
+    )
+      ? 0
+      : time;
+
+  } catch {
+
+    return 0;
 
   }
-
-
-  if (
-    typeof value.toDate ===
-    "function"
-  ) {
-
-    return value
-      .toDate()
-      .getTime();
-
-  }
-
-
-  if (
-    value.seconds
-  ) {
-
-    return (
-      value.seconds *
-      1000
-    );
-
-  }
-
-
-  const date =
-    new Date(
-      value
-    );
-
-
-  return isNaN(
-    date.getTime()
-  )
-    ? 0
-    : date.getTime();
 
 }
 
+
+// ============================================================
+// FORMAT DATE
+// ============================================================
 
 function formatDate(
   value
@@ -1734,16 +2053,23 @@ function formatDate(
 
 
   if (!time) {
+
     return "Baru saja";
+
   }
 
 
   return new Intl.DateTimeFormat(
     "id-ID",
     {
-      day: "2-digit",
-      month: "short",
-      year: "numeric"
+      day:
+        "2-digit",
+
+      month:
+        "short",
+
+      year:
+        "numeric"
     }
   ).format(
     new Date(time)
@@ -1751,6 +2077,10 @@ function formatDate(
 
 }
 
+
+// ============================================================
+// FORMAT MONEY
+// ============================================================
 
 function formatMoney(
   value
@@ -1781,6 +2111,10 @@ function formatMoney(
 
 }
 
+
+// ============================================================
+// CATEGORY
+// ============================================================
 
 function getCategory(
   value
@@ -1823,6 +2157,10 @@ function getCategory(
 }
 
 
+// ============================================================
+// TRUNCATE
+// ============================================================
+
 function truncate(
   text,
   length
@@ -1855,6 +2193,10 @@ function truncate(
 
 }
 
+
+// ============================================================
+// ESCAPE HTML
+// ============================================================
 
 function escapeHTML(
   value
@@ -1893,18 +2235,29 @@ function escapeHTML(
 }
 
 
+// ============================================================
+// AVATAR
+// ============================================================
+
 function avatar(
   name
 ) {
+
+  const first =
+    String(
+      name ||
+      "U"
+    )
+      .trim()
+      .charAt(0)
+      .toUpperCase();
+
 
   return (
     "https://ui-avatars.com/api/" +
     "?name=" +
     encodeURIComponent(
-      String(
-        name ||
-        "U"
-      ).charAt(0)
+      first
     ) +
     "&background=2563eb" +
     "&color=ffffff" +
@@ -1914,9 +2267,9 @@ function avatar(
 }
 
 
-/* =====================================================
-   TOAST
-===================================================== */
+// ============================================================
+// TOAST
+// ============================================================
 
 function showToast(
   message
@@ -1933,38 +2286,54 @@ function showToast(
         "div"
       );
 
+
     toast.id =
       "butuhToast";
 
-    toast.style.position =
-      "fixed";
 
-    toast.style.left =
-      "50%";
+    Object.assign(
+      toast.style,
+      {
 
-    toast.style.bottom =
-      "25px";
+        position:
+          "fixed",
 
-    toast.style.transform =
-      "translateX(-50%)";
+        left:
+          "50%",
 
-    toast.style.zIndex =
-      "9999";
+        bottom:
+          "25px",
 
-    toast.style.padding =
-      "13px 20px";
+        transform:
+          "translateX(-50%)",
 
-    toast.style.borderRadius =
-      "999px";
+        zIndex:
+          "999999",
 
-    toast.style.background =
-      "#111827";
+        padding:
+          "13px 20px",
 
-    toast.style.color =
-      "#fff";
+        borderRadius:
+          "999px",
 
-    toast.style.fontWeight =
-      "700";
+        background:
+          "#111827",
+
+        color:
+          "#fff",
+
+        fontWeight:
+          "700",
+
+        fontSize:
+          "14px",
+
+        boxShadow:
+          "0 10px 30px rgba(0,0,0,.2)"
+
+      }
+    );
+
 
     document.body.appendChild(
       toast
@@ -2000,9 +2369,9 @@ function showToast(
 }
 
 
-/* =====================================================
-   LOGGED OUT
-===================================================== */
+// ============================================================
+// LOGGED OUT
+// ============================================================
 
 function showLoggedOut() {
 
@@ -2028,23 +2397,43 @@ function showLoggedOut() {
       </strong>
 
       <small>
-        Login dengan Google untuk melihat kebutuhan.
+        Login untuk melihat dan memposting kebutuhan.
       </small>
 
     </div>
 
   `;
 
+
+  setText(
+    "activeNeedsCount",
+    "0"
+  );
+
+  setText(
+    "userNeedsCount",
+    "0"
+  );
+
+  setText(
+    "userOffersCount",
+    "0"
+  );
+
 }
 
 
-/* =====================================================
-   EVENTS
-===================================================== */
+// ============================================================
+// EVENTS
+// ============================================================
 
 document.addEventListener(
   "DOMContentLoaded",
   () => {
+
+    // --------------------------------------------------------
+    // POST NEED
+    // --------------------------------------------------------
 
     $("needForm")
       ?.addEventListener(
@@ -2052,12 +2441,6 @@ document.addEventListener(
         submitNeed
       );
 
-
-    /*
-      Semua tombol posting
-      sekarang menggunakan
-      fungsi yang sama.
-    */
 
     $("openNeedModal")
       ?.addEventListener(
@@ -2108,12 +2491,17 @@ document.addEventListener(
       );
 
 
+    // --------------------------------------------------------
+    // PROFILE MENU
+    // --------------------------------------------------------
+
     $("profileButton")
       ?.addEventListener(
         "click",
         event => {
 
           event.stopPropagation();
+
 
           $("profileMenu")
             ?.classList.toggle(
@@ -2138,6 +2526,10 @@ document.addEventListener(
       );
 
 
+    // --------------------------------------------------------
+    // CLICK OUTSIDE PROFILE
+    // --------------------------------------------------------
+
     document.addEventListener(
       "click",
       event => {
@@ -2152,8 +2544,12 @@ document.addEventListener(
         if (
           menu &&
           button &&
-          !menu.contains(event.target) &&
-          !button.contains(event.target)
+          !menu.contains(
+            event.target
+          ) &&
+          !button.contains(
+            event.target
+          )
         ) {
 
           menu.classList.add(
@@ -2166,6 +2562,46 @@ document.addEventListener(
     );
 
 
+    // --------------------------------------------------------
+    // NEED CARD
+    // --------------------------------------------------------
+
+    $("needsList")
+      ?.addEventListener(
+        "click",
+        event => {
+
+          const button =
+            event.target.closest(
+              "[data-action='detail']"
+            );
+
+
+          if (!button) {
+            return;
+          }
+
+
+          const id =
+            button.dataset.id;
+
+
+          if (id) {
+
+            window.openNeedDetail(
+              id
+            );
+
+          }
+
+        }
+      );
+
+
+    // --------------------------------------------------------
+    // ESC
+    // --------------------------------------------------------
+
     document.addEventListener(
       "keydown",
       event => {
@@ -2175,7 +2611,9 @@ document.addEventListener(
           "Escape"
         ) {
 
-          closeNeedModal();
+          closeModal(
+            "needModal"
+          );
 
           closeModal(
             "detailModal"
@@ -2191,4 +2629,36 @@ document.addEventListener(
     );
 
   }
+);
+
+
+// ============================================================
+// GLOBAL DEBUG
+// ============================================================
+
+window.butuhApp = {
+
+  getUser() {
+
+    return currentUser;
+
+  },
+
+  getNeeds() {
+
+    return needsCache;
+
+  },
+
+  reload() {
+
+    loadNeeds();
+
+  }
+
+};
+
+
+console.log(
+  "✅ BUTUH script.js VERSI CEPAT aktif"
 );
