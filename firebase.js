@@ -1,6 +1,6 @@
 // ============================================================
 // FIREBASE.JS
-// Konfigurasi Firebase Marketplace
+// Marketplace Kebutuhan
 // ============================================================
 
 import { initializeApp } from
@@ -15,39 +15,37 @@ import { getFirestore } from
 // ============================================================
 // FIREBASE CONFIG
 // ============================================================
-//
-// GANTI bagian di bawah dengan konfigurasi Firebase Anda.
-//
+// GANTI dengan konfigurasi Web App Firebase Anda.
 // Firebase Console
 // → Project Settings
 // → Your apps
 // → Web app
-// → SDK setup and configuration
 // ============================================================
 
 const firebaseConfig = {
-
   apiKey: "AIzaSyCUFHkwOfNo-JCGHWG3dWcnISoYLg7vGnY",
-
   authDomain: "butuhin.firebaseapp.com",
-
   projectId: "butuhin",
-
   storageBucket: "butuhin.firebasestorage.app",
-
   messagingSenderId: "331896660506",
-
   appId: "1:331896660506:web:7a03f433101b81dd74e7a3"
-
 };
 
 // ============================================================
-// INITIALIZE
+// INITIALIZE FIREBASE
 // ============================================================
 
 const app = initializeApp(firebaseConfig);
 
+// ============================================================
+// AUTH
+// ============================================================
+
 const auth = getAuth(app);
+
+// ============================================================
+// FIRESTORE
+// ============================================================
 
 const db = getFirestore(app);
 
