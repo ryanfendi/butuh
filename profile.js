@@ -22,6 +22,7 @@ import {
 import {
   getFirestore,
   collection,
+  collectionGroup
   getDocs,
   query,
   where
