@@ -5,15 +5,15 @@
 
 import {
   initializeApp
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 
 import {
   getAuth
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 
 import {
   getFirestore
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 // ============================================================
 // FIREBASE CONFIG
@@ -21,43 +21,52 @@ import {
 
 const firebaseConfig = {
 
-  apiKey: "AIzaSyCUFHkwOfNo-JCGHWG3dWcnISoYLg7vGnY",
+  apiKey:
+    "AIzaSyCUFHkwOfNo-JCGHWG3dWcnISoYLg7vGnY",
 
-  authDomain: "butuhin.firebaseapp.com",
+  authDomain:
+    "butuhin.firebaseapp.com",
 
-  projectId: "butuhin",
+  projectId:
+    "butuhin",
 
-  storageBucket: "butuhin.firebasestorage.app",
+  storageBucket:
+    "butuhin.firebasestorage.app",
 
-  messagingSenderId: "331896660506",
+  messagingSenderId:
+    "331896660506",
 
-  appId: "1:331896660506:web:7a03f433101b81dd74e7a3"
+  appId:
+    "1:331896660506:web:7a03f433101b81dd74e7a3"
 
 };
 
 // ============================================================
-// INITIALIZE
+// INITIALIZE FIREBASE
 // ============================================================
 
-const app = initializeApp(
-  firebaseConfig
-);
+const app =
+  initializeApp(
+    firebaseConfig
+  );
 
 // ============================================================
 // AUTH
 // ============================================================
 
-const auth = getAuth(
-  app
-);
+const auth =
+  getAuth(
+    app
+  );
 
 // ============================================================
 // FIRESTORE
 // ============================================================
 
-const db = getFirestore(
-  app
-);
+const db =
+  getFirestore(
+    app
+  );
 
 // ============================================================
 // EXPORT
@@ -70,5 +79,5 @@ export {
 };
 
 console.log(
-  "✅ Firebase berhasil diinisialisasi"
+  "✅ firebase.js aktif"
 );
