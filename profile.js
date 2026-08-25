@@ -2,7 +2,7 @@
 // PROFILE.JS
 // BUTUH - Profile & Riwayat
 // Firebase v12.1.0
-// VERSI FIX - RIWAYAT PENAWARAN
+// VERSI STABIL + CEPAT
 // ============================================================
 
 import {
@@ -26,11 +26,10 @@ import {
 
 
 // ============================================================
-// FIREBASE CONFIG
+// FIREBASE
 // ============================================================
 
 const firebaseConfig = {
-
   apiKey:
     "AIzaSyCUFHkwOfNo-JCGHWG3dWcnISoYLg7vGnY",
 
@@ -48,21 +47,18 @@ const firebaseConfig = {
 
   appId:
     "1:331896660506:web:7a03f433101b81dd74e7a3"
-
 };
 
-
-// ============================================================
-// FIREBASE INIT
-// ============================================================
 
 const app =
   getApps().length
     ? getApp()
     : initializeApp(firebaseConfig);
 
+
 const auth =
   getAuth(app);
+
 
 const db =
   getFirestore(app);
@@ -77,8 +73,6 @@ let currentUser = null;
 let myNeeds = [];
 
 let myOffers = [];
-
-let allNeeds = [];
 
 let loading = false;
 
@@ -100,8 +94,6 @@ onAuthStateChanged(
   auth,
   async user => {
 
-    currentUser = user;
-
     if (!user) {
 
       window.location.href =
@@ -110,6 +102,8 @@ onAuthStateChanged(
       return;
 
     }
+
+    currentUser = user;
 
     updateProfileUI(user);
 
@@ -138,6 +132,7 @@ function updateProfileUI(user) {
     user.photoURL ||
     createAvatar(name);
 
+
   setText(
     "profileName",
     name
@@ -162,10 +157,7 @@ function updateProfileUI(user) {
 
 async function loadProfile() {
 
-  if (
-    !currentUser ||
-    loading
-  ) {
+  if (!currentUser || loading) {
     return;
   }
 
@@ -175,13 +167,14 @@ async function loadProfile() {
 
   showOffersLoading();
 
+
   try {
 
-    // ======================================================
-    // 1. AMBIL KEBUTUHAN MILIK USER
-    // ======================================================
+    // ========================================================
+    // AMBIL KEBUTUHAN MILIK USER
+    // ========================================================
 
-    const myNeedsQuery =
+    const needsQuery =
       query(
         collection(
           db,
@@ -194,14 +187,17 @@ async function loadProfile() {
         )
       );
 
-    const myNeedsSnapshot =
+
+    const snapshot =
       await getDocs(
-        myNeedsQuery
+        needsQuery
       );
+
 
     myNeeds = [];
 
-    myNeedsSnapshot.forEach(
+
+    snapshot.forEach(
       item => {
 
         myNeeds.push({
@@ -217,31 +213,20 @@ async function loadProfile() {
     );
 
 
-    // ======================================================
-    // 2. URUTKAN KEBUTUHAN USER
-    // ======================================================
-
+    // terbaru di atas
     myNeeds.sort(
-      (a, b) => {
-
-        return (
-          getTime(
-            b.createdAt
-          ) -
-          getTime(
-            a.createdAt
-          )
-        );
-
-      }
+      (a, b) =>
+        getTime(b.createdAt) -
+        getTime(a.createdAt)
     );
 
 
-    // ======================================================
-    // 3. RENDER KEBUTUHAN SEGERA
-    // ======================================================
+    // ========================================================
+    // TAMPILKAN KEBUTUHAN SECEPATNYA
+    // ========================================================
 
     renderNeeds();
+
 
     setText(
       "totalNeeds",
@@ -249,70 +234,20 @@ async function loadProfile() {
     );
 
 
-    // ======================================================
-    // 4. AMBIL SEMUA KEBUTUHAN
-    // ======================================================
-    //
-    // Penting:
-    //
-    // Penawaran user bisa berada di kebutuhan milik
-    // orang lain.
-    //
-    // Karena itu kita tidak boleh hanya menggunakan
-    // myNeeds.
-    //
-    // ======================================================
-
-    const allNeedsSnapshot =
-      await getDocs(
-        collection(
-          db,
-          "needs"
-        )
-      );
-
-    allNeeds = [];
-
-    allNeedsSnapshot.forEach(
-      item => {
-
-        allNeeds.push({
-
-          id:
-            item.id,
-
-          ...item.data()
-
-        });
-
-      }
-    );
-
-
-    // ======================================================
-    // 5. CARI SEMUA PENAWARAN USER
-    // ======================================================
+    // ========================================================
+    // AMBIL PENAWARAN
+    // ========================================================
 
     await loadMyOffers();
 
 
-    // ======================================================
-    // 6. RENDER OFFER
-    // ======================================================
+    // ========================================================
+    // RENDER
+    // ========================================================
 
     renderOffers();
 
-
-    // ======================================================
-    // 7. STATISTICS
-    // ======================================================
-
     updateStatistics();
-
-
-    // ======================================================
-    // 8. RATING
-    // ======================================================
 
     calculateRating();
 
@@ -320,17 +255,14 @@ async function loadProfile() {
   } catch (error) {
 
     console.error(
-      "PROFILE ERROR:",
+      "PROFILE LOAD ERROR:",
       error
     );
 
-    showNeedsError(
-      error
-    );
 
-    showOffersError(
-      error
-    );
+    showNeedsError(error);
+
+    showOffersError(error);
 
   } finally {
 
@@ -342,16 +274,15 @@ async function loadProfile() {
 
 
 // ============================================================
-// LOAD MY OFFERS
+// LOAD OFFERS
 // ============================================================
 
 async function loadMyOffers() {
 
   myOffers = [];
 
-  if (
-    !allNeeds.length
-  ) {
+
+  if (!myNeeds.length) {
 
     renderOffers();
 
@@ -360,12 +291,23 @@ async function loadMyOffers() {
   }
 
 
-  // ========================================================
-  // JALANKAN PARALEL
-  // ========================================================
+  /*
+    Penting:
 
-  const requests =
-    allNeeds.map(
+    Kita TIDAK menggunakan collectionGroup.
+
+    Kita membaca:
+
+    needs/{needId}/offers
+
+    satu per satu.
+
+    Query hanya providerId milik user.
+  */
+
+
+  const jobs =
+    myNeeds.map(
       async need => {
 
         try {
@@ -379,11 +321,7 @@ async function loadMyOffers() {
             );
 
 
-          // ==================================================
-          // QUERY HANYA OFFER MILIK USER
-          // ==================================================
-
-          const offersQuery =
+          const offerQuery =
             query(
               offersRef,
               where(
@@ -394,23 +332,20 @@ async function loadMyOffers() {
             );
 
 
-          const snapshot =
+          const offerSnapshot =
             await getDocs(
-              offersQuery
+              offerQuery
             );
 
 
-          const result = [];
-
-
-          snapshot.forEach(
+          offerSnapshot.forEach(
             item => {
 
-              const offer =
+              const data =
                 item.data();
 
 
-              result.push({
+              myOffers.push({
 
                 id:
                   item.id,
@@ -426,11 +361,7 @@ async function loadMyOffers() {
                   need.budget ||
                   0,
 
-                needOwnerId:
-                  need.ownerId ||
-                  "",
-
-                ...offer
+                ...data
 
               });
 
@@ -438,10 +369,12 @@ async function loadMyOffers() {
           );
 
 
-          return result;
-
-
         } catch (error) {
+
+          /*
+            Jangan menghentikan seluruh proses
+            hanya karena satu kebutuhan gagal.
+          */
 
           console.warn(
             "Gagal membaca offers:",
@@ -449,73 +382,29 @@ async function loadMyOffers() {
             error
           );
 
-          return [];
-
         }
 
       }
     );
 
 
-  const results =
-    await Promise.all(
-      requests
-    );
-
-
-  // ========================================================
-  // GABUNGKAN SEMUA
-  // ========================================================
-
-  myOffers =
-    results.flat();
-
-
-  // ========================================================
-  // HILANGKAN DUPLIKAT
-  // ========================================================
-
-  const unique =
-    new Map();
-
-
-  myOffers.forEach(
-    offer => {
-
-      unique.set(
-        offer.id +
-        "_" +
-        offer.needId,
-        offer
-      );
-
-    }
+  await Promise.all(
+    jobs
   );
 
 
-  myOffers =
-    Array.from(
-      unique.values()
-    );
-
-
-  // ========================================================
-  // URUTKAN TERBARU
-  // ========================================================
+  // terbaru di atas
 
   myOffers.sort(
-    (a, b) => {
+    (a, b) =>
+      getTime(b.createdAt) -
+      getTime(a.createdAt)
+  );
 
-      return (
-        getTime(
-          b.createdAt
-        ) -
-        getTime(
-          a.createdAt
-        )
-      );
 
-    }
+  console.log(
+    "MY OFFERS:",
+    myOffers
   );
 
 }
@@ -530,14 +419,13 @@ function renderNeeds() {
   const container =
     $("needsList");
 
+
   if (!container) {
     return;
   }
 
 
-  if (
-    myNeeds.length === 0
-  ) {
+  if (!myNeeds.length) {
 
     container.innerHTML = `
 
@@ -566,52 +454,19 @@ function renderNeeds() {
 
   container.innerHTML =
     myNeeds
-      .map(
-        createNeedCard
-      )
+      .map(createNeedCard)
       .join("");
 
 }
 
 
 // ============================================================
-// CREATE NEED CARD
+// NEED CARD
 // ============================================================
 
 function createNeedCard(
   need
 ) {
-
-  const title =
-    escapeHTML(
-      need.title ||
-      "Tanpa judul"
-    );
-
-
-  const description =
-    escapeHTML(
-      truncate(
-        need.description ||
-        "",
-        150
-      )
-    );
-
-
-  const category =
-    escapeHTML(
-      getCategory(
-        need.category
-      )
-    );
-
-
-  const budget =
-    formatMoney(
-      need.budget
-    );
-
 
   const status =
     String(
@@ -627,21 +482,36 @@ function createNeedCard(
       <div class="history-main">
 
         <h3>
-          ${title}
+          ${escapeHTML(
+            need.title ||
+            "Tanpa judul"
+          )}
         </h3>
 
         <p>
-          ${description}
+          ${escapeHTML(
+            truncate(
+              need.description ||
+              "",
+              160
+            )
+          )}
         </p>
 
         <div class="history-meta">
 
           <span>
-            ${category}
+            ${escapeHTML(
+              getCategory(
+                need.category
+              )
+            )}
           </span>
 
           <span>
-            💰 Rp ${budget}
+            💰 Rp ${formatMoney(
+              need.budget
+            )}
           </span>
 
           <span>
@@ -654,12 +524,13 @@ function createNeedCard(
 
       </div>
 
+
       <div>
 
-        <span class="status ${getStatusClass(status)}">
-
+        <span
+          class="status ${getStatusClass(status)}"
+        >
           ${getStatusText(status)}
-
         </span>
 
         <br>
@@ -672,9 +543,7 @@ function createNeedCard(
             need.id
           )}')"
         >
-
           👁️ Lihat Kebutuhan
-
         </button>
 
       </div>
@@ -722,14 +591,13 @@ function renderOffers() {
   const container =
     $("offersList");
 
+
   if (!container) {
     return;
   }
 
 
-  if (
-    myOffers.length === 0
-  ) {
+  if (!myOffers.length) {
 
     container.innerHTML = `
 
@@ -758,51 +626,19 @@ function renderOffers() {
 
   container.innerHTML =
     myOffers
-      .map(
-        createOfferCard
-      )
+      .map(createOfferCard)
       .join("");
 
 }
 
 
 // ============================================================
-// CREATE OFFER CARD
+// OFFER CARD
 // ============================================================
 
 function createOfferCard(
   offer
 ) {
-
-  const title =
-    escapeHTML(
-      offer.needTitle ||
-      "Kebutuhan"
-    );
-
-
-  const message =
-    escapeHTML(
-      truncate(
-        offer.message ||
-        "",
-        180
-      )
-    );
-
-
-  const price =
-    formatMoney(
-      offer.price
-    );
-
-
-  const duration =
-    escapeHTML(
-      offer.duration ||
-      "-"
-    );
-
 
   const status =
     String(
@@ -818,21 +654,42 @@ function createOfferCard(
       <div class="history-main">
 
         <h3>
-          ${title}
+          ${escapeHTML(
+            offer.needTitle ||
+            "Kebutuhan"
+          )}
         </h3>
 
+
         <div class="offer-price">
-          Rp ${price}
+
+          Rp ${formatMoney(
+            offer.price
+          )}
+
         </div>
 
+
         <p>
-          ${message}
+
+          ${escapeHTML(
+            truncate(
+              offer.message ||
+              "",
+              180
+            )
+          )}
+
         </p>
+
 
         <div class="history-meta">
 
           <span>
-            ⏱️ ${duration}
+            ⏱️ ${escapeHTML(
+              offer.duration ||
+              "-"
+            )}
           </span>
 
           <span>
@@ -845,15 +702,18 @@ function createOfferCard(
 
       </div>
 
+
       <div>
 
-        <span class="status ${getStatusClass(status)}">
-
+        <span
+          class="status ${getStatusClass(status)}"
+        >
           ${getStatusText(status)}
-
         </span>
 
+
         <br>
+
 
         <button
           type="button"
@@ -957,13 +817,13 @@ function updateStatistics() {
 function calculateRating() {
 
   setText(
-    "ratingValue",
-    "Belum ada rating"
+    "ratingStars",
+    "☆☆☆☆☆"
   );
 
   setText(
-    "ratingStars",
-    "☆☆☆☆☆"
+    "ratingValue",
+    "Belum ada rating"
   );
 
 }
@@ -977,6 +837,7 @@ function showNeedsLoading() {
 
   const container =
     $("needsList");
+
 
   if (!container) {
     return;
@@ -1003,6 +864,7 @@ function showOffersLoading() {
   const container =
     $("offersList");
 
+
   if (!container) {
     return;
   }
@@ -1027,12 +889,11 @@ function showOffersLoading() {
 // ERROR
 // ============================================================
 
-function showNeedsError(
-  error
-) {
+function showNeedsError(error) {
 
   const container =
     $("needsList");
+
 
   if (!container) {
     return;
@@ -1062,9 +923,7 @@ function showNeedsError(
         class="btn btn-primary"
         onclick="window.reloadProfile()"
       >
-
         🔄 Coba Lagi
-
       </button>
 
     </div>
@@ -1074,12 +933,11 @@ function showNeedsError(
 }
 
 
-function showOffersError(
-  error
-) {
+function showOffersError(error) {
 
   const container =
     $("offersList");
+
 
   if (!container) {
     return;
@@ -1109,9 +967,7 @@ function showOffersError(
         class="btn btn-primary"
         onclick="window.reloadProfile()"
       >
-
         🔄 Coba Lagi
-
       </button>
 
     </div>
@@ -1138,7 +994,7 @@ window.reloadProfile =
 
 
 // ============================================================
-// STATUS CLASS
+// STATUS
 // ============================================================
 
 function getStatusClass(
@@ -1156,37 +1012,26 @@ function getStatusClass(
     case "accept":
     case "diterima":
     case "success":
-
       return "status-success";
-
 
     case "completed":
     case "complete":
     case "selesai":
-
       return "status-completed";
-
 
     case "rejected":
     case "cancelled":
     case "canceled":
     case "ditolak":
-
       return "status-danger";
 
-
     default:
-
       return "status-pending";
 
   }
 
 }
 
-
-// ============================================================
-// STATUS TEXT
-// ============================================================
 
 function getStatusText(
   status
@@ -1203,27 +1048,20 @@ function getStatusText(
     case "accept":
     case "diterima":
     case "success":
-
       return "✓ Diterima";
-
 
     case "completed":
     case "complete":
     case "selesai":
-
       return "✓ Selesai";
-
 
     case "rejected":
     case "cancelled":
     case "canceled":
     case "ditolak":
-
       return "✕ Ditolak";
 
-
     default:
-
       return "⏳ Menunggu";
 
   }
@@ -1277,7 +1115,7 @@ function getCategory(
 
 
 // ============================================================
-// TIME
+// DATE
 // ============================================================
 
 function getTime(
@@ -1318,10 +1156,7 @@ function getTime(
       "number"
     ) {
 
-      return (
-        value.seconds *
-        1000
-      );
+      return value.seconds * 1000;
 
     }
 
@@ -1332,9 +1167,7 @@ function getTime(
       ).getTime();
 
 
-    return Number.isFinite(
-      time
-    )
+    return Number.isFinite(time)
       ? time
       : 0;
 
@@ -1347,24 +1180,16 @@ function getTime(
 }
 
 
-// ============================================================
-// DATE
-// ============================================================
-
 function formatDate(
   value
 ) {
 
   const time =
-    getTime(
-      value
-    );
+    getTime(value);
 
 
   if (!time) {
-
     return "Baru saja";
-
   }
 
 
@@ -1381,9 +1206,7 @@ function formatDate(
         "numeric"
     }
   ).format(
-    new Date(
-      time
-    )
+    new Date(time)
   );
 
 }
@@ -1398,33 +1221,23 @@ function formatMoney(
 ) {
 
   const number =
-    Number(
-      value
-    );
+    Number(value);
 
 
-  if (
-    !Number.isFinite(
-      number
-    )
-  ) {
-
+  if (!Number.isFinite(number)) {
     return "0";
-
   }
 
 
   return new Intl.NumberFormat(
     "id-ID"
-  ).format(
-    number
-  );
+  ).format(number);
 
 }
 
 
 // ============================================================
-// TRUNCATE
+// TEXT
 // ============================================================
 
 function truncate(
@@ -1434,8 +1247,7 @@ function truncate(
 
   const value =
     String(
-      text ||
-      ""
+      text || ""
     );
 
 
@@ -1461,7 +1273,7 @@ function truncate(
 
 
 // ============================================================
-// ESCAPE HTML
+// SECURITY
 // ============================================================
 
 function escapeHTML(
@@ -1469,8 +1281,7 @@ function escapeHTML(
 ) {
 
   return String(
-    value ??
-    ""
+    value ?? ""
   )
 
     .replace(
@@ -1501,17 +1312,12 @@ function escapeHTML(
 }
 
 
-// ============================================================
-// ESCAPE JS
-// ============================================================
-
 function escapeJS(
   value
 ) {
 
   return String(
-    value ??
-    ""
+    value ?? ""
   )
 
     .replace(
@@ -1522,11 +1328,6 @@ function escapeJS(
     .replace(
       /'/g,
       "\\'"
-    )
-
-    .replace(
-      /"/g,
-      '\\"'
     )
 
     .replace(
@@ -1554,16 +1355,16 @@ function setImage(
   const element =
     $(id);
 
-  if (!element) {
-    return;
+
+  if (
+    element &&
+    src
+  ) {
+
+    element.src =
+      src;
+
   }
-
-
-  element.src =
-    src ||
-    createAvatar(
-      "U"
-    );
 
 }
 
@@ -1580,14 +1381,13 @@ function setText(
   const element =
     $(id);
 
-  if (!element) {
-    return;
+
+  if (element) {
+
+    element.textContent =
+      value ?? "";
+
   }
-
-
-  element.textContent =
-    value ??
-    "";
 
 }
 
@@ -1613,9 +1413,7 @@ function createAvatar(
   return (
     "https://ui-avatars.com/api/" +
     "?name=" +
-    encodeURIComponent(
-      letter
-    ) +
+    encodeURIComponent(letter) +
     "&background=2563eb" +
     "&color=ffffff" +
     "&size=256"
@@ -1624,39 +1422,6 @@ function createAvatar(
 }
 
 
-// ============================================================
-// DEBUG
-// ============================================================
-
-window.butuhProfile = {
-
-  getUser() {
-
-    return currentUser;
-
-  },
-
-  getNeeds() {
-
-    return myNeeds;
-
-  },
-
-  getOffers() {
-
-    return myOffers;
-
-  },
-
-  reload() {
-
-    return loadProfile();
-
-  }
-
-};
-
-
 console.log(
-  "✅ BUTUH profile.js FIX RIWAYAT PENAWARAN aktif"
+  "✅ BUTUH profile.js terbaru aktif"
 );
