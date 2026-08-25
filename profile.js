@@ -1,13 +1,12 @@
 // ============================================================
-// BUTUH - PROFILE.JS
-// FINAL
-// Database:
+// BUTUH - PROFILE.JS FINAL
+// Cocok dengan profile.html yang diberikan
 //
+// DATABASE:
 // users/{uid}
 // needs/{needId}
 // needs/{needId}/offers/{offerId}
 // ratings/{ratingId}
-//
 // ============================================================
 
 import {
@@ -16,8 +15,7 @@ import {
 } from "./firebase.js";
 
 import {
-  onAuthStateChanged,
-  signOut
+  onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 import {
@@ -30,7 +28,7 @@ import {
 
 
 // ============================================================
-// ELEMENT
+// ELEMENT HTML
 // ============================================================
 
 const profilePhoto =
@@ -42,14 +40,23 @@ const profileName =
 const profileEmail =
   document.getElementById("profileEmail");
 
-const statNeeds =
-  document.getElementById("statNeeds");
+const ratingStars =
+  document.getElementById("ratingStars");
 
-const statOffers =
-  document.getElementById("statOffers");
+const ratingValue =
+  document.getElementById("ratingValue");
 
-const statRating =
-  document.getElementById("statRating");
+const totalNeeds =
+  document.getElementById("totalNeeds");
+
+const totalOffers =
+  document.getElementById("totalOffers");
+
+const acceptedOffers =
+  document.getElementById("acceptedOffers");
+
+const completedOffers =
+  document.getElementById("completedOffers");
 
 const needsList =
   document.getElementById("needsList");
@@ -57,23 +64,17 @@ const needsList =
 const offersList =
   document.getElementById("offersList");
 
-const loadingNeeds =
-  document.getElementById("loadingNeeds");
-
-const loadingOffers =
-  document.getElementById("loadingOffers");
-
-const logoutBtn =
-  document.getElementById("logoutBtn");
-
 
 // ============================================================
-// ESCAPE HTML
+// HELPER
 // ============================================================
 
 function escapeHTML(value) {
 
-  if (value === undefined || value === null) {
+  if (
+    value === null ||
+    value === undefined
+  ) {
     return "";
   }
 
@@ -98,12 +99,13 @@ function formatRupiah(value) {
     return "Rp0";
   }
 
-  return "Rp" + number.toLocaleString("id-ID");
+  return "Rp" +
+    number.toLocaleString("id-ID");
 }
 
 
 // ============================================================
-// DATE
+// TANGGAL
 // ============================================================
 
 function formatDate(value) {
@@ -116,22 +118,34 @@ function formatDate(value) {
 
     let date;
 
-    if (value.toDate) {
+    if (
+      value &&
+      typeof value.toDate === "function"
+    ) {
 
       date = value.toDate();
 
-    } else if (value.seconds) {
+    } else if (
+      value &&
+      typeof value.seconds === "number"
+    ) {
 
       date =
-        new Date(value.seconds * 1000);
+        new Date(
+          value.seconds * 1000
+        );
 
     } else {
 
       date =
         new Date(value);
+
     }
 
-    if (Number.isNaN(date.getTime())) {
+    if (
+      !date ||
+      Number.isNaN(date.getTime())
+    ) {
       return "-";
     }
 
@@ -147,15 +161,17 @@ function formatDate(value) {
   } catch {
 
     return "-";
+
   }
+
 }
 
 
 // ============================================================
-// TIME
+// WAKTU UNTUK SORTING
 // ============================================================
 
-function getTime(value) {
+function getTimestamp(value) {
 
   if (!value) {
     return 0;
@@ -163,25 +179,37 @@ function getTime(value) {
 
   try {
 
-    if (value.toDate) {
+    if (
+      value &&
+      typeof value.toDate === "function"
+    ) {
+
       return value.toDate().getTime();
+
     }
 
-    if (value.seconds) {
+    if (
+      value &&
+      typeof value.seconds === "number"
+    ) {
+
       return value.seconds * 1000;
+
     }
 
-    const time =
+    const result =
       new Date(value).getTime();
 
-    return Number.isNaN(time)
+    return Number.isNaN(result)
       ? 0
-      : time;
+      : result;
 
   } catch {
 
     return 0;
+
   }
+
 }
 
 
@@ -189,21 +217,24 @@ function getTime(value) {
 // SORT TERBARU
 // ============================================================
 
-function sortNewest(array) {
+function sortNewest(items) {
 
-  return array.sort((a, b) => {
+  return items.sort((a, b) => {
 
-    const dateA =
+    const aDate =
       a.createdAt ||
       a.updatedAt ||
       a.timestamp;
 
-    const dateB =
+    const bDate =
       b.createdAt ||
       b.updatedAt ||
       b.timestamp;
 
-    return getTime(dateB) - getTime(dateA);
+    return (
+      getTimestamp(bDate) -
+      getTimestamp(aDate)
+    );
 
   });
 
@@ -211,12 +242,12 @@ function sortNewest(array) {
 
 
 // ============================================================
-// AVATAR
+// AVATAR FALLBACK
 // ============================================================
 
 function createAvatar(name) {
 
-  const first =
+  const letter =
     (name || "U")
       .trim()
       .charAt(0)
@@ -225,19 +256,20 @@ function createAvatar(name) {
   return (
     "https://ui-avatars.com/api/" +
     "?name=" +
-    encodeURIComponent(first) +
+    encodeURIComponent(letter) +
     "&background=2563eb" +
     "&color=ffffff" +
     "&size=200"
   );
+
 }
 
 
 // ============================================================
-// PROFIL USER
+// PROFIL GOOGLE
 // ============================================================
 
-function renderProfile(user) {
+function renderGoogleProfile(user) {
 
   const name =
     user.displayName ||
@@ -245,7 +277,8 @@ function renderProfile(user) {
     "Pengguna BUTUH";
 
   const email =
-    user.email || "";
+    user.email ||
+    "";
 
   const photo =
     user.photoURL ||
@@ -277,7 +310,7 @@ function renderProfile(user) {
       name;
 
     profilePhoto.onerror =
-      () => {
+      function () {
 
         profilePhoto.src =
           createAvatar(name);
@@ -290,12 +323,18 @@ function renderProfile(user) {
 
 
 // ============================================================
-// LOAD USER
+// LOGIN CHECK
 // ============================================================
 
 onAuthStateChanged(
   auth,
   async (user) => {
+
+    console.log(
+      "BUTUH Auth:",
+      user
+    );
+
 
     if (!user) {
 
@@ -303,20 +342,21 @@ onAuthStateChanged(
         "login.html";
 
       return;
+
     }
 
 
-    console.log(
-      "BUTUH PROFILE USER:",
-      user.uid
-    );
+    // ========================================================
+    // TAMPILKAN PROFIL GOOGLE SECEPATNYA
+    // ========================================================
+
+    renderGoogleProfile(user);
 
 
-    // Tampilkan Gmail langsung
-    renderProfile(user);
+    // ========================================================
+    // LOAD DATA
+    // ========================================================
 
-
-    // Jalankan semuanya
     await Promise.allSettled([
 
       loadNeeds(user),
@@ -332,48 +372,31 @@ onAuthStateChanged(
 
 
 // ============================================================
-// LOAD KEBUTUHAN USER
+// LOAD KEBUTUHAN
 // ============================================================
 
 async function loadNeeds(user) {
 
-  if (loadingNeeds) {
-
-    loadingNeeds.style.display =
-      "block";
-
-  }
-
-
-  if (needsList) {
-
-    needsList.innerHTML = "";
-
-  }
-
-
   try {
 
     console.log(
-      "Mengambil kebutuhan..."
+      "Mengambil kebutuhan user..."
     );
 
 
-    // HANYA ownerId
-    // Tidak menggunakan orderBy
-    // Tidak membutuhkan composite index
+    const q =
+      query(
+        collection(
+          db,
+          "needs"
+        ),
 
-    const q = query(
-
-      collection(db, "needs"),
-
-      where(
-        "ownerId",
-        "==",
-        user.uid
-      )
-
-    );
+        where(
+          "ownerId",
+          "==",
+          user.uid
+        )
+      );
 
 
     const snapshot =
@@ -384,13 +407,13 @@ async function loadNeeds(user) {
 
 
     snapshot.forEach(
-      doc => {
+      docSnap => {
 
         needs.push({
 
-          id: doc.id,
+          id: docSnap.id,
 
-          ...doc.data()
+          ...docSnap.data()
 
         });
 
@@ -402,18 +425,26 @@ async function loadNeeds(user) {
 
 
     console.log(
-      "Jumlah kebutuhan:",
-      needs.length
+      "KEBUTUHAN:",
+      needs
     );
 
 
-    if (statNeeds) {
+    // ========================================================
+    // STATISTIK
+    // ========================================================
 
-      statNeeds.textContent =
+    if (totalNeeds) {
+
+      totalNeeds.textContent =
         needs.length;
 
     }
 
+
+    // ========================================================
+    // RENDER
+    // ========================================================
 
     renderNeeds(needs);
 
@@ -421,7 +452,7 @@ async function loadNeeds(user) {
   } catch (error) {
 
     console.error(
-      "ERROR NEEDS:",
+      "Gagal memuat kebutuhan:",
       error
     );
 
@@ -430,28 +461,25 @@ async function loadNeeds(user) {
 
       needsList.innerHTML = `
 
-        <div class="error-box">
+        <div class="error-state">
+
+          <div class="error-icon">
+            ⚠️
+          </div>
 
           <strong>
-            ⚠️ Gagal memuat kebutuhan
+            Gagal memuat kebutuhan
           </strong>
 
           <p>
-            ${escapeHTML(error.message)}
+            ${escapeHTML(
+              error.message
+            )}
           </p>
 
         </div>
 
       `;
-
-    }
-
-  } finally {
-
-    if (loadingNeeds) {
-
-      loadingNeeds.style.display =
-        "none";
 
     }
 
@@ -461,7 +489,7 @@ async function loadNeeds(user) {
 
 
 // ============================================================
-// RENDER NEEDS
+// RENDER KEBUTUHAN
 // ============================================================
 
 function renderNeeds(needs) {
@@ -475,7 +503,7 @@ function renderNeeds(needs) {
 
     needsList.innerHTML = `
 
-      <div class="empty-box">
+      <div class="empty-state">
 
         <div class="empty-icon">
           📋
@@ -486,27 +514,20 @@ function renderNeeds(needs) {
         </strong>
 
         <p>
-          Anda belum memposting kebutuhan.
+          Anda belum pernah memposting kebutuhan.
         </p>
-
-        <a
-          href="index.html"
-          class="btn-primary"
-        >
-          + Posting Kebutuhan
-        </a>
 
       </div>
 
     `;
 
     return;
+
   }
 
 
   needsList.innerHTML =
     needs.map(need => {
-
 
       const title =
         need.title ||
@@ -525,6 +546,7 @@ function renderNeeds(needs) {
         need.budget ??
         need.price ??
         need.harga ??
+        need.amount ??
         0;
 
 
@@ -533,55 +555,60 @@ function renderNeeds(needs) {
         "active";
 
 
+      const statusClass =
+        getStatusClass(status);
+
+
       return `
 
-        <article class="history-card">
+        <div class="history-card">
 
-          <div class="history-card-top">
+          <div class="history-main">
 
-            <div>
+            <h3>
+              ${escapeHTML(title)}
+            </h3>
 
-              <h3>
-                ${escapeHTML(title)}
-              </h3>
+            ${
+              description
+                ? `
+                  <p>
+                    ${escapeHTML(
+                      description
+                    )}
+                  </p>
+                `
+                : ""
+            }
 
-              <span class="date">
+            <div class="history-meta">
+
+              <span>
+                📅
                 ${formatDate(
                   need.createdAt
                 )}
               </span>
 
+              <span>
+                💰
+                ${formatRupiah(
+                  budget
+                )}
+              </span>
+
             </div>
 
-            <span class="status">
-              ${escapeHTML(status)}
-            </span>
-
           </div>
 
 
-          ${
-            description
-              ? `
-                <p>
-                  ${escapeHTML(
-                    description
-                  )}
-                </p>
-              `
-              : ""
-          }
+          <span
+            class="status ${statusClass}"
+          >
+            ${escapeHTML(status)}
+          </span>
 
-
-          <div class="history-card-bottom">
-
-            <strong>
-              ${formatRupiah(budget)}
-            </strong>
-
-          </div>
-
-        </article>
+        </div>
 
       `;
 
@@ -591,57 +618,43 @@ function renderNeeds(needs) {
 
 
 // ============================================================
-// LOAD OFFERS
+// LOAD PENAWARAN
 // ============================================================
 
 async function loadOffers(user) {
 
-  if (loadingOffers) {
-
-    loadingOffers.style.display =
-      "block";
-
-  }
-
-
-  if (offersList) {
-
-    offersList.innerHTML = "";
-
-  }
-
-
   try {
 
     console.log(
-      "Mengambil riwayat penawaran..."
+      "Mengambil penawaran user..."
     );
 
 
     /*
-      PENTING:
-
-      offers berada di:
+      STRUKTUR DATABASE:
 
       needs/{needId}/offers/{offerId}
 
-      Karena itu harus collectionGroup.
+      Karena offers adalah SUBCOLLECTION,
+      kita menggunakan collectionGroup().
     */
 
-    const q = query(
 
-      collectionGroup(
-        db,
-        "offers"
-      ),
+    const q =
+      query(
 
-      where(
-        "providerId",
-        "==",
-        user.uid
-      )
+        collectionGroup(
+          db,
+          "offers"
+        ),
 
-    );
+        where(
+          "providerId",
+          "==",
+          user.uid
+        )
+
+      );
 
 
     const snapshot =
@@ -652,24 +665,35 @@ async function loadOffers(user) {
 
 
     snapshot.forEach(
-      doc => {
+      docSnap => {
 
         const data =
-          doc.data();
+          docSnap.data();
+
+
+        /*
+          Mengambil needId dari path:
+
+          needs/ABC123/offers/XYZ789
+        */
+
+        const needReference =
+          docSnap.ref.parent.parent;
+
+
+        const needId =
+          needReference
+            ? needReference.id
+            : "";
 
 
         offers.push({
 
-          id: doc.id,
+          id: docSnap.id,
 
-          ...data,
+          needId,
 
-          // Ambil needId
-          // dari path dokumen
-          needId:
-            doc.ref.parent.parent?.id ||
-            data.needId ||
-            ""
+          ...data
 
         });
 
@@ -681,18 +705,86 @@ async function loadOffers(user) {
 
 
     console.log(
-      "Jumlah penawaran:",
-      offers.length
+      "PENAWARAN:",
+      offers
     );
 
 
-    if (statOffers) {
+    // ========================================================
+    // TOTAL PENAWARAN
+    // ========================================================
 
-      statOffers.textContent =
+    if (totalOffers) {
+
+      totalOffers.textContent =
         offers.length;
 
     }
 
+
+    // ========================================================
+    // HITUNG STATUS
+    // ========================================================
+
+    let accepted = 0;
+
+    let completed = 0;
+
+
+    offers.forEach(
+      offer => {
+
+        const status =
+          String(
+            offer.status ||
+            ""
+          ).toLowerCase();
+
+
+        if (
+          status === "accepted" ||
+          status === "diterima" ||
+          status === "accepted_offer"
+        ) {
+
+          accepted++;
+
+        }
+
+
+        if (
+          status === "completed" ||
+          status === "selesai" ||
+          status === "done"
+        ) {
+
+          completed++;
+
+        }
+
+      }
+    );
+
+
+    if (acceptedOffers) {
+
+      acceptedOffers.textContent =
+        accepted;
+
+    }
+
+
+    if (completedOffers) {
+
+      completedOffers.textContent =
+        completed;
+
+    }
+
+
+    // ========================================================
+    // RENDER
+    // ========================================================
 
     renderOffers(offers);
 
@@ -700,7 +792,7 @@ async function loadOffers(user) {
   } catch (error) {
 
     console.error(
-      "ERROR OFFERS:",
+      "Gagal memuat penawaran:",
       error
     );
 
@@ -709,10 +801,14 @@ async function loadOffers(user) {
 
       offersList.innerHTML = `
 
-        <div class="error-box">
+        <div class="error-state">
+
+          <div class="error-icon">
+            ⚠️
+          </div>
 
           <strong>
-            ⚠️ Gagal memuat penawaran
+            Gagal memuat penawaran
           </strong>
 
           <p>
@@ -727,22 +823,13 @@ async function loadOffers(user) {
 
     }
 
-  } finally {
-
-    if (loadingOffers) {
-
-      loadingOffers.style.display =
-        "none";
-
-    }
-
   }
 
 }
 
 
 // ============================================================
-// RENDER OFFERS
+// RENDER PENAWARAN
 // ============================================================
 
 function renderOffers(offers) {
@@ -756,10 +843,10 @@ function renderOffers(offers) {
 
     offersList.innerHTML = `
 
-      <div class="empty-box">
+      <div class="empty-state">
 
         <div class="empty-icon">
-          💼
+          💰
         </div>
 
         <strong>
@@ -767,7 +854,7 @@ function renderOffers(offers) {
         </strong>
 
         <p>
-          Anda belum mengirim penawaran.
+          Anda belum pernah mengirim penawaran.
         </p>
 
       </div>
@@ -775,18 +862,18 @@ function renderOffers(offers) {
     `;
 
     return;
+
   }
 
 
   offersList.innerHTML =
     offers.map(offer => {
 
-
       const title =
         offer.needTitle ||
         offer.title ||
         offer.needName ||
-        "Penawaran";
+        "Kebutuhan";
 
 
       const message =
@@ -809,62 +896,130 @@ function renderOffers(offers) {
         "pending";
 
 
+      const statusClass =
+        getStatusClass(status);
+
+
       return `
 
-        <article class="history-card">
+        <div class="history-card">
 
-          <div class="history-card-top">
+          <div class="history-main">
 
-            <div>
+            <h3>
+              ${escapeHTML(title)}
+            </h3>
 
-              <h3>
-                ${escapeHTML(title)}
-              </h3>
 
-              <span class="date">
+            ${
+              message
+                ? `
+                  <p>
+                    ${escapeHTML(
+                      message
+                    )}
+                  </p>
+                `
+                : ""
+            }
 
+
+            <div class="history-meta">
+
+              <span>
+                📅
                 ${formatDate(
                   offer.createdAt
                 )}
-
               </span>
+
+              ${
+                offer.needId
+                  ? `
+                    <span>
+                      ID:
+                      ${escapeHTML(
+                        offer.needId
+                      )}
+                    </span>
+                  `
+                  : ""
+              }
 
             </div>
 
+          </div>
 
-            <span class="status">
 
+          <div>
+
+            <div class="offer-price">
+              ${formatRupiah(price)}
+            </div>
+
+            <span
+              class="status ${statusClass}"
+            >
               ${escapeHTML(status)}
-
             </span>
 
           </div>
 
-
-          ${
-            message
-              ? `
-                <p>
-                  ${escapeHTML(message)}
-                </p>
-              `
-              : ""
-          }
-
-
-          <div class="history-card-bottom">
-
-            <strong>
-              ${formatRupiah(price)}
-            </strong>
-
-          </div>
-
-        </article>
+        </div>
 
       `;
 
     }).join("");
+
+}
+
+
+// ============================================================
+// STATUS CLASS
+// ============================================================
+
+function getStatusClass(status) {
+
+  const value =
+    String(status || "")
+      .toLowerCase();
+
+
+  if (
+    value === "accepted" ||
+    value === "diterima" ||
+    value === "success"
+  ) {
+
+    return "status-success";
+
+  }
+
+
+  if (
+    value === "completed" ||
+    value === "selesai" ||
+    value === "done"
+  ) {
+
+    return "status-completed";
+
+  }
+
+
+  if (
+    value === "rejected" ||
+    value === "ditolak" ||
+    value === "cancelled" ||
+    value === "canceled"
+  ) {
+
+    return "status-danger";
+
+  }
+
+
+  return "status-pending";
 
 }
 
@@ -875,41 +1030,34 @@ function renderOffers(offers) {
 
 async function loadRating(user) {
 
-  if (!statRating) {
-    return;
-  }
-
-
   try {
 
     /*
-      Karena struktur ratings Anda:
+      Untuk sementara kita cari rating
+      berdasarkan field reviewerId.
 
-      ratings/{ratingId}
-
-      dan reviewerId adalah pemberi rating.
-
-      Kita ambil rating yang diberikan user.
-
-      Jika nanti ingin menghitung rating
-      yang DITERIMA user, kita perlu mengetahui
-      field penerimanya.
+      Jika database rating Anda mempunyai
+      field penerima seperti receiverId,
+      ratedUserId, targetUserId, dll,
+      nanti bisa kita sesuaikan.
     */
 
-    const q = query(
 
-      collection(
-        db,
-        "ratings"
-      ),
+    const q =
+      query(
 
-      where(
-        "reviewerId",
-        "==",
-        user.uid
-      )
+        collection(
+          db,
+          "ratings"
+        ),
 
-    );
+        where(
+          "reviewerId",
+          "==",
+          user.uid
+        )
+
+      );
 
 
     const snapshot =
@@ -922,10 +1070,10 @@ async function loadRating(user) {
 
 
     snapshot.forEach(
-      doc => {
+      docSnap => {
 
         const data =
-          doc.data();
+          docSnap.data();
 
 
         const rating =
@@ -954,8 +1102,19 @@ async function loadRating(user) {
 
     if (count === 0) {
 
-      statRating.textContent =
-        "0";
+      if (ratingStars) {
+
+        ratingStars.textContent =
+          "☆☆☆☆☆";
+
+      }
+
+      if (ratingValue) {
+
+        ratingValue.textContent =
+          "Belum ada rating";
+
+      }
 
       return;
 
@@ -966,55 +1125,55 @@ async function loadRating(user) {
       total / count;
 
 
-    statRating.textContent =
-      average.toFixed(1);
+    const rounded =
+      Math.round(average);
+
+
+    if (ratingStars) {
+
+      ratingStars.textContent =
+        "★".repeat(rounded) +
+        "☆".repeat(
+          5 - rounded
+        );
+
+    }
+
+
+    if (ratingValue) {
+
+      ratingValue.textContent =
+        average.toFixed(1) +
+        " / 5 (" +
+        count +
+        " rating)";
+
+    }
 
 
   } catch (error) {
 
     console.error(
-      "ERROR RATING:",
+      "Gagal memuat rating:",
       error
     );
 
 
-    statRating.textContent =
-      "0";
+    if (ratingStars) {
 
-  }
-
-}
-
-
-// ============================================================
-// LOGOUT
-// ============================================================
-
-if (logoutBtn) {
-
-  logoutBtn.addEventListener(
-    "click",
-    async () => {
-
-      try {
-
-        await signOut(auth);
-
-        window.location.href =
-          "login.html";
-
-      } catch (error) {
-
-        console.error(error);
-
-        alert(
-          "Gagal keluar: " +
-          error.message
-        );
-
-      }
+      ratingStars.textContent =
+        "☆☆☆☆☆";
 
     }
-  );
+
+
+    if (ratingValue) {
+
+      ratingValue.textContent =
+        "Belum ada rating";
+
+    }
+
+  }
 
 }
