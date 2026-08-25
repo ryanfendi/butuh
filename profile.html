@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
+
   <meta charset="UTF-8">
 
   <meta
@@ -8,599 +10,446 @@
     content="width=device-width, initial-scale=1.0"
   >
 
-  <title>Profil Saya - BUTUH</title>
-
   <meta
-    name="description"
-    content="Profil pengguna BUTUH"
+    name="theme-color"
+    content="#2563eb"
   >
+
+  <title>
+    Profil Saya - BUTUH
+  </title>
 
   <link
     rel="stylesheet"
     href="style.css"
   >
+
+  <style>
+
+    .profile-page {
+      max-width:1100px;
+      margin:0 auto;
+      padding:35px 20px 80px;
+    }
+
+    .profile-hero {
+      background:#fff;
+      border-radius:20px;
+      padding:28px;
+      display:flex;
+      align-items:center;
+      gap:22px;
+      box-shadow:0 8px 30px rgba(0,0,0,.07);
+      margin-bottom:25px;
+    }
+
+    .profile-avatar {
+      width:90px;
+      height:90px;
+      border-radius:50%;
+      object-fit:cover;
+      border:4px solid #eff6ff;
+    }
+
+    .profile-info h1 {
+      margin:0 0 6px;
+    }
+
+    .profile-info p {
+      margin:3px 0;
+      color:#667085;
+    }
+
+    .rating-box {
+      margin-top:10px;
+      font-size:18px;
+      font-weight:700;
+    }
+
+    .rating-stars {
+      color:#f59e0b;
+      letter-spacing:2px;
+    }
+
+    .profile-stats {
+      display:grid;
+      grid-template-columns:
+        repeat(4,1fr);
+      gap:15px;
+      margin-bottom:30px;
+    }
+
+    .profile-stat {
+      background:#fff;
+      padding:22px;
+      border-radius:16px;
+      box-shadow:0 6px 25px rgba(0,0,0,.06);
+    }
+
+    .profile-stat strong {
+      display:block;
+      font-size:28px;
+      color:#2563eb;
+    }
+
+    .profile-stat span {
+      color:#667085;
+      font-size:14px;
+    }
+
+    .history-section {
+      background:#fff;
+      border-radius:20px;
+      padding:25px;
+      margin-bottom:25px;
+      box-shadow:0 6px 25px rgba(0,0,0,.06);
+    }
+
+    .history-section h2 {
+      margin-top:0;
+    }
+
+    .history-card {
+      border:1px solid #e5e7eb;
+      border-radius:15px;
+      padding:18px;
+      margin-top:12px;
+      display:flex;
+      justify-content:space-between;
+      gap:15px;
+    }
+
+    .history-main {
+      flex:1;
+    }
+
+    .history-main h3 {
+      margin:0 0 8px;
+    }
+
+    .history-main p {
+      color:#667085;
+      margin:6px 0;
+    }
+
+    .history-meta {
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      color:#667085;
+      font-size:13px;
+      margin-top:10px;
+    }
+
+    .offer-price {
+      color:#2563eb;
+      font-weight:800;
+      font-size:18px;
+    }
+
+    .status {
+      height:max-content;
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:700;
+      white-space:nowrap;
+    }
+
+    .status-pending {
+      background:#fff7ed;
+      color:#c2410c;
+    }
+
+    .status-success {
+      background:#f0fdf4;
+      color:#15803d;
+    }
+
+    .status-completed {
+      background:#eff6ff;
+      color:#1d4ed8;
+    }
+
+    .status-danger {
+      background:#fef2f2;
+      color:#dc2626;
+    }
+
+    .empty-state,
+    .loading-state,
+    .error-state {
+      text-align:center;
+      padding:35px 20px;
+      color:#667085;
+    }
+
+    .empty-icon,
+    .error-icon {
+      font-size:35px;
+      margin-bottom:10px;
+    }
+
+    .spinner {
+      width:30px;
+      height:30px;
+      border:3px solid #e5e7eb;
+      border-top-color:#2563eb;
+      border-radius:50%;
+      animation:spin .8s linear infinite;
+      margin:0 auto 12px;
+    }
+
+    @keyframes spin {
+      to {
+        transform:rotate(360deg);
+      }
+    }
+
+    @media(max-width:700px) {
+
+      .profile-hero {
+        flex-direction:column;
+        text-align:center;
+      }
+
+      .profile-stats {
+        grid-template-columns:
+          repeat(2,1fr);
+      }
+
+      .history-card {
+        flex-direction:column;
+      }
+
+    }
+
+  </style>
+
 </head>
+
 
 <body>
 
-  <!-- =====================================================
-       HEADER
-       ===================================================== -->
 
-  <header class="site-header">
+<header class="header">
 
-    <div class="header-inner">
+  <div class="header-inner">
+
+    <a
+      href="index.html"
+      class="logo"
+    >
+
+      <span class="logo-icon">
+        B
+      </span>
+
+      <span class="logo-text">
+        BUTUH
+      </span>
+
+    </a>
+
+
+    <nav class="nav">
 
       <a
         href="index.html"
-        class="brand"
+        class="nav-link"
       >
-        <div class="brand-icon">
-          B
-        </div>
-
-        <div>
-          <strong>
-            BUTUH
-          </strong>
-
-          <span>
-            Temukan yang dibutuhkan
-          </span>
-        </div>
+        🏠 Beranda
       </a>
 
+      <a
+        href="index.html#needs"
+        class="btn btn-primary"
+      >
+        🔥 Kebutuhan
+      </a>
 
-      <nav class="main-nav">
+    </nav>
 
-        <a href="index.html">
-          Beranda
-        </a>
+  </div>
 
-        <a
-          href="profile.html"
-          class="active"
+</header>
+
+
+<main class="profile-page">
+
+
+  <!-- PROFILE -->
+
+  <section class="profile-hero">
+
+    <img
+      id="profilePhoto"
+      class="profile-avatar"
+      src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/user.svg"
+      alt="Foto Profil"
+      referrerpolicy="no-referrer"
+    >
+
+
+    <div class="profile-info">
+
+      <h1 id="profileName">
+        Memuat...
+      </h1>
+
+      <p id="profileEmail">
+        ...
+      </p>
+
+      <div class="rating-box">
+
+        <span
+          id="ratingStars"
+          class="rating-stars"
         >
-          Profil
-        </a>
+          ☆☆☆☆☆
+        </span>
 
-      </nav>
-
-
-      <div class="header-user">
-
-        <img
-          id="profilePhoto"
-          class="header-avatar"
-          src="https://ui-avatars.com/api/?name=U"
-          alt="Foto profil"
+        <span
+          id="ratingValue"
         >
-
-        <div class="header-user-info">
-
-          <strong id="profileName">
-            Memuat...
-          </strong>
-
-          <small id="profileEmail">
-            -
-          </small>
-
-        </div>
+          Belum ada rating
+        </span>
 
       </div>
 
     </div>
 
-  </header>
+  </section>
 
 
-  <!-- =====================================================
-       MAIN
-       ===================================================== -->
+  <!-- STATISTICS -->
 
-  <main class="profile-page">
+  <section class="profile-stats">
 
-    <!-- ===================================================
-         PROFILE HERO
-         =================================================== -->
+    <div class="profile-stat">
 
-    <section class="profile-hero">
+      <strong id="totalNeeds">
+        0
+      </strong>
 
-      <div class="profile-hero-bg"></div>
-
-
-      <div class="profile-hero-content">
-
-        <img
-          id="profilePhoto"
-          class="profile-avatar-large"
-          src="https://ui-avatars.com/api/?name=U"
-          alt="Foto profil"
-        >
-
-
-        <div class="profile-user-data">
-
-          <div class="profile-name-row">
-
-            <h1 id="profileName">
-              Memuat...
-            </h1>
-
-            <span class="verified-badge">
-              ✓ Terverifikasi
-            </span>
-
-          </div>
-
-
-          <p id="profileEmail">
-            -
-          </p>
-
-
-          <div class="profile-meta">
-
-            <span>
-              🇮🇩 Indonesia
-            </span>
-
-            <span>
-              •
-            </span>
-
-            <span>
-              Pengguna BUTUH
-            </span>
-
-          </div>
-
-        </div>
-
-
-        <div class="profile-actions">
-
-          <a
-            href="index.html"
-            class="btn btn-primary"
-          >
-            + Posting Kebutuhan
-          </a>
-
-        </div>
-
-      </div>
-
-    </section>
-
-
-    <!-- ===================================================
-         STATISTICS
-         =================================================== -->
-
-    <section class="stats-grid">
-
-
-      <div class="stat-card">
-
-        <div class="stat-icon blue">
-          📋
-        </div>
-
-        <div>
-
-          <span>
-            Kebutuhan
-          </span>
-
-          <strong id="needTotal">
-            0
-          </strong>
-
-        </div>
-
-      </div>
-
-
-      <div class="stat-card">
-
-        <div class="stat-icon purple">
-          🤝
-        </div>
-
-        <div>
-
-          <span>
-            Penawaran
-          </span>
-
-          <strong id="offerTotal">
-            0
-          </strong>
-
-        </div>
-
-      </div>
-
-
-      <div class="stat-card">
-
-        <div class="stat-icon yellow">
-          ⭐
-        </div>
-
-        <div>
-
-          <span>
-            Rating
-          </span>
-
-          <strong id="ratingValue">
-            0.0
-          </strong>
-
-        </div>
-
-      </div>
-
-
-      <div class="stat-card">
-
-        <div class="stat-icon green">
-          ✅
-        </div>
-
-        <div>
-
-          <span>
-            Selesai
-          </span>
-
-          <strong id="completedTotal">
-            0
-          </strong>
-
-        </div>
-
-      </div>
-
-
-    </section>
-
-
-    <!-- ===================================================
-         RATING
-         =================================================== -->
-
-    <section class="rating-card">
-
-      <div class="rating-left">
-
-        <div class="rating-big">
-          <span id="ratingBig">
-            0.0
-          </span>
-
-          <span class="rating-star">
-            ★
-          </span>
-        </div>
-
-
-        <div class="rating-label">
-          Rating pengguna
-        </div>
-
-      </div>
-
-
-      <div class="rating-center">
-
-        <div class="rating-title">
-          Reputasi
-        </div>
-
-        <div class="stars-large">
-          ★★★★★
-        </div>
-
-        <p>
-          Rating akan bertambah setelah transaksi
-          selesai dan pengguna memberikan penilaian.
-        </p>
-
-      </div>
-
-
-      <div class="rating-right">
-
-        <div class="rating-count">
-          <strong id="ratingCount">
-            0
-          </strong>
-
-          <span>
-            penilaian
-          </span>
-        </div>
-
-      </div>
-
-    </section>
-
-
-    <!-- ===================================================
-         CONTENT
-         =================================================== -->
-
-    <div class="profile-content">
-
-
-      <!-- =================================================
-           MY NEEDS
-           ================================================= -->
-
-      <section class="profile-section">
-
-        <div class="section-heading">
-
-          <div>
-
-            <span class="section-label">
-              AKTIVITAS
-            </span>
-
-            <h2>
-              Riwayat Kebutuhan
-            </h2>
-
-            <p>
-              Semua kebutuhan yang pernah Anda posting.
-            </p>
-
-          </div>
-
-
-          <a
-            href="index.html"
-            class="btn btn-outline"
-          >
-            + Tambah
-          </a>
-
-        </div>
-
-
-        <div
-          id="myNeedsList"
-          class="history-list"
-        >
-
-          <div class="loading-box">
-
-            <div class="loading-spinner"></div>
-
-            <strong>
-              Memuat kebutuhan...
-            </strong>
-
-          </div>
-
-        </div>
-
-      </section>
-
-
-      <!-- =================================================
-           MY OFFERS
-           ================================================= -->
-
-      <section class="profile-section">
-
-        <div class="section-heading">
-
-          <div>
-
-            <span class="section-label">
-              AKTIVITAS
-            </span>
-
-            <h2>
-              Riwayat Penawaran
-            </h2>
-
-            <p>
-              Semua penawaran yang pernah Anda kirim.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <div
-          id="myOffersList"
-          class="history-list"
-        >
-
-          <div class="loading-box">
-
-            <div class="loading-spinner"></div>
-
-            <strong>
-              Memuat penawaran...
-            </strong>
-
-          </div>
-
-        </div>
-
-      </section>
-
-
-      <!-- =================================================
-           CARA KERJA
-           ================================================= -->
-
-      <section class="how-section">
-
-        <div class="section-heading center">
-
-          <span class="section-label">
-            BUTUH
-          </span>
-
-          <h2>
-            Bangun reputasi Anda
-          </h2>
-
-          <p>
-            Semakin banyak transaksi selesai,
-            semakin tinggi kepercayaan pengguna lain.
-          </p>
-
-        </div>
-
-
-        <div class="steps-grid">
-
-
-          <div class="step-card">
-
-            <div class="step-number">
-              1
-            </div>
-
-            <h3>
-              Temukan kebutuhan
-            </h3>
-
-            <p>
-              Cari kebutuhan yang sesuai
-              dengan kemampuan Anda.
-            </p>
-
-          </div>
-
-
-          <div class="step-card">
-
-            <div class="step-number">
-              2
-            </div>
-
-            <h3>
-              Kirim penawaran
-            </h3>
-
-            <p>
-              Tentukan harga dan waktu
-              pengerjaan yang Anda tawarkan.
-            </p>
-
-          </div>
-
-
-          <div class="step-card">
-
-            <div class="step-number">
-              3
-            </div>
-
-            <h3>
-              Selesaikan pekerjaan
-            </h3>
-
-            <p>
-              Kerjakan sesuai kesepakatan
-              dengan pemilik kebutuhan.
-            </p>
-
-          </div>
-
-
-          <div class="step-card">
-
-            <div class="step-number">
-              4
-            </div>
-
-            <h3>
-              Dapatkan rating
-            </h3>
-
-            <p>
-              Transaksi yang selesai dapat
-              menghasilkan rating positif.
-            </p>
-
-          </div>
-
-
-        </div>
-
-      </section>
+      <span>
+        Kebutuhan Diposting
+      </span>
 
     </div>
 
-  </main>
+
+    <div class="profile-stat">
+
+      <strong id="totalOffers">
+        0
+      </strong>
+
+      <span>
+        Penawaran Dikirim
+      </span>
+
+    </div>
 
 
-  <!-- =====================================================
-       FOOTER
-       ===================================================== -->
+    <div class="profile-stat">
 
-  <footer class="site-footer">
+      <strong id="acceptedOffers">
+        0
+      </strong>
 
-    <div class="footer-inner">
+      <span>
+        Penawaran Diterima
+      </span>
 
-      <div>
-
-        <strong>
-          BUTUH
-        </strong>
-
-        <p>
-          Hubungkan kebutuhan dengan orang
-          yang bisa membantu.
-        </p>
-
-      </div>
+    </div>
 
 
-      <div class="footer-links">
+    <div class="profile-stat">
 
-        <a href="index.html">
-          Beranda
-        </a>
+      <strong id="completedOffers">
+        0
+      </strong>
 
-        <a href="profile.html">
-          Profil
-        </a>
+      <span>
+        Pekerjaan Selesai
+      </span>
+
+    </div>
+
+  </section>
+
+
+  <!-- NEED HISTORY -->
+
+  <section class="history-section">
+
+    <h2>
+      📋 Riwayat Kebutuhan
+    </h2>
+
+    <p>
+      Semua kebutuhan yang pernah Anda posting.
+    </p>
+
+
+    <div
+      id="needsList"
+    >
+
+      <div class="loading-state">
+
+        <div class="spinner"></div>
+
+        Memuat kebutuhan...
 
       </div>
 
     </div>
 
+  </section>
 
-    <div class="footer-bottom">
 
-      © 2026 BUTUH. Semua hak dilindungi.
+  <!-- OFFER HISTORY -->
+
+  <section class="history-section">
+
+    <h2>
+      💰 Riwayat Penawaran
+    </h2>
+
+    <p>
+      Semua penawaran yang pernah Anda kirim.
+    </p>
+
+
+    <div
+      id="offersList"
+    >
+
+      <div class="loading-state">
+
+        <div class="spinner"></div>
+
+        Memuat penawaran...
+
+      </div>
 
     </div>
 
-  </footer>
+  </section>
 
 
-  <!-- =====================================================
-       FIREBASE PROFILE SCRIPT
-       ===================================================== -->
+</main>
 
-  <script
-    type="module"
-    src="profile.js"
-  ></script>
+
+<script
+  type="module"
+  src="profile.js"
+></script>
+
 
 </body>
+
 </html>
