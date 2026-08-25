@@ -1,35 +1,9 @@
 // ============================================================
 // PROFILE.JS
-// BUTUH - Marketplace Kebutuhan
-// VERSION: FAST / FIREBASE 12.1.0
-//
-// Struktur Firestore:
-//
-// needs/{needId}
-//   ownerId
-//   title
-//   description
-//   category
-//   budget
-//   deadline
-//   status
-//   createdAt
-//
-// needs/{needId}/offers/{offerId}
-//   providerId
-//   providerName
-//   providerEmail
-//   providerPhoto
-//   price
-//   duration
-//   message
-//   status
-//   createdAt
-//
-// TIDAK menggunakan orderBy()
-// agar tidak membutuhkan composite index.
+// BUTUH - Profile & Riwayat Penawaran
+// Firebase 12.1.0
+// Cocok dengan firebase.js + script.js
 // ============================================================
-
 
 import {
   onAuthStateChanged,
@@ -68,12 +42,14 @@ const LOAD_TIMEOUT = 10000;
 
 let currentUser = null;
 
-let loadingNeeds = false;
-let loadingOffers = false;
+let isLoadingOffers = false;
+let isLoadingNeeds = false;
+
+let cachedNeeds = new Map();
 
 
 // ============================================================
-// DOM HELPER
+// HELPER
 // ============================================================
 
 function $(selector) {
@@ -87,35 +63,17 @@ function $(selector) {
 
 function escapeHTML(value) {
 
-  return String(
-    value ?? ""
-  )
+  return String(value ?? "")
 
-    .replace(
-      /&/g,
-      "&amp;"
-    )
+    .replaceAll("&", "&amp;")
 
-    .replace(
-      /</g,
-      "&lt;"
-    )
+    .replaceAll("<", "&lt;")
 
-    .replace(
-      />/g,
-      "&gt;"
-    )
+    .replaceAll(">", "&gt;")
 
-    .replace(
-      /"/g,
-      "&quot;"
-    )
+    .replaceAll('"', "&quot;")
 
-    .replace(
-      /'/g,
-      "&#039;"
-    );
-
+    .replaceAll("'", "&#039;");
 }
 
 
@@ -125,14 +83,7 @@ function escapeHTML(value) {
 
 function formatRupiah(value) {
 
-  const number =
-    Number(value || 0);
-
-  if (
-    !Number.isFinite(number)
-  ) {
-    return "Rp 0";
-  }
+  const number = Number(value || 0);
 
   return new Intl.NumberFormat(
     "id-ID",
@@ -142,83 +93,6 @@ function formatRupiah(value) {
       maximumFractionDigits: 0
     }
   ).format(number);
-
-}
-
-
-// ============================================================
-// FIREBASE TIMESTAMP
-// ============================================================
-
-function getTime(value) {
-
-  if (!value) {
-    return 0;
-  }
-
-
-  try {
-
-    if (
-      typeof value.toMillis ===
-      "function"
-    ) {
-
-      return value.toMillis();
-
-    }
-
-
-    if (
-      typeof value.toDate ===
-      "function"
-    ) {
-
-      return value
-        .toDate()
-        .getTime();
-
-    }
-
-
-    if (
-      value.seconds !== undefined
-    ) {
-
-      return Number(
-        value.seconds
-      ) * 1000;
-
-    }
-
-
-    if (
-      value instanceof Date
-    ) {
-
-      return value.getTime();
-
-    }
-
-
-    const date =
-      new Date(value);
-
-
-    const time =
-      date.getTime();
-
-
-    return Number.isFinite(time)
-      ? time
-      : 0;
-
-  } catch {
-
-    return 0;
-
-  }
-
 }
 
 
@@ -226,20 +100,85 @@ function getTime(value) {
 // DATE
 // ============================================================
 
-function formatDate(value) {
+function timestampToDate(value) {
 
-  const time =
-    getTime(value);
-
-
-  if (!time) {
-
-    return "Baru saja";
-
+  if (!value) {
+    return null;
   }
 
+  try {
 
-  return new Intl.DateTimeFormat(
+    if (
+      typeof value.toDate === "function"
+    ) {
+      return value.toDate();
+    }
+
+    if (
+      typeof value.toMillis === "function"
+    ) {
+      return new Date(
+        value.toMillis()
+      );
+    }
+
+    if (
+      value.seconds !== undefined
+    ) {
+
+      return new Date(
+        Number(value.seconds) * 1000
+      );
+
+    }
+
+    if (
+      value instanceof Date
+    ) {
+      return value;
+    }
+
+    const date =
+      new Date(value);
+
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
+      return null;
+    }
+
+    return date;
+
+  } catch (error) {
+
+    return null;
+  }
+}
+
+
+function getTime(value) {
+
+  const date =
+    timestampToDate(value);
+
+  return date
+    ? date.getTime()
+    : 0;
+}
+
+
+function formatDate(value) {
+
+  const date =
+    timestampToDate(value);
+
+  if (!date) {
+    return "Baru saja";
+  }
+
+  return date.toLocaleDateString(
     "id-ID",
     {
       day: "2-digit",
@@ -248,10 +187,7 @@ function formatDate(value) {
       hour: "2-digit",
       minute: "2-digit"
     }
-  ).format(
-    new Date(time)
   );
-
 }
 
 
@@ -302,8 +238,9 @@ function showToast(
 ) {
 
   let toast =
-    $("#profileToast");
-
+    document.getElementById(
+      "profileToast"
+    );
 
   if (!toast) {
 
@@ -322,7 +259,7 @@ function showToast(
       "50%";
 
     toast.style.bottom =
-      "22px";
+      "20px";
 
     toast.style.transform =
       "translateX(-50%)";
@@ -334,10 +271,10 @@ function showToast(
       "12px 18px";
 
     toast.style.borderRadius =
-      "999px";
+      "12px";
 
     toast.style.color =
-      "#ffffff";
+      "#fff";
 
     toast.style.fontSize =
       "14px";
@@ -346,7 +283,7 @@ function showToast(
       "700";
 
     toast.style.boxShadow =
-      "0 10px 30px rgba(0,0,0,.20)";
+      "0 10px 30px rgba(0,0,0,.2)";
 
     document.body.appendChild(
       toast
@@ -354,52 +291,35 @@ function showToast(
 
   }
 
-
   toast.textContent =
     message;
 
-
-  if (
-    type === "success"
-  ) {
+  if (type === "success") {
 
     toast.style.background =
       "#16a34a";
 
-  }
-
-  else if (
-    type === "error"
-  ) {
+  } else if (type === "error") {
 
     toast.style.background =
       "#dc2626";
 
-  }
-
-  else {
+  } else {
 
     toast.style.background =
       "#111827";
 
   }
 
-
-  toast.style.display =
-    "block";
-
-
   clearTimeout(
     toast._timer
   );
-
 
   toast._timer =
     setTimeout(
       () => {
 
-        toast.style.display =
-          "none";
+        toast.remove();
 
       },
       3000
@@ -409,82 +329,35 @@ function showToast(
 
 
 // ============================================================
-// AUTH
-// ============================================================
-
-onAuthStateChanged(
-  auth,
-  async user => {
-
-    currentUser =
-      user || null;
-
-
-    if (!user) {
-
-      renderLoggedOut();
-
-      return;
-
-    }
-
-
-    renderProfile(
-      user
-    );
-
-
-    // Jalankan dua proses secara paralel
-    await Promise.allSettled([
-
-      loadMyNeeds(
-        user.uid
-      ),
-
-      loadMyOffers(
-        user.uid
-      )
-
-    ]);
-
-  }
-);
-
-
-// ============================================================
 // PROFILE ELEMENTS
 // ============================================================
 
-function getProfileNameElement() {
+function getNameElement() {
 
   return (
     $("#profileName") ||
     $("#userName") ||
-    $("#displayName") ||
-    $("#menuUserName")
+    $("#displayName")
   );
 
 }
 
 
-function getProfileEmailElement() {
+function getEmailElement() {
 
   return (
     $("#profileEmail") ||
-    $("#userEmail") ||
-    $("#menuUserEmail")
+    $("#userEmail")
   );
 
 }
 
 
-function getProfilePhotoElement() {
+function getPhotoElement() {
 
   return (
     $("#profilePhoto") ||
-    $("#userAvatar") ||
-    $("#userPhoto") ||
-    $("#menuUserPhoto")
+    $("#userAvatar")
   );
 
 }
@@ -501,66 +374,60 @@ function getNameInput() {
 }
 
 
-// ============================================================
-// CONTAINERS
-// ============================================================
-
-function getNeedsContainer() {
-
-  return (
-    $("#needsContainer") ||
-    $("#myNeedsContainer") ||
-    $("#myNeeds") ||
-    $("#needsHistory") ||
-    $("#needsList")
-  );
-
-}
-
-
 function getOffersContainer() {
 
   return (
     $("#offersContainer") ||
     $("#offerHistory") ||
-    $("#offersList") ||
-    $("#myOffers") ||
-    $("#myOffersContainer")
+    $("#offersList")
   );
 
 }
 
 
 // ============================================================
-// COUNT ELEMENT
+// AUTH
 // ============================================================
 
-function updateCount(
-  selectors,
-  value
-) {
+onAuthStateChanged(
+  auth,
+  async user => {
 
-  selectors.forEach(
-    selector => {
+    currentUser =
+      user || null;
 
-      const element =
-        $(selector);
+    if (!user) {
 
-      if (element) {
+      showNotLoggedIn();
 
-        element.textContent =
-          String(value);
-
-      }
+      return;
 
     }
-  );
 
-}
+    console.log(
+      "PROFILE USER:",
+      user.uid
+    );
+
+    renderProfile(
+      user
+    );
+
+    /*
+      Jangan menunggu profile
+      untuk menampilkan UI.
+    */
+
+    loadOffers(
+      user.uid
+    );
+
+  }
+);
 
 
 // ============================================================
-// RENDER PROFILE
+// PROFILE UI
 // ============================================================
 
 function renderProfile(user) {
@@ -573,30 +440,18 @@ function renderProfile(user) {
         : "Pengguna"
     );
 
-
   const email =
     user.email ||
     "-";
 
-
-  const photo =
-    user.photoURL ||
-    createAvatar(
-      name
-    );
-
-
   const nameElement =
-    getProfileNameElement();
-
+    getNameElement();
 
   const emailElement =
-    getProfileEmailElement();
-
+    getEmailElement();
 
   const photoElement =
-    getProfilePhotoElement();
-
+    getPhotoElement();
 
   const input =
     getNameInput();
@@ -618,17 +473,6 @@ function renderProfile(user) {
   }
 
 
-  if (photoElement) {
-
-    photoElement.src =
-      photo;
-
-    photoElement.alt =
-      name;
-
-  }
-
-
   if (input) {
 
     input.value =
@@ -636,174 +480,192 @@ function renderProfile(user) {
 
   }
 
+
+  if (
+    photoElement &&
+    user.photoURL
+  ) {
+
+    photoElement.src =
+      user.photoURL;
+
+  }
+
 }
 
 
 // ============================================================
-// LOGGED OUT
+// NOT LOGIN
 // ============================================================
 
-function renderLoggedOut() {
+function showNotLoggedIn() {
 
-  const needs =
-    getNeedsContainer();
+  const container =
+    getOffersContainer();
+
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = `
+
+    <div style="
+      padding:35px 15px;
+      text-align:center;
+      color:#6b7280;
+    ">
+
+      <div style="
+        font-size:42px;
+        margin-bottom:12px;
+      ">
+        🔐
+      </div>
+
+      <strong>
+        Silakan login terlebih dahulu
+      </strong>
+
+      <div style="
+        margin-top:8px;
+        font-size:14px;
+      ">
+        Login untuk melihat riwayat penawaran Anda.
+      </div>
+
+    </div>
+
+  `;
+
+}
 
 
-  const offers =
+// ============================================================
+// LOAD OFFERS
+// ============================================================
+
+async function loadOffers(
+  providerId
+) {
+
+  if (!providerId) {
+    return;
+  }
+
+  if (isLoadingOffers) {
+    return;
+  }
+
+  isLoadingOffers =
+    true;
+
+  const container =
     getOffersContainer();
 
 
-  if (needs) {
+  if (container) {
 
-    needs.innerHTML = `
+    container.innerHTML = `
 
-      <div class="loading-box">
+      <div style="
+        padding:35px 15px;
+        text-align:center;
+        color:#6b7280;
+      ">
 
-        <div class="empty-icon">
-          🔐
+        <div style="
+          font-size:30px;
+          margin-bottom:10px;
+        ">
+          ⏳
         </div>
 
         <strong>
-          Silakan login terlebih dahulu
+          Memuat riwayat penawaran...
         </strong>
-
-        <small>
-          Login untuk melihat riwayat kebutuhan Anda.
-        </small>
 
       </div>
 
     `;
 
   }
-
-
-  if (offers) {
-
-    offers.innerHTML = `
-
-      <div class="loading-box">
-
-        <div class="empty-icon">
-          🔐
-        </div>
-
-        <strong>
-          Silakan login terlebih dahulu
-        </strong>
-
-        <small>
-          Login untuk melihat riwayat penawaran Anda.
-        </small>
-
-      </div>
-
-    `;
-
-  }
-
-}
-
-
-// ============================================================
-// LOAD MY NEEDS
-// ============================================================
-
-async function loadMyNeeds(
-  ownerId
-) {
-
-  if (
-    !ownerId ||
-    loadingNeeds
-  ) {
-
-    return;
-
-  }
-
-
-  loadingNeeds =
-    true;
-
-
-  const container =
-    getNeedsContainer();
-
-
-  setLoading(
-    container,
-    "Memuat riwayat kebutuhan..."
-  );
 
 
   try {
 
-    console.log(
-      "Mengambil kebutuhan user:",
-      ownerId
-    );
-
-
-    const needsRef =
-      collection(
-        db,
-        "needs"
-      );
-
-
     /*
-      HANYA where.
+      ========================================================
+      PENTING
+      ========================================================
 
-      Tidak menggunakan orderBy.
+      Struktur database:
+
+      needs/
+        needId/
+          offers/
+            offerId
+
+      Jadi kita TIDAK menggunakan:
+
+      collectionGroup("offers")
+
+      dan TIDAK membutuhkan index
+      providerId global.
+
+      Kita mengambil kebutuhan terlebih dahulu,
+      kemudian mencari offers pada subcollection.
     */
 
-    const needsQuery =
-      query(
 
-        needsRef,
-
-        where(
-          "ownerId",
-          "==",
-          ownerId
-        ),
-
-        limit(
-          MAX_NEEDS
-        )
-
-      );
-
-
-    const snapshot =
+    const needsSnapshot =
       await withTimeout(
+
         getDocs(
-          needsQuery
+          query(
+            collection(
+              db,
+              "needs"
+            ),
+            limit(
+              MAX_NEEDS
+            )
+          )
         )
+
       );
 
 
     const needs = [];
 
-
-    snapshot.forEach(
+    needsSnapshot.forEach(
       item => {
 
-        needs.push({
+        const need = {
 
           id:
             item.id,
 
           ...item.data()
 
-        });
+        };
+
+        needs.push(
+          need
+        );
+
+        cachedNeeds.set(
+          need.id,
+          need
+        );
 
       }
     );
 
 
-    // Sort di browser
+    /*
+      Urutkan kebutuhan terbaru.
+    */
+
     needs.sort(
       (a, b) => {
 
@@ -820,45 +682,101 @@ async function loadMyNeeds(
     );
 
 
-    console.log(
-      "Kebutuhan saya:",
-      needs.length
+    /*
+      Ambil offers secara paralel.
+    */
+
+    const results =
+      await Promise.all(
+
+        needs.map(
+          need =>
+            loadOffersForNeed(
+              need,
+              providerId
+            )
+        )
+
+      );
+
+
+    const offers = [];
+
+
+    results.forEach(
+      result => {
+
+        if (
+          Array.isArray(result)
+        ) {
+
+          offers.push(
+            ...result
+          );
+
+        }
+
+      }
     );
 
 
-    updateCount(
-      [
-        "#myNeedsCount",
-        "#userNeedsCount",
-        "#needCount",
-        "#totalNeeds",
-        "#jumlahKebutuhan"
-      ],
-      needs.length
+    /*
+      Urutkan berdasarkan waktu terbaru.
+    */
+
+    offers.sort(
+      (a, b) => {
+
+        return (
+          getTime(
+            b.createdAt ||
+            b.updatedAt
+          ) -
+          getTime(
+            a.createdAt ||
+            a.updatedAt
+          )
+        );
+
+      }
     );
 
 
-    renderMyNeeds(
-      needs
+    updateOfferCount(
+      offers.length
+    );
+
+
+    if (
+      offers.length === 0
+    ) {
+
+      showEmptyOffers();
+
+      return;
+
+    }
+
+
+    renderOffers(
+      offers
     );
 
 
   } catch (error) {
 
     console.error(
-      "LOAD MY NEEDS:",
+      "LOAD OFFERS ERROR:",
       error
     );
 
-
-    renderNeedsError(
-      container,
+    showOffersError(
       error
     );
 
   } finally {
 
-    loadingNeeds =
+    isLoadingOffers =
       false;
 
   }
@@ -867,350 +785,69 @@ async function loadMyNeeds(
 
 
 // ============================================================
-// RENDER MY NEEDS
+// LOAD OFFERS FOR ONE NEED
 // ============================================================
 
-function renderMyNeeds(
-  needs
-) {
-
-  const container =
-    getNeedsContainer();
-
-
-  if (!container) {
-
-    console.warn(
-      "Container riwayat kebutuhan tidak ditemukan."
-    );
-
-    return;
-
-  }
-
-
-  if (
-    needs.length === 0
-  ) {
-
-    container.innerHTML = `
-
-      <div style="
-        text-align:center;
-        padding:35px 15px;
-        color:#6b7280;
-      ">
-
-        <div style="
-          font-size:42px;
-          margin-bottom:10px;
-        ">
-          📌
-        </div>
-
-        <strong style="
-          color:#374151;
-          font-size:16px;
-        ">
-          Belum ada kebutuhan
-        </strong>
-
-        <div style="
-          margin-top:7px;
-          font-size:14px;
-        ">
-          Kebutuhan yang Anda posting
-          akan muncul di sini.
-        </div>
-
-      </div>
-
-    `;
-
-    return;
-
-  }
-
-
-  container.innerHTML =
-    needs
-      .map(
-        createNeedHistoryCard
-      )
-      .join("");
-
-}
-
-
-// ============================================================
-// NEED CARD
-// ============================================================
-
-function createNeedHistoryCard(
-  need
-) {
-
-  const title =
-    need.title ||
-    "Tanpa judul";
-
-
-  const description =
-    truncate(
-      need.description ||
-      "",
-      150
-    );
-
-
-  const category =
-    getCategory(
-      need.category
-    );
-
-
-  const budget =
-    formatRupiah(
-      need.budget
-    );
-
-
-  const status =
-    normalizeStatus(
-      need.status
-    );
-
-
-  const needId =
-    encodeURIComponent(
-      need.id
-    );
-
-
-  return `
-
-    <article
-      class="profile-need-card"
-      data-need-id="${escapeHTML(
-        need.id
-      )}"
-      style="
-        background:#fff;
-        border:1px solid #e5e7eb;
-        border-radius:16px;
-        padding:16px;
-        margin-bottom:14px;
-        box-shadow:0 4px 14px rgba(0,0,0,.05);
-      "
-    >
-
-      <div style="
-        display:flex;
-        justify-content:space-between;
-        gap:12px;
-        align-items:flex-start;
-      ">
-
-        <div style="
-          min-width:0;
-          flex:1;
-        ">
-
-          <span style="
-            display:inline-block;
-            padding:5px 9px;
-            background:#eff6ff;
-            color:#2563eb;
-            border-radius:999px;
-            font-size:11px;
-            font-weight:700;
-          ">
-            ${escapeHTML(category)}
-          </span>
-
-          <h3 style="
-            margin:9px 0 0;
-            font-size:17px;
-            color:#111827;
-          ">
-            ${escapeHTML(title)}
-          </h3>
-
-        </div>
-
-        <span style="
-          flex-shrink:0;
-          padding:6px 10px;
-          border-radius:999px;
-          background:${statusBackground(status)};
-          color:${statusColor(status)};
-          font-size:11px;
-          font-weight:700;
-        ">
-          ${escapeHTML(
-            statusText(status)
-          )}
-        </span>
-
-      </div>
-
-
-      ${
-        description
-          ? `
-            <p style="
-              margin:12px 0 0;
-              color:#6b7280;
-              font-size:14px;
-              line-height:1.5;
-            ">
-              ${escapeHTML(description)}
-            </p>
-          `
-          : ""
-      }
-
-
-      <div style="
-        display:flex;
-        justify-content:space-between;
-        align-items:flex-end;
-        gap:12px;
-        margin-top:15px;
-      ">
-
-        <div>
-
-          <div style="
-            font-size:11px;
-            color:#6b7280;
-          ">
-            Budget
-          </div>
-
-          <strong style="
-            display:block;
-            margin-top:3px;
-            color:#2563eb;
-            font-size:17px;
-          ">
-            ${escapeHTML(budget)}
-          </strong>
-
-          <small style="
-            display:block;
-            margin-top:4px;
-            color:#9ca3af;
-          ">
-            ${escapeHTML(
-              formatDate(
-                need.createdAt
-              )
-            )}
-          </small>
-
-        </div>
-
-
-        <button
-          type="button"
-          class="profile-view-need-btn btn btn-primary"
-          data-id="${escapeHTML(
-            need.id
-          )}"
-        >
-          Lihat Kebutuhan
-        </button>
-
-      </div>
-
-    </article>
-
-  `;
-
-}
-
-
-// ============================================================
-// LOAD MY OFFERS
-// ============================================================
-
-async function loadMyOffers(
+async function loadOffersForNeed(
+  need,
   providerId
 ) {
 
-  if (
-    !providerId ||
-    loadingOffers
-  ) {
-
-    return;
-
-  }
-
-
-  loadingOffers =
-    true;
-
-
-  const container =
-    getOffersContainer();
-
-
-  setLoading(
-    container,
-    "Memuat riwayat penawaran..."
-  );
-
-
   try {
 
-    /*
-      Struktur:
-
-      needs/{needId}/offers/{offerId}
-
-      Karena providerId berada di
-      subcollection offers, kita
-      membaca kebutuhan user terlebih
-      dahulu, kemudian semua offers
-      secara paralel.
-    */
-
-
-    const needsSnapshot =
-      await withTimeout(
-
-        getDocs(
-
-          query(
-
-            collection(
-              db,
-              "needs"
-            ),
-
-            limit(
-              MAX_NEEDS
-            )
-
-          )
-
-        )
-
+    const offersRef =
+      collection(
+        db,
+        "needs",
+        need.id,
+        "offers"
       );
 
 
-    const needs = [];
+    /*
+      Query hanya providerId.
+
+      Tidak memakai orderBy.
+      Tidak membutuhkan composite index.
+    */
+
+    const q =
+      query(
+        offersRef,
+        where(
+          "providerId",
+          "==",
+          providerId
+        ),
+        limit(
+          MAX_OFFERS_PER_NEED
+        )
+      );
 
 
-    needsSnapshot.forEach(
+    const snapshot =
+      await getDocs(q);
+
+
+    const offers = [];
+
+
+    snapshot.forEach(
       item => {
 
-        needs.push({
+        offers.push({
 
           id:
             item.id,
+
+          needId:
+            need.id,
+
+          requirementId:
+            need.id,
+
+          need:
+            need,
 
           ...item.data()
 
@@ -1220,165 +857,18 @@ async function loadMyOffers(
     );
 
 
-    if (
-      needs.length === 0
-    ) {
-
-      updateOfferCount(
-        0
-      );
-
-      renderMyOffers(
-        []
-      );
-
-      return;
-
-    }
-
-
-    /*
-      Ambil offers secara paralel.
-    */
-
-    const offerResults =
-      await Promise.all(
-
-        needs.map(
-          async need => {
-
-            try {
-
-              const offersSnapshot =
-                await getDocs(
-
-                  query(
-
-                    collection(
-                      db,
-                      "needs",
-                      need.id,
-                      "offers"
-                    ),
-
-                    where(
-                      "providerId",
-                      "==",
-                      providerId
-                    ),
-
-                    limit(
-                      MAX_OFFERS_PER_NEED
-                    )
-
-                  )
-
-                );
-
-
-              const results = [];
-
-
-              offersSnapshot.forEach(
-                item => {
-
-                  results.push({
-
-                    id:
-                      item.id,
-
-                    needId:
-                      need.id,
-
-                    need:
-                      need,
-
-                    ...item.data()
-
-                  });
-
-                }
-              );
-
-
-              return results;
-
-            } catch (error) {
-
-              console.warn(
-                "Gagal membaca offers:",
-                need.id,
-                error
-              );
-
-              return [];
-
-            }
-
-          }
-
-        )
-
-      );
-
-
-    const offers =
-      offerResults.flat();
-
-
-    /*
-      Sort client-side.
-    */
-
-    offers.sort(
-      (a, b) => {
-
-        return (
-          getTime(
-            b.createdAt
-          ) -
-          getTime(
-            a.createdAt
-          )
-        );
-
-      }
-    );
-
-
-    console.log(
-      "Penawaran saya:",
-      offers.length
-    );
-
-
-    updateOfferCount(
-      offers.length
-    );
-
-
-    renderMyOffers(
-      offers
-    );
+    return offers;
 
 
   } catch (error) {
 
-    console.error(
-      "LOAD MY OFFERS:",
+    console.warn(
+      "Gagal mengambil offers:",
+      need.id,
       error
     );
 
-
-    renderOffersError(
-      container,
-      error
-    );
-
-  } finally {
-
-    loadingOffers =
-      false;
+    return [];
 
   }
 
@@ -1386,75 +876,232 @@ async function loadMyOffers(
 
 
 // ============================================================
-// RENDER MY OFFERS
+// EMPTY
 // ============================================================
 
-function renderMyOffers(
+function showEmptyOffers() {
+
+  const container =
+    getOffersContainer();
+
+  if (!container) {
+    return;
+  }
+
+
+  container.innerHTML = `
+
+    <div style="
+      text-align:center;
+      padding:35px 15px;
+      color:#6b7280;
+    ">
+
+      <div style="
+        font-size:42px;
+        margin-bottom:12px;
+      ">
+        💰
+      </div>
+
+      <div style="
+        font-size:17px;
+        font-weight:800;
+        color:#374151;
+      ">
+        Belum ada penawaran
+      </div>
+
+      <div style="
+        margin-top:7px;
+        font-size:14px;
+      ">
+        Penawaran yang Anda kirim
+        akan muncul di sini.
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+// ============================================================
+// ERROR
+// ============================================================
+
+function showOffersError(
+  error
+) {
+
+  const container =
+    getOffersContainer();
+
+  if (!container) {
+    return;
+  }
+
+
+  let message =
+    "Gagal memuat riwayat penawaran.";
+
+
+  const text =
+    String(
+      error?.message || ""
+    ).toLowerCase();
+
+
+  if (
+    text.includes("permission")
+  ) {
+
+    message =
+      "Firestore menolak akses. Periksa Rules.";
+
+  } else if (
+    text.includes("network")
+  ) {
+
+    message =
+      "Koneksi internet bermasalah.";
+
+  } else if (
+    text.includes("terlalu lama")
+  ) {
+
+    message =
+      "Pengambilan data terlalu lama.";
+
+  }
+
+
+  container.innerHTML = `
+
+    <div style="
+      text-align:center;
+      padding:30px 15px;
+    ">
+
+      <div style="
+        font-size:42px;
+        margin-bottom:10px;
+      ">
+        ⚠️
+      </div>
+
+      <div style="
+        font-weight:800;
+        color:#374151;
+      ">
+        ${escapeHTML(message)}
+      </div>
+
+      <button
+        id="retryOffersBtn"
+        type="button"
+        style="
+          margin-top:15px;
+          padding:11px 18px;
+          border:0;
+          border-radius:10px;
+          background:#2563eb;
+          color:#fff;
+          font-weight:700;
+        "
+      >
+        Coba Lagi
+      </button>
+
+    </div>
+
+  `;
+
+
+  $("#retryOffersBtn")
+    ?.addEventListener(
+      "click",
+      () => {
+
+        if (currentUser) {
+
+          loadOffers(
+            currentUser.uid
+          );
+
+        }
+
+      }
+    );
+
+}
+
+
+// ============================================================
+// COUNT
+// ============================================================
+
+function updateOfferCount(
+  count
+) {
+
+  const ids = [
+
+    "offerCount",
+
+    "totalOffers",
+
+    "myOfferCount",
+
+    "jumlahPenawaran",
+
+    "userOffersCount"
+
+  ];
+
+
+  ids.forEach(
+    id => {
+
+      const element =
+        document.getElementById(
+          id
+        );
+
+      if (element) {
+
+        element.textContent =
+          String(count);
+
+      }
+
+    }
+  );
+
+}
+
+
+// ============================================================
+// RENDER OFFERS
+// ============================================================
+
+function renderOffers(
   offers
 ) {
 
   const container =
     getOffersContainer();
 
-
   if (!container) {
-
-    console.warn(
-      "Container riwayat penawaran tidak ditemukan."
-    );
-
     return;
-
-  }
-
-
-  if (
-    offers.length === 0
-  ) {
-
-    container.innerHTML = `
-
-      <div style="
-        text-align:center;
-        padding:35px 15px;
-        color:#6b7280;
-      ">
-
-        <div style="
-          font-size:42px;
-          margin-bottom:10px;
-        ">
-          💰
-        </div>
-
-        <strong style="
-          color:#374151;
-          font-size:16px;
-        ">
-          Belum ada penawaran
-        </strong>
-
-        <div style="
-          margin-top:7px;
-          font-size:14px;
-        ">
-          Penawaran yang Anda kirim
-          akan muncul di sini.
-        </div>
-
-      </div>
-
-    `;
-
-    return;
-
   }
 
 
   container.innerHTML =
     offers
       .map(
-        createOfferHistoryCard
+        createOfferCard
       )
       .join("");
 
@@ -1465,39 +1112,48 @@ function renderMyOffers(
 
 
 // ============================================================
-// OFFER CARD
+// CREATE OFFER CARD
 // ============================================================
 
-function createOfferHistoryCard(
+function createOfferCard(
   offer
 ) {
 
   const need =
-    offer.need || {};
+    offer.need ||
+    cachedNeeds.get(
+      offer.needId ||
+      offer.requirementId
+    );
 
 
   const title =
-    need.title ||
+    need?.title ||
     offer.needTitle ||
+    offer.requirementTitle ||
+    offer.title ||
     "Kebutuhan";
 
 
   const description =
-    truncate(
-      need.description ||
-      "",
-      120
-    );
+    need?.description ||
+    offer.description ||
+    "";
+
+
+  const location =
+    need?.location ||
+    need?.city ||
+    offer.location ||
+    "";
 
 
   const price =
-    formatRupiah(
-      offer.price ??
-      offer.offerPrice ??
-      offer.amount ??
-      offer.bidAmount ??
-      0
-    );
+    offer.price ??
+    offer.offerPrice ??
+    offer.amount ??
+    offer.bidAmount ??
+    0;
 
 
   const duration =
@@ -1506,23 +1162,33 @@ function createOfferHistoryCard(
 
 
   const message =
-    truncate(
-      offer.message ||
-      "",
-      180
-    );
+    offer.message ||
+    offer.note ||
+    "";
 
 
   const status =
-    normalizeStatus(
-      offer.status
+    getStatus(
+      offer
     );
+
+
+  const date =
+    offer.createdAt ||
+    offer.timestamp ||
+    offer.updatedAt;
+
+
+  const needId =
+    need?.id ||
+    offer.needId ||
+    offer.requirementId;
 
 
   return `
 
     <article
-      class="profile-offer-card"
+      class="offer-card"
       data-offer-id="${escapeHTML(
         offer.id
       )}"
@@ -1544,29 +1210,31 @@ function createOfferHistoryCard(
       ">
 
         <div style="
-          flex:1;
           min-width:0;
+          flex:1;
         ">
 
-          <span style="
-            display:inline-block;
-            padding:5px 9px;
-            background:#eff6ff;
-            color:#2563eb;
-            border-radius:999px;
-            font-size:11px;
-            font-weight:700;
-          ">
-            PENAWARAN
-          </span>
-
-          <h3 style="
-            margin:9px 0 0;
+          <div style="
             font-size:17px;
+            font-weight:800;
             color:#111827;
           ">
             ${escapeHTML(title)}
-          </h3>
+          </div>
+
+          ${
+            location
+              ? `
+                <div style="
+                  margin-top:6px;
+                  font-size:13px;
+                  color:#6b7280;
+                ">
+                  📍 ${escapeHTML(location)}
+                </div>
+              `
+              : ""
+          }
 
         </div>
 
@@ -1575,13 +1243,19 @@ function createOfferHistoryCard(
           flex-shrink:0;
           padding:6px 10px;
           border-radius:999px;
-          background:${statusBackground(status)};
-          color:${statusColor(status)};
-          font-size:11px;
-          font-weight:700;
+          font-size:12px;
+          font-weight:800;
+          background:${getStatusBackground(
+            status
+          )};
+          color:${getStatusColor(
+            status
+          )};
         ">
           ${escapeHTML(
-            statusText(status)
+            statusText(
+              status
+            )
           )}
         </span>
 
@@ -1591,101 +1265,110 @@ function createOfferHistoryCard(
       ${
         description
           ? `
-            <p style="
-              margin:12px 0 0;
-              color:#6b7280;
+            <div style="
+              margin-top:12px;
+              color:#4b5563;
               font-size:14px;
               line-height:1.5;
             ">
-              ${escapeHTML(description)}
-            </p>
+              ${escapeHTML(
+                truncate(
+                  description,
+                  180
+                )
+              )}
+            </div>
           `
           : ""
       }
 
 
       <div style="
-        display:grid;
-        grid-template-columns:
-          repeat(
-            auto-fit,
-            minmax(130px,1fr)
-          );
+        display:flex;
         gap:10px;
+        flex-wrap:wrap;
         margin-top:14px;
       ">
 
-
         <div style="
+          flex:1;
+          min-width:130px;
           padding:11px;
           border-radius:10px;
           background:#f0fdf4;
         ">
 
-          <small style="
+          <div style="
+            font-size:11px;
             color:#6b7280;
           ">
-            Penawaran
-          </small>
+            Penawaran Anda
+          </div>
 
-          <strong style="
-            display:block;
+          <div style="
             margin-top:3px;
+            font-size:16px;
+            font-weight:900;
             color:#16a34a;
           ">
-            ${escapeHTML(price)}
-          </strong>
+            ${formatRupiah(price)}
+          </div>
 
         </div>
 
 
         <div style="
+          flex:1;
+          min-width:130px;
           padding:11px;
           border-radius:10px;
-          background:#f9fafb;
+          background:#eff6ff;
         ">
 
-          <small style="
+          <div style="
+            font-size:11px;
             color:#6b7280;
           ">
             Pengerjaan
-          </small>
+          </div>
 
-          <strong style="
-            display:block;
+          <div style="
             margin-top:3px;
-            color:#374151;
+            font-size:14px;
+            font-weight:700;
+            color:#2563eb;
           ">
             ${escapeHTML(duration)}
-          </strong>
+          </div>
 
         </div>
 
 
         <div style="
+          flex:1;
+          min-width:130px;
           padding:11px;
           border-radius:10px;
           background:#f9fafb;
         ">
 
-          <small style="
+          <div style="
+            font-size:11px;
             color:#6b7280;
           ">
             Waktu
-          </small>
+          </div>
 
-          <strong style="
-            display:block;
+          <div style="
             margin-top:3px;
+            font-size:13px;
+            font-weight:600;
             color:#374151;
-            font-size:12px;
           ">
             ${escapeHTML(
-              formatDate(
-                offer.createdAt
-              )
+              formatDate(date)
             )}
-          </strong>
+          </div>
 
         </div>
 
@@ -1698,16 +1381,13 @@ function createOfferHistoryCard(
             <div style="
               margin-top:12px;
               padding:11px;
-              border-radius:10px;
               background:#f9fafb;
+              border-radius:10px;
               color:#4b5563;
               font-size:13px;
               line-height:1.5;
             ">
-              <strong>
-                Pesan:
-              </strong>
-
+              <strong>Pesan:</strong>
               ${escapeHTML(message)}
             </div>
           `
@@ -1715,19 +1395,32 @@ function createOfferHistoryCard(
       }
 
 
-      <button
-        type="button"
-        class="profile-view-need-btn btn btn-primary"
-        data-id="${escapeHTML(
-          offer.needId
-        )}"
-        style="
-          width:100%;
-          margin-top:14px;
-        "
-      >
-        👁️ Lihat Kebutuhan
-      </button>
+      ${
+        needId
+          ? `
+            <button
+              class="view-requirement-btn"
+              data-id="${escapeHTML(
+                needId
+              )}"
+              type="button"
+              style="
+                width:100%;
+                margin-top:14px;
+                padding:12px;
+                border:1px solid #bfdbfe;
+                border-radius:10px;
+                background:#eff6ff;
+                color:#2563eb;
+                font-weight:800;
+                cursor:pointer;
+              "
+            >
+              👁️ Lihat Kebutuhan
+            </button>
+          `
+          : ""
+      }
 
     </article>
 
@@ -1737,635 +1430,17 @@ function createOfferHistoryCard(
 
 
 // ============================================================
-// VIEW NEED
-// ============================================================
-
-function attachOfferButtons() {
-
-  document
-    .querySelectorAll(
-      ".profile-view-need-btn"
-    )
-    .forEach(
-      button => {
-
-        button.onclick =
-          () => {
-
-            const needId =
-              button.dataset.id;
-
-
-            if (!needId) {
-
-              showToast(
-                "ID kebutuhan tidak ditemukan.",
-                "error"
-              );
-
-              return;
-
-            }
-
-
-            /*
-              JANGAN menuju:
-
-              detail.html?id=...
-
-              karena menyebabkan 404.
-
-              Gunakan index.html?need=ID.
-            */
-
-            window.location.href =
-              "index.html?need=" +
-              encodeURIComponent(
-                needId
-              );
-
-          };
-
-      }
-    );
-
-}
-
-
-// ============================================================
-// UPDATE OFFER COUNT
-// ============================================================
-
-function updateOfferCount(
-  count
-) {
-
-  updateCount(
-
-    [
-      "#userOffersCount",
-      "#offerCount",
-      "#myOfferCount",
-      "#totalOffers",
-      "#jumlahPenawaran"
-    ],
-
-    count
-
-  );
-
-}
-
-
-// ============================================================
-// NEED ERROR
-// ============================================================
-
-function renderNeedsError(
-  container,
-  error
-) {
-
-  if (!container) {
-    return;
-  }
-
-
-  const message =
-    getFriendlyError(
-      error
-    );
-
-
-  container.innerHTML = `
-
-    <div style="
-      text-align:center;
-      padding:30px 15px;
-    ">
-
-      <div style="
-        font-size:42px;
-      ">
-        ⚠️
-      </div>
-
-      <strong>
-        Gagal memuat riwayat kebutuhan
-      </strong>
-
-      <p style="
-        color:#6b7280;
-        font-size:13px;
-      ">
-        ${escapeHTML(message)}
-      </p>
-
-      <button
-        id="retryNeedsBtn"
-        class="btn btn-primary"
-        type="button"
-      >
-        🔄 Coba Lagi
-      </button>
-
-    </div>
-
-  `;
-
-
-  $("#retryNeedsBtn")
-    ?.addEventListener(
-      "click",
-      () => {
-
-        if (currentUser) {
-
-          loadMyNeeds(
-            currentUser.uid
-          );
-
-        }
-
-      }
-    );
-
-}
-
-
-// ============================================================
-// OFFER ERROR
-// ============================================================
-
-function renderOffersError(
-  container,
-  error
-) {
-
-  if (!container) {
-    return;
-  }
-
-
-  const message =
-    getFriendlyError(
-      error
-    );
-
-
-  container.innerHTML = `
-
-    <div style="
-      text-align:center;
-      padding:30px 15px;
-    ">
-
-      <div style="
-        font-size:42px;
-      ">
-        ⚠️
-      </div>
-
-      <strong>
-        Gagal memuat riwayat penawaran
-      </strong>
-
-      <p style="
-        color:#6b7280;
-        font-size:13px;
-      ">
-        ${escapeHTML(message)}
-      </p>
-
-      <button
-        id="retryOffersBtn"
-        class="btn btn-primary"
-        type="button"
-      >
-        🔄 Coba Lagi
-      </button>
-
-    </div>
-
-  `;
-
-
-  $("#retryOffersBtn")
-    ?.addEventListener(
-      "click",
-      () => {
-
-        if (currentUser) {
-
-          loadMyOffers(
-            currentUser.uid
-          );
-
-        }
-
-      }
-    );
-
-}
-
-
-// ============================================================
-// LOADING
-// ============================================================
-
-function setLoading(
-  container,
-  text
-) {
-
-  if (!container) {
-    return;
-  }
-
-
-  container.innerHTML = `
-
-    <div style="
-      text-align:center;
-      padding:35px 15px;
-      color:#6b7280;
-    ">
-
-      <div style="
-        width:30px;
-        height:30px;
-        margin:0 auto 12px;
-        border:3px solid #e5e7eb;
-        border-top-color:#2563eb;
-        border-radius:50%;
-        animation:profileSpin .7s linear infinite;
-      "></div>
-
-      <strong>
-        ${escapeHTML(text)}
-      </strong>
-
-      <small style="
-        display:block;
-        margin-top:6px;
-      ">
-        Mohon tunggu...
-      </small>
-
-    </div>
-
-  `;
-
-
-  if (
-    !document.getElementById(
-      "profileSpinStyle"
-    )
-  ) {
-
-    const style =
-      document.createElement(
-        "style"
-      );
-
-    style.id =
-      "profileSpinStyle";
-
-    style.textContent = `
-
-      @keyframes profileSpin {
-
-        to {
-          transform:rotate(360deg);
-        }
-
-      }
-
-    `;
-
-    document.head.appendChild(
-      style
-    );
-
-  }
-
-}
-
-
-// ============================================================
-// FRIENDLY ERROR
-// ============================================================
-
-function getFriendlyError(
-  error
-) {
-
-  const text =
-    String(
-      error?.message ||
-      ""
-    ).toLowerCase();
-
-
-  if (
-    text.includes(
-      "permission"
-    )
-  ) {
-
-    return "Firestore Rules menolak akses.";
-
-  }
-
-
-  if (
-    text.includes(
-      "network"
-    )
-  ) {
-
-    return "Koneksi internet bermasalah.";
-
-  }
-
-
-  if (
-    text.includes(
-      "terlalu lama"
-    )
-  ) {
-
-    return "Koneksi ke Firestore terlalu lama.";
-
-  }
-
-
-  return (
-    error?.message ||
-    "Terjadi kesalahan."
-  );
-
-}
-
-
-// ============================================================
-// UPDATE PROFILE
-// ============================================================
-
-async function saveProfile() {
-
-  if (!currentUser) {
-
-    showToast(
-      "Silakan login terlebih dahulu.",
-      "error"
-    );
-
-    return;
-
-  }
-
-
-  const input =
-    getNameInput();
-
-
-  if (!input) {
-
-    showToast(
-      "Kolom nama tidak ditemukan.",
-      "error"
-    );
-
-    return;
-
-  }
-
-
-  const name =
-    input.value.trim();
-
-
-  if (!name) {
-
-    showToast(
-      "Nama tidak boleh kosong.",
-      "error"
-    );
-
-    return;
-
-  }
-
-
-  const button =
-    $("#saveProfileBtn") ||
-    $("#btnSaveProfile");
-
-
-  const original =
-    button
-      ? button.innerHTML
-      : "";
-
-
-  if (button) {
-
-    button.disabled =
-      true;
-
-    button.innerHTML =
-      "⏳ Menyimpan...";
-
-  }
-
-
-  try {
-
-    await withTimeout(
-
-      updateProfile(
-
-        currentUser,
-
-        {
-          displayName:
-            name
-        }
-
-      )
-
-    );
-
-
-    renderProfile(
-      currentUser
-    );
-
-
-    showToast(
-      "Profil berhasil diperbarui.",
-      "success"
-    );
-
-
-  } catch (error) {
-
-    console.error(
-      "SAVE PROFILE:",
-      error
-    );
-
-
-    showToast(
-      "Gagal menyimpan profil.",
-      "error"
-    );
-
-  } finally {
-
-    if (button) {
-
-      button.disabled =
-        false;
-
-      button.innerHTML =
-        original ||
-        "Simpan";
-
-    }
-
-  }
-
-}
-
-
-// ============================================================
-// PROFILE FORM
-// ============================================================
-
-document.addEventListener(
-  "DOMContentLoaded",
-  () => {
-
-    const form =
-      $("#profileForm");
-
-
-    if (form) {
-
-      form.addEventListener(
-        "submit",
-        event => {
-
-          event.preventDefault();
-
-          saveProfile();
-
-        }
-      );
-
-    }
-
-
-    const saveButton =
-      $("#saveProfileBtn") ||
-      $("#btnSaveProfile");
-
-
-    if (
-      saveButton &&
-      !form
-    ) {
-
-      saveButton.addEventListener(
-        "click",
-        saveProfile
-      );
-
-    }
-
-
-    const logoutButton =
-      $("#logoutBtn") ||
-      $("#btnLogout");
-
-
-    if (logoutButton) {
-
-      logoutButton.addEventListener(
-        "click",
-        logout
-      );
-
-    }
-
-  }
-);
-
-
-// ============================================================
-// LOGOUT
-// ============================================================
-
-async function logout() {
-
-  try {
-
-    const button =
-      $("#logoutBtn") ||
-      $("#btnLogout");
-
-
-    if (button) {
-
-      button.disabled =
-        true;
-
-      button.textContent =
-        "Keluar...";
-
-    }
-
-
-    await signOut(
-      auth
-    );
-
-
-    window.location.href =
-      "login.html";
-
-
-  } catch (error) {
-
-    console.error(
-      "LOGOUT:",
-      error
-    );
-
-
-    showToast(
-      "Gagal logout.",
-      "error"
-    );
-
-  }
-
-}
-
-
-// ============================================================
 // STATUS
 // ============================================================
 
-function normalizeStatus(
-  status
+function getStatus(
+  offer
 ) {
 
   return String(
-    status ||
-    "open"
+    offer.status ||
+    offer.offerStatus ||
+    "pending"
   ).toLowerCase();
 
 }
@@ -2375,18 +1450,7 @@ function statusText(
   status
 ) {
 
-  switch (
-    normalizeStatus(status)
-  ) {
-
-    case "open":
-    case "active":
-    case "aktif":
-      return "Aktif";
-
-    case "pending":
-    case "menunggu":
-      return "Menunggu";
+  switch (status) {
 
     case "accepted":
     case "diterima":
@@ -2405,33 +1469,27 @@ function statusText(
     case "dibatalkan":
       return "Dibatalkan";
 
+    case "pending":
+    case "menunggu":
+      return "Menunggu";
+
     default:
-      return status || "Aktif";
+      return status;
 
   }
 
 }
 
 
-function statusBackground(
+function getStatusBackground(
   status
 ) {
 
-  status =
-    normalizeStatus(
-      status
-    );
-
-
   if (
     status === "accepted" ||
-    status === "diterima" ||
-    status === "completed" ||
-    status === "selesai"
+    status === "diterima"
   ) {
-
     return "#dcfce7";
-
   }
 
 
@@ -2439,9 +1497,15 @@ function statusBackground(
     status === "rejected" ||
     status === "ditolak"
   ) {
-
     return "#fee2e2";
+  }
 
+
+  if (
+    status === "completed" ||
+    status === "selesai"
+  ) {
+    return "#dbeafe";
   }
 
 
@@ -2450,9 +1514,7 @@ function statusBackground(
     status === "canceled" ||
     status === "dibatalkan"
   ) {
-
     return "#f3f4f6";
-
   }
 
 
@@ -2461,25 +1523,15 @@ function statusBackground(
 }
 
 
-function statusColor(
+function getStatusColor(
   status
 ) {
 
-  status =
-    normalizeStatus(
-      status
-    );
-
-
   if (
     status === "accepted" ||
-    status === "diterima" ||
-    status === "completed" ||
-    status === "selesai"
+    status === "diterima"
   ) {
-
     return "#15803d";
-
   }
 
 
@@ -2487,9 +1539,15 @@ function statusColor(
     status === "rejected" ||
     status === "ditolak"
   ) {
-
     return "#b91c1c";
+  }
 
+
+  if (
+    status === "completed" ||
+    status === "selesai"
+  ) {
+    return "#1d4ed8";
   }
 
 
@@ -2498,13 +1556,512 @@ function statusColor(
     status === "canceled" ||
     status === "dibatalkan"
   ) {
-
     return "#4b5563";
-
   }
 
 
   return "#a16207";
+
+}
+
+
+// ============================================================
+// LIHAT KEBUTUHAN
+// ============================================================
+
+function attachOfferButtons() {
+
+  document
+    .querySelectorAll(
+      ".view-requirement-btn"
+    )
+    .forEach(
+      button => {
+
+        button.addEventListener(
+          "click",
+          () => {
+
+            const needId =
+              button.dataset.id;
+
+            if (!needId) {
+
+              showToast(
+                "ID kebutuhan tidak ditemukan.",
+                "error"
+              );
+
+              return;
+
+            }
+
+
+            openNeedFromHistory(
+              needId
+            );
+
+          }
+        );
+
+      }
+    );
+
+}
+
+
+// ============================================================
+// OPEN NEED FROM HISTORY
+// ============================================================
+
+async function openNeedFromHistory(
+  needId
+) {
+
+  /*
+    PENTING:
+
+    Tidak lagi:
+
+    detail.html?id=...
+
+    Karena itu menyebabkan 404
+    jika detail.html belum tersedia.
+  */
+
+
+  let need =
+    cachedNeeds.get(
+      needId
+    );
+
+
+  /*
+    Kalau belum ada cache,
+    ambil langsung.
+  */
+
+  if (!need) {
+
+    try {
+
+      const snapshot =
+        await withTimeout(
+
+          getDoc(
+            doc(
+              db,
+              "needs",
+              needId
+            )
+          )
+
+        );
+
+
+      if (
+        !snapshot.exists()
+      ) {
+
+        showToast(
+          "Kebutuhan sudah tidak ditemukan.",
+          "error"
+        );
+
+        return;
+
+      }
+
+
+      need = {
+
+        id:
+          snapshot.id,
+
+        ...snapshot.data()
+
+      };
+
+
+      cachedNeeds.set(
+        needId,
+        need
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Gagal membuka kebutuhan:",
+        error
+      );
+
+      showToast(
+        "Gagal memuat kebutuhan.",
+        "error"
+      );
+
+      return;
+
+    }
+
+  }
+
+
+  /*
+    Tampilkan detail langsung
+    di halaman profile.
+  */
+
+  showNeedDetail(
+    need
+  );
+
+}
+
+
+// ============================================================
+// DETAIL MODAL
+// ============================================================
+
+function showNeedDetail(
+  need
+) {
+
+  let modal =
+    document.getElementById(
+      "historyNeedModal"
+    );
+
+
+  if (!modal) {
+
+    modal =
+      document.createElement(
+        "div"
+      );
+
+    modal.id =
+      "historyNeedModal";
+
+    modal.className =
+      "modal hidden";
+
+    document.body.appendChild(
+      modal
+    );
+
+  }
+
+
+  const status =
+    String(
+      need.status ||
+      "open"
+    ).toLowerCase();
+
+
+  const owner =
+    need.ownerId ===
+    currentUser?.uid;
+
+
+  modal.innerHTML = `
+
+    <div
+      class="modal-backdrop"
+      id="historyNeedBackdrop"
+    ></div>
+
+
+    <div
+      class="modal-content"
+      style="
+        max-width:600px;
+        width:calc(100% - 24px);
+      "
+    >
+
+      <div class="modal-header">
+
+        <div>
+
+          <span class="section-label">
+            DETAIL KEBUTUHAN
+          </span>
+
+          <h2>
+            ${escapeHTML(
+              need.title ||
+              "Kebutuhan"
+            )}
+          </h2>
+
+        </div>
+
+
+        <button
+          id="closeHistoryNeed"
+          class="modal-close"
+          type="button"
+        >
+          ×
+        </button>
+
+      </div>
+
+
+      <div style="
+        padding:20px;
+      ">
+
+        <div style="
+          display:flex;
+          gap:8px;
+          flex-wrap:wrap;
+          margin-bottom:15px;
+        ">
+
+          <span style="
+            padding:6px 10px;
+            border-radius:999px;
+            background:#eff6ff;
+            color:#2563eb;
+            font-size:12px;
+            font-weight:700;
+          ">
+            ${escapeHTML(
+              getCategory(
+                need.category
+              )
+            )}
+          </span>
+
+
+          <span style="
+            padding:6px 10px;
+            border-radius:999px;
+            background:#f0fdf4;
+            color:#15803d;
+            font-size:12px;
+            font-weight:700;
+          ">
+            ${escapeHTML(status)}
+          </span>
+
+        </div>
+
+
+        <div style="
+          font-size:15px;
+          line-height:1.7;
+          color:#374151;
+        ">
+          ${escapeHTML(
+            need.description ||
+            "Tidak ada deskripsi."
+          )}
+        </div>
+
+
+        <div style="
+          margin-top:20px;
+          padding:16px;
+          border-radius:12px;
+          background:#eff6ff;
+        ">
+
+          <div style="
+            font-size:12px;
+            color:#6b7280;
+          ">
+            Budget
+          </div>
+
+          <div style="
+            margin-top:4px;
+            font-size:24px;
+            font-weight:900;
+            color:#2563eb;
+          ">
+            ${formatRupiah(
+              need.budget
+            )}
+          </div>
+
+        </div>
+
+
+        ${
+          need.deadline
+            ? `
+              <div style="
+                margin-top:14px;
+                padding:12px;
+                border-radius:10px;
+                background:#f9fafb;
+              ">
+                <strong>Deadline:</strong>
+                ${escapeHTML(
+                  need.deadline
+                )}
+              </div>
+            `
+            : ""
+        }
+
+
+        <div style="
+          margin-top:18px;
+          font-size:14px;
+          color:#6b7280;
+        ">
+          👤 Diposting oleh:
+          <strong>
+            ${escapeHTML(
+              need.ownerName ||
+              "Pengguna"
+            )}
+          </strong>
+        </div>
+
+
+        <div style="
+          margin-top:8px;
+          font-size:13px;
+          color:#9ca3af;
+        ">
+          📅 ${escapeHTML(
+            formatDate(
+              need.createdAt
+            )
+          )}
+        </div>
+
+
+        ${
+          owner
+            ? `
+              <div style="
+                margin-top:18px;
+                padding:13px;
+                border-radius:10px;
+                background:#f0fdf4;
+                color:#15803d;
+                font-weight:700;
+              ">
+                👤 Ini adalah kebutuhan Anda.
+              </div>
+            `
+            : ""
+        }
+
+
+        <button
+          id="historyGoHome"
+          type="button"
+          class="btn btn-outline"
+          style="
+            width:100%;
+            margin-top:18px;
+          "
+        >
+          ← Kembali ke Kebutuhan
+        </button>
+
+      </div>
+
+    </div>
+
+  `;
+
+
+  modal.classList.remove(
+    "hidden"
+  );
+
+
+  document.body.classList.add(
+    "modal-open"
+  );
+
+
+  $("#closeHistoryNeed")
+    ?.addEventListener(
+      "click",
+      () => {
+
+        closeHistoryNeed();
+
+      }
+    );
+
+
+  $("#historyNeedBackdrop")
+    ?.addEventListener(
+      "click",
+      () => {
+
+        closeHistoryNeed();
+
+      }
+    );
+
+
+  $("#historyGoHome")
+    ?.addEventListener(
+      "click",
+      () => {
+
+        closeHistoryNeed();
+
+        /*
+          Scroll ke daftar kebutuhan
+          tanpa 404.
+        */
+
+        const needs =
+          document.getElementById(
+            "needs"
+          );
+
+        if (needs) {
+
+          needs.scrollIntoView({
+            behavior:
+              "smooth"
+          });
+
+        }
+
+      }
+    );
+
+}
+
+
+// ============================================================
+// CLOSE DETAIL
+// ============================================================
+
+function closeHistoryNeed() {
+
+  const modal =
+    document.getElementById(
+      "historyNeedModal"
+    );
+
+  if (modal) {
+
+    modal.classList.add(
+      "hidden"
+    );
+
+  }
+
+  document.body.classList.remove(
+    "modal-open"
+  );
 
 }
 
@@ -2565,14 +2122,12 @@ function truncate(
 
   const value =
     String(
-      text ||
-      ""
+      text || ""
     );
 
 
   if (
-    value.length <=
-    length
+    value.length <= length
   ) {
 
     return value;
@@ -2592,71 +2147,247 @@ function truncate(
 
 
 // ============================================================
-// AVATAR
+// SAVE PROFILE
 // ============================================================
 
-function createAvatar(
-  name
-) {
+async function saveProfile() {
 
-  const first =
-    String(
-      name ||
-      "U"
-    )
-      .trim()
-      .charAt(0)
-      .toUpperCase();
+  if (!currentUser) {
+
+    showToast(
+      "Silakan login terlebih dahulu.",
+      "error"
+    );
+
+    return;
+
+  }
 
 
-  return (
-    "https://ui-avatars.com/api/" +
-    "?name=" +
-    encodeURIComponent(first) +
-    "&background=2563eb" +
-    "&color=ffffff" +
-    "&size=256"
-  );
+  const input =
+    getNameInput();
+
+
+  if (!input) {
+
+    showToast(
+      "Kolom nama tidak ditemukan.",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+  const name =
+    input.value.trim();
+
+
+  if (!name) {
+
+    showToast(
+      "Nama tidak boleh kosong.",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+  const button =
+    $("#saveProfileBtn") ||
+    $("#btnSaveProfile");
+
+
+  const oldText =
+    button?.textContent ||
+    "Simpan";
+
+
+  if (button) {
+
+    button.disabled =
+      true;
+
+    button.textContent =
+      "Menyimpan...";
+
+  }
+
+
+  try {
+
+    await withTimeout(
+
+      updateProfile(
+        currentUser,
+        {
+          displayName:
+            name
+        }
+      )
+
+    );
+
+
+    renderProfile(
+      currentUser
+    );
+
+
+    showToast(
+      "Profil berhasil diperbarui.",
+      "success"
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "SAVE PROFILE:",
+      error
+    );
+
+    showToast(
+      "Gagal menyimpan profil.",
+      "error"
+    );
+
+
+  } finally {
+
+    if (button) {
+
+      button.disabled =
+        false;
+
+      button.textContent =
+        oldText;
+
+    }
+
+  }
 
 }
+
+
+// ============================================================
+// PROFILE FORM
+// ============================================================
+
+document.addEventListener(
+  "DOMContentLoaded",
+  () => {
+
+    const form =
+      $("#profileForm");
+
+
+    if (form) {
+
+      form.addEventListener(
+        "submit",
+        event => {
+
+          event.preventDefault();
+
+          saveProfile();
+
+        }
+      );
+
+    }
+
+
+    const saveButton =
+      $("#saveProfileBtn") ||
+      $("#btnSaveProfile");
+
+
+    if (
+      saveButton &&
+      !form
+    ) {
+
+      saveButton.addEventListener(
+        "click",
+        saveProfile
+      );
+
+    }
+
+
+    /*
+      Logout.
+    */
+
+    const logoutButton =
+      $("#logoutBtn") ||
+      $("#btnLogout");
+
+
+    if (logoutButton) {
+
+      logoutButton.addEventListener(
+        "click",
+        async () => {
+
+          try {
+
+            logoutButton.disabled =
+              true;
+
+            logoutButton.textContent =
+              "Keluar...";
+
+
+            await signOut(
+              auth
+            );
+
+
+            window.location.href =
+              "login.html";
+
+
+          } catch (error) {
+
+            console.error(
+              "LOGOUT:",
+              error
+            );
+
+            logoutButton.disabled =
+              false;
+
+            logoutButton.textContent =
+              "🚪 Keluar";
+
+
+            showToast(
+              "Gagal logout.",
+              "error"
+            );
+
+          }
+
+        }
+      );
+
+    }
+
+  }
+);
 
 
 // ============================================================
 // GLOBAL REFRESH
 // ============================================================
 
-window.reloadProfile =
-  async function() {
-
-    if (!currentUser) {
-
-      showToast(
-        "Silakan login terlebih dahulu.",
-        "error"
-      );
-
-      return;
-
-    }
-
-
-    await Promise.allSettled([
-
-      loadMyNeeds(
-        currentUser.uid
-      ),
-
-      loadMyOffers(
-        currentUser.uid
-      )
-
-    ]);
-
-  };
-
-
 window.reloadOfferHistory =
-  function() {
+  function () {
 
     if (!currentUser) {
 
@@ -2670,29 +2401,16 @@ window.reloadOfferHistory =
     }
 
 
-    return loadMyOffers(
-      currentUser.uid
-    );
+    /*
+      Reset state agar bisa
+      dipanggil kembali.
+    */
 
-  };
-
-
-window.reloadNeedHistory =
-  function() {
-
-    if (!currentUser) {
-
-      showToast(
-        "Silakan login terlebih dahulu.",
-        "error"
-      );
-
-      return;
-
-    }
+    isLoadingOffers =
+      false;
 
 
-    return loadMyNeeds(
+    loadOffers(
       currentUser.uid
     );
 
@@ -2711,17 +2429,6 @@ window.profileDebug = {
 
   },
 
-  reloadNeeds() {
-
-    if (!currentUser) {
-      return;
-    }
-
-    return loadMyNeeds(
-      currentUser.uid
-    );
-
-  },
 
   reloadOffers() {
 
@@ -2729,9 +2436,19 @@ window.profileDebug = {
       return;
     }
 
-    return loadMyOffers(
+    isLoadingOffers =
+      false;
+
+    return loadOffers(
       currentUser.uid
     );
+
+  },
+
+
+  getCachedNeeds() {
+
+    return cachedNeeds;
 
   }
 
@@ -2739,17 +2456,26 @@ window.profileDebug = {
 
 
 // ============================================================
-// START
+// ESCAPE
 // ============================================================
 
-console.log(
-  "✅ BUTUH profile.js FAST aktif"
+document.addEventListener(
+  "keydown",
+  event => {
+
+    if (
+      event.key ===
+      "Escape"
+    ) {
+
+      closeHistoryNeed();
+
+    }
+
+  }
 );
 
-console.log(
-  "📁 Firestore: needs/{needId}/offers/{offerId}"
-);
 
 console.log(
-  "⚡ Tidak menggunakan orderBy / composite index"
+  "✅ profile.js cepat aktif"
 );
