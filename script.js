@@ -1334,10 +1334,18 @@ async function submitOffer(
     form.needId.value;
 
 
-  const price =
-    Number(
-      form.price.value
-    );
+  const rawPrice =
+  String(
+    form.price?.value || ""
+  ).trim();
+
+const price =
+  Number(
+    rawPrice
+      .replace(/\./g, "")
+      .replace(/,/g, "")
+      .replace(/[^\d]/g, "")
+  );
 
 
   const duration =
@@ -1349,17 +1357,14 @@ async function submitOffer(
 
 
   if (
-    !price ||
-    price <= 0
-  ) {
-
-    alert(
-      "Masukkan harga penawaran."
-    );
-
-    return;
-
-  }
+  !Number.isFinite(price) ||
+  price <= 0
+) {
+  alert(
+    "Masukkan harga penawaran yang valid."
+  );
+  return;
+}
 
 
   if (!duration) {
