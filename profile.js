@@ -4,27 +4,24 @@
 // ============================================================
 
 import {
-  getAuth,
   onAuthStateChanged,
   updateProfile
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 import {
-  getFirestore,
   collection,
   query,
   where,
   getDocs,
-  orderBy,
   limit,
   doc,
   getDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-import { app } from "./firebase.js";
-
-const auth = getAuth(app);
-const db = getFirestore(app);
+import {
+  auth,
+  db
+} from "./firebase.js";
 
 // ============================================================
 // KONFIGURASI
