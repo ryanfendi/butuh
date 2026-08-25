@@ -27,17 +27,17 @@ import { getFirestore } from
 
 const firebaseConfig = {
 
-  apiKey: "GANTI_API_KEY",
+  apiKey: "AIzaSyCUFHkwOfNo-JCGHWG3dWcnISoYLg7vGnY",
 
-  authDomain: "GANTI_PROJECT_ID.firebaseapp.com",
+  authDomain: "butuhin.firebaseapp.com",
 
-  projectId: "GANTI_PROJECT_ID",
+  projectId: "butuhin",
 
-  storageBucket: "GANTI_PROJECT_ID.firebasestorage.app",
+  storageBucket: "butuhin.firebasestorage.app",
 
-  messagingSenderId: "GANTI_SENDER_ID",
+  messagingSenderId: "331896660506",
 
-  appId: "GANTI_APP_ID"
+  appId: "1:331896660506:web:7a03f433101b81dd74e7a3"
 
 };
 
