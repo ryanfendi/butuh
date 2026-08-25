@@ -1483,25 +1483,254 @@ async function submitNeed(
     providerPhoto:
       currentUser.photoURL || "",
 
-    price:
-      price,
+async function submitNeed(event) {
 
-    duration:
-      duration,
+  event.preventDefault();
 
-    message:
-      message,
-
-    status:
-      "pending",
-
-    createdAt:
-      serverTimestamp(),
-
-    updatedAt:
-      serverTimestamp()
+  if (isSubmittingNeed) {
+    return;
   }
-);
+
+  // ==========================================================
+  // CEK LOGIN
+  // ==========================================================
+
+  if (!currentUser) {
+
+    alert("Silakan login terlebih dahulu.");
+
+    window.location.href = "login.html";
+
+    return;
+  }
+
+
+  // ==========================================================
+  // FORM
+  // ==========================================================
+
+  const form = event.target;
+
+  if (!form) {
+    alert("Form kebutuhan tidak ditemukan.");
+    return;
+  }
+
+
+  // ==========================================================
+  // AMBIL DATA
+  // ==========================================================
+
+  const title =
+    String(
+      form.elements["title"]?.value || ""
+    ).trim();
+
+
+  const description =
+    String(
+      form.elements["description"]?.value || ""
+    ).trim();
+
+
+  const category =
+    String(
+      form.elements["category"]?.value || "other"
+    ).trim();
+
+
+  const rawBudget =
+    String(
+      form.elements["budget"]?.value || ""
+    ).trim();
+
+
+  const budget =
+    Number(rawBudget);
+
+
+  const deadline =
+    String(
+      form.elements["deadline"]?.value || ""
+    ).trim();
+
+
+  // ==========================================================
+  // VALIDASI
+  // ==========================================================
+
+  if (!title) {
+
+    alert(
+      "Judul kebutuhan wajib diisi."
+    );
+
+    return;
+  }
+
+
+  if (!description) {
+
+    alert(
+      "Deskripsi kebutuhan wajib diisi."
+    );
+
+    return;
+  }
+
+
+  if (
+    rawBudget === "" ||
+    !Number.isFinite(budget) ||
+    budget <= 0
+  ) {
+
+    alert(
+      "Masukkan budget yang valid."
+    );
+
+    return;
+  }
+
+
+  // ==========================================================
+  // LOCK BUTTON
+  // ==========================================================
+
+  isSubmittingNeed = true;
+
+
+  const button =
+    $("submitNeed");
+
+
+  const originalText =
+    button?.innerHTML ||
+    "🚀 Posting Kebutuhan";
+
+
+  if (button) {
+
+    button.disabled = true;
+
+    button.innerHTML =
+      "⏳ Menyimpan...";
+
+  }
+
+
+  // ==========================================================
+  // SIMPAN KE FIRESTORE
+  // ==========================================================
+
+  try {
+
+    const needData = {
+
+      title: title,
+
+      description: description,
+
+      category: category,
+
+      budget: budget,
+
+      deadline: deadline,
+
+      ownerId:
+        currentUser.uid,
+
+      ownerName:
+        currentUser.displayName ||
+        currentUser.email?.split("@")[0] ||
+        "Pengguna",
+
+      ownerEmail:
+        currentUser.email ||
+        "",
+
+      ownerPhoto:
+        currentUser.photoURL ||
+        "",
+
+      status:
+        "open",
+
+      createdAt:
+        serverTimestamp(),
+
+      updatedAt:
+        serverTimestamp()
+
+    };
+
+
+    console.log(
+      "Menyimpan kebutuhan:",
+      needData
+    );
+
+
+    await addDoc(
+      collection(
+        db,
+        "needs"
+      ),
+      needData
+    );
+
+
+    // ========================================================
+    // BERHASIL
+    // ========================================================
+
+    form.reset();
+
+
+    closeNeedModal();
+
+
+    showToast(
+      "✅ Kebutuhan berhasil diposting!"
+    );
+
+
+    console.log(
+      "✅ Kebutuhan berhasil disimpan"
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "SUBMIT NEED ERROR:",
+      error
+    );
+
+
+    alert(
+      "Gagal menyimpan kebutuhan:\n\n" +
+      error.message
+    );
+
+
+  } finally {
+
+    isSubmittingNeed = false;
+
+
+    if (button) {
+
+      button.disabled = false;
+
+      button.innerHTML =
+        originalText;
+
+    }
+
+  }
+
+}
 
     form.reset();
 
