@@ -5,16 +5,16 @@
 
 import {
   onAuthStateChanged,
-  updateProfile
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  updateProfile,
+  signOut
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 
 import {
   collection,
-  query,
-  where,
   getDocs,
-  limit
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  query,
+  where
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 import {
   auth,
@@ -25,15 +25,16 @@ import {
 // CONFIG
 // ============================================================
 
-const MAX_OFFERS = 100;
-const TIMEOUT = 12000;
+const MAX_NEEDS = 1000;
+const MAX_OFFERS_PER_NEED = 100;
 
 // ============================================================
 // STATE
 // ============================================================
 
 let currentUser = null;
-let loading = false;
+
+let loadingOffers = false;
 
 // ============================================================
 // HELPER
@@ -42,6 +43,11 @@ let loading = false;
 function $(selector) {
   return document.querySelector(selector);
 }
+
+
+// ============================================================
+// ESCAPE HTML
+// ============================================================
 
 function escapeHTML(value) {
 
@@ -53,50 +59,39 @@ function escapeHTML(value) {
   }
 
   return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
 
-// ============================================================
-// TIMEOUT
-// ============================================================
-
-function timeoutPromise(
-  promise,
-  ms = TIMEOUT
-) {
-
-  return Promise.race([
-
-    promise,
-
-    new Promise(
-      (_, reject) => {
-
-        setTimeout(() => {
-
-          reject(
-            new Error(
-              "Request timeout"
-            )
-          );
-
-        }, ms);
-
-      }
+    .replaceAll(
+      "&",
+      "&amp;"
     )
 
-  ]);
+    .replaceAll(
+      "<",
+      "&lt;"
+    )
+
+    .replaceAll(
+      ">",
+      "&gt;"
+    )
+
+    .replaceAll(
+      '"',
+      "&quot;"
+    )
+
+    .replaceAll(
+      "'",
+      "&#039;"
+    );
 }
+
 
 // ============================================================
 // RUPIAH
 // ============================================================
 
-function rupiah(value) {
+function formatRupiah(value) {
 
   const number =
     Number(value || 0);
@@ -111,61 +106,86 @@ function rupiah(value) {
   ).format(number);
 }
 
+
 // ============================================================
 // DATE
 // ============================================================
 
-function getDate(value) {
+function getTimestampValue(value) {
 
   if (!value) {
-    return null;
+    return 0;
   }
 
   try {
 
     if (
+      typeof value.toMillis ===
+      "function"
+    ) {
+
+      return value.toMillis();
+
+    }
+
+    if (
       typeof value.toDate ===
       "function"
     ) {
-      return value.toDate();
+
+      return value
+        .toDate()
+        .getTime();
+
     }
 
     if (
       value.seconds !==
       undefined
     ) {
-      return new Date(
-        value.seconds * 1000
+
+      return (
+        Number(value.seconds) *
+        1000
       );
+
     }
 
     const date =
       new Date(value);
 
     if (
-      isNaN(date.getTime())
+      isNaN(
+        date.getTime()
+      )
     ) {
-      return null;
+
+      return 0;
+
     }
 
-    return date;
+    return date.getTime();
 
   } catch {
 
-    return null;
+    return 0;
+
   }
 }
 
+
 function formatDate(value) {
 
-  const date =
-    getDate(value);
+  const time =
+    getTimestampValue(
+      value
+    );
 
-  if (!date) {
-    return "-";
+  if (!time) {
+    return "Baru saja";
   }
 
-  return date.toLocaleDateString(
+  return new Intl.DateTimeFormat(
     "id-ID",
     {
       day: "2-digit",
@@ -174,8 +194,11 @@ function formatDate(value) {
       hour: "2-digit",
       minute: "2-digit"
     }
+  ).format(
+    new Date(time)
   );
 }
+
 
 // ============================================================
 // TOAST
@@ -207,13 +230,16 @@ function showToast(
         position: "fixed",
         left: "50%",
         bottom: "20px",
-        transform: "translateX(-50%)",
+        transform:
+          "translateX(-50%)",
         zIndex: "999999",
-        padding: "12px 18px",
-        borderRadius: "12px",
+        padding:
+          "13px 18px",
+        borderRadius:
+          "12px",
         color: "#fff",
         fontSize: "14px",
-        fontWeight: "600",
+        fontWeight: "700",
         boxShadow:
           "0 10px 30px rgba(0,0,0,.2)"
       }
@@ -240,16 +266,19 @@ function showToast(
 
   toast._timer =
     setTimeout(
-      () => toast.remove(),
+      () => {
+        toast.remove();
+      },
       3000
     );
 }
 
+
 // ============================================================
-// PROFILE ELEMENT
+// PROFILE ELEMENTS
 // ============================================================
 
-function profileNameElement() {
+function getNameElement() {
 
   return (
     $("#profileName") ||
@@ -258,7 +287,8 @@ function profileNameElement() {
   );
 }
 
-function profileEmailElement() {
+
+function getEmailElement() {
 
   return (
     $("#profileEmail") ||
@@ -266,7 +296,8 @@ function profileEmailElement() {
   );
 }
 
-function profilePhotoElement() {
+
+function getPhotoElement() {
 
   return (
     $("#profilePhoto") ||
@@ -275,7 +306,8 @@ function profilePhotoElement() {
   );
 }
 
-function profileNameInput() {
+
+function getNameInput() {
 
   return (
     $("#nameInput") ||
@@ -284,11 +316,12 @@ function profileNameInput() {
   );
 }
 
+
 // ============================================================
-// OFFER CONTAINER
+// OFFERS CONTAINER
 // ============================================================
 
-function offerContainer() {
+function getOffersContainer() {
 
   return (
     $("#offersContainer") ||
@@ -297,16 +330,17 @@ function offerContainer() {
   );
 }
 
+
 // ============================================================
 // AUTH
 // ============================================================
 
 onAuthStateChanged(
   auth,
-  async (user) => {
+  async user => {
 
     console.log(
-      "Auth state:",
+      "Profile auth:",
       user
         ? user.uid
         : "logout"
@@ -325,21 +359,25 @@ onAuthStateChanged(
     currentUser =
       user;
 
-    renderUser(
+    renderProfile(
       user
     );
 
-    await loadOffers(
+    await loadMyOffers(
       user.uid
     );
+
   }
 );
 
+
 // ============================================================
-// RENDER USER
+// RENDER PROFILE
 // ============================================================
 
-function renderUser(user) {
+function renderProfile(
+  user
+) {
 
   const name =
     user.displayName ||
@@ -349,48 +387,58 @@ function renderUser(user) {
         : "Pengguna"
     );
 
-  const nameEl =
-    profileNameElement();
+  const nameElement =
+    getNameElement();
 
-  const emailEl =
-    profileEmailElement();
+  const emailElement =
+    getEmailElement();
 
-  const photoEl =
-    profilePhotoElement();
+  const photoElement =
+    getPhotoElement();
 
-  const input =
-    profileNameInput();
+  const nameInput =
+    getNameInput();
 
-  if (nameEl) {
 
-    nameEl.textContent =
+  if (nameElement) {
+
+    nameElement.textContent =
       name;
+
   }
 
-  if (emailEl) {
 
-    emailEl.textContent =
+  if (emailElement) {
+
+    emailElement.textContent =
       user.email || "-";
+
   }
 
-  if (input) {
-
-    input.value =
-      user.displayName || "";
-  }
 
   if (
-    photoEl &&
+    photoElement &&
     user.photoURL
   ) {
 
-    photoEl.src =
+    photoElement.src =
       user.photoURL;
 
-    photoEl.style.display =
+    photoElement.style.display =
       "block";
+
   }
+
+
+  if (nameInput) {
+
+    nameInput.value =
+      user.displayName || "";
+
+  }
+
 }
+
 
 // ============================================================
 // LOGIN MESSAGE
@@ -399,7 +447,7 @@ function renderUser(user) {
 function showLoginMessage() {
 
   const container =
-    offerContainer();
+    getOffersContainer();
 
   if (!container) {
     return;
@@ -410,21 +458,26 @@ function showLoginMessage() {
     <div style="
       text-align:center;
       padding:40px 15px;
+      color:#6b7280;
     ">
 
       <div style="
-        font-size:42px;
+        font-size:44px;
+        margin-bottom:10px;
       ">
         🔐
       </div>
 
-      <h3>
-        Silakan Login
+      <h3 style="
+        color:#374151;
+        margin:0 0 8px;
+      ">
+        Silakan login terlebih dahulu
       </h3>
 
       <p>
-        Login untuk melihat
-        riwayat penawaran Anda.
+        Login untuk melihat riwayat
+        penawaran Anda.
       </p>
 
     </div>
@@ -432,11 +485,12 @@ function showLoginMessage() {
   `;
 }
 
+
 // ============================================================
-// LOAD OFFERS
+// LOAD MY OFFERS
 // ============================================================
 
-async function loadOffers(
+async function loadMyOffers(
   providerId
 ) {
 
@@ -444,35 +498,36 @@ async function loadOffers(
     return;
   }
 
-  if (loading) {
+  if (loadingOffers) {
     return;
   }
 
   const container =
-    offerContainer();
+    getOffersContainer();
 
   if (!container) {
 
     console.warn(
-      "Element riwayat penawaran tidak ditemukan."
+      "Container offers tidak ditemukan."
     );
 
     return;
   }
 
-  loading =
+  loadingOffers =
     true;
+
 
   container.innerHTML = `
 
     <div style="
       text-align:center;
-      padding:30px;
+      padding:35px 15px;
       color:#6b7280;
     ">
 
       <div style="
-        font-size:30px;
+        font-size:32px;
         margin-bottom:10px;
       ">
         ⏳
@@ -482,57 +537,39 @@ async function loadOffers(
         Memuat riwayat penawaran...
       </strong>
 
+      <div style="
+        margin-top:5px;
+        font-size:13px;
+      ">
+        Mengambil data dari Firestore
+      </div>
+
     </div>
 
   `;
 
+
   try {
 
-    /*
-      PENTING:
+    // ========================================================
+    // 1. AMBIL NEEDS
+    // ========================================================
 
-      Tidak menggunakan orderBy().
-
-      Query hanya menggunakan providerId.
-      Jadi tidak membutuhkan composite index.
-    */
-
-    const offersRef =
-      collection(
-        db,
-        "offers"
-      );
-
-    const offersQuery =
-      query(
-
-        offersRef,
-
-        where(
-          "providerId",
-          "==",
-          providerId
-        ),
-
-        limit(
-          MAX_OFFERS
-        )
-
-      );
-
-    const snapshot =
-      await timeoutPromise(
-        getDocs(
-          offersQuery
+    const needsSnapshot =
+      await getDocs(
+        collection(
+          db,
+          "needs"
         )
       );
 
-    const offers = [];
 
-    snapshot.forEach(
-      (item) => {
+    const needs = [];
 
-        offers.push({
+    needsSnapshot.forEach(
+      item => {
+
+        needs.push({
 
           id:
             item.id,
@@ -544,47 +581,142 @@ async function loadOffers(
       }
     );
 
+
     // ========================================================
-    // SORT
+    // 2. BATASI DATA
     // ========================================================
 
-    offers.sort(
+    const limitedNeeds =
+      needs.slice(
+        0,
+        MAX_NEEDS
+      );
+
+
+    // ========================================================
+    // 3. AMBIL OFFERS
+    // ========================================================
+
+    const allOffers = [];
+
+
+    await Promise.all(
+
+      limitedNeeds.map(
+        async need => {
+
+          try {
+
+            const offersRef =
+              collection(
+                db,
+                "needs",
+                need.id,
+                "offers"
+              );
+
+
+            const offersQuery =
+              query(
+
+                offersRef,
+
+                where(
+                  "providerId",
+                  "==",
+                  providerId
+                )
+
+              );
+
+
+            const snapshot =
+              await getDocs(
+                offersQuery
+              );
+
+
+            snapshot.forEach(
+              item => {
+
+                allOffers.push({
+
+                  id:
+                    item.id,
+
+                  needId:
+                    need.id,
+
+                  needTitle:
+                    need.title ||
+                    "Kebutuhan",
+
+                  needDescription:
+                    need.description ||
+                    "",
+
+                  needBudget:
+                    need.budget ||
+                    0,
+
+                  ...item.data()
+
+                });
+
+              }
+            );
+
+          } catch (error) {
+
+            console.warn(
+              "Gagal membaca offers:",
+              need.id,
+              error
+            );
+
+          }
+
+        }
+      )
+
+    );
+
+
+    // ========================================================
+    // 4. SORT
+    // ========================================================
+
+    allOffers.sort(
       (a, b) => {
 
-        const dateA =
-          getDate(
-            a.createdAt ||
-            a.timestamp
-          );
-
-        const dateB =
-          getDate(
-            b.createdAt ||
-            b.timestamp
-          );
-
         return (
-          (dateB?.getTime() || 0) -
-          (dateA?.getTime() || 0)
+          getTimestampValue(
+            b.createdAt
+          ) -
+          getTimestampValue(
+            a.createdAt
+          )
         );
 
       }
     );
 
+
     // ========================================================
-    // COUNT
+    // 5. COUNT
     // ========================================================
 
     updateOfferCount(
-      offers.length
+      allOffers.length
     );
 
+
     // ========================================================
-    // EMPTY
+    // 6. RENDER
     // ========================================================
 
     if (
-      offers.length === 0
+      allOffers.length === 0
     ) {
 
       showEmptyOffers();
@@ -592,34 +724,38 @@ async function loadOffers(
       return;
     }
 
-    // ========================================================
-    // RENDER
-    // ========================================================
 
     container.innerHTML =
-      offers
+      allOffers
         .map(
           createOfferCard
         )
         .join("");
 
+
+    attachOfferButtons();
+
+
   } catch (error) {
 
     console.error(
-      "LOAD OFFERS ERROR:",
+      "LOAD MY OFFERS ERROR:",
       error
     );
 
-    showOfferError(
+    showOffersError(
       error
     );
 
   } finally {
 
-    loading =
+    loadingOffers =
       false;
+
   }
+
 }
+
 
 // ============================================================
 // EMPTY
@@ -628,7 +764,7 @@ async function loadOffers(
 function showEmptyOffers() {
 
   const container =
-    offerContainer();
+    getOffersContainer();
 
   if (!container) {
     return;
@@ -643,20 +779,22 @@ function showEmptyOffers() {
     ">
 
       <div style="
-        font-size:44px;
-        margin-bottom:12px;
+        font-size:46px;
+        margin-bottom:10px;
       ">
         💰
       </div>
 
       <h3 style="
-        color:#374151;
         margin:0;
+        color:#374151;
       ">
         Belum ada penawaran
       </h3>
 
-      <p>
+      <p style="
+        margin-top:8px;
+      ">
         Penawaran yang Anda kirim
         akan muncul di sini.
       </p>
@@ -664,49 +802,77 @@ function showEmptyOffers() {
     </div>
 
   `;
+
 }
+
 
 // ============================================================
 // ERROR
 // ============================================================
 
-function showOfferError(
+function showOffersError(
   error
 ) {
 
   const container =
-    offerContainer();
+    getOffersContainer();
 
   if (!container) {
     return;
   }
 
-  console.error(
-    error?.message
-  );
+
+  let message =
+    "Gagal memuat riwayat penawaran.";
+
+
+  const text =
+    String(
+      error?.message ||
+      ""
+    ).toLowerCase();
+
+
+  if (
+    text.includes(
+      "permission"
+    )
+  ) {
+
+    message =
+      "Firestore menolak akses. Periksa Firestore Rules.";
+
+  }
+
+
+  if (
+    text.includes(
+      "network"
+    )
+  ) {
+
+    message =
+      "Koneksi internet bermasalah.";
+
+  }
+
 
   container.innerHTML = `
 
     <div style="
       text-align:center;
-      padding:40px 15px;
+      padding:35px 15px;
     ">
 
       <div style="
-        font-size:44px;
+        font-size:42px;
       ">
         ⚠️
       </div>
 
       <h3>
-        Gagal memuat penawaran
+        ${escapeHTML(message)}
       </h3>
-
-      <p style="
-        color:#6b7280;
-      ">
-        Silakan coba lagi.
-      </p>
 
       <button
         id="retryOffers"
@@ -720,30 +886,30 @@ function showOfferError(
 
   `;
 
-  const button =
-    $("#retryOffers");
 
-  if (button) {
-
-    button.onclick =
+  $("#retryOffers")
+    ?.addEventListener(
+      "click",
       () => {
 
         if (
           currentUser
         ) {
 
-          loadOffers(
+          loadMyOffers(
             currentUser.uid
           );
 
         }
 
-      };
-  }
+      }
+    );
+
 }
 
+
 // ============================================================
-// COUNT
+// OFFER COUNT
 // ============================================================
 
 function updateOfferCount(
@@ -762,8 +928,9 @@ function updateOfferCount(
 
   ];
 
+
   ids.forEach(
-    (id) => {
+    id => {
 
       const element =
         document.getElementById(
@@ -773,16 +940,18 @@ function updateOfferCount(
       if (element) {
 
         element.textContent =
-          count;
+          String(count);
 
       }
 
     }
   );
+
 }
 
+
 // ============================================================
-// OFFER CARD
+// CREATE OFFER CARD
 // ============================================================
 
 function createOfferCard(
@@ -790,22 +959,34 @@ function createOfferCard(
 ) {
 
   const title =
-    offer.requirementTitle ||
     offer.needTitle ||
-    offer.title ||
     "Kebutuhan";
+
+
+  const description =
+    offer.needDescription ||
+    "";
+
 
   const price =
     offer.price ??
-    offer.offerPrice ??
-    offer.amount ??
-    offer.bidAmount ??
     0;
+
+
+  const budget =
+    offer.needBudget ??
+    0;
+
+
+  const duration =
+    offer.duration ||
+    "-";
+
 
   const message =
     offer.message ||
-    offer.note ||
     "";
+
 
   const status =
     String(
@@ -813,18 +994,20 @@ function createOfferCard(
       "pending"
     ).toLowerCase();
 
-  const statusLabel =
-    getStatusLabel(
+
+  const statusText =
+    getStatusText(
       status
     );
 
-  const date =
-    offer.createdAt ||
-    offer.timestamp;
+
+  const needId =
+    offer.needId;
+
 
   return `
 
-    <div
+    <article
       class="offer-card"
       style="
         background:#fff;
@@ -833,7 +1016,7 @@ function createOfferCard(
         padding:16px;
         margin-bottom:14px;
         box-shadow:
-          0 4px 15px
+          0 4px 14px
           rgba(0,0,0,.05);
       "
     >
@@ -841,87 +1024,158 @@ function createOfferCard(
       <div style="
         display:flex;
         justify-content:space-between;
-        gap:10px;
+        gap:12px;
         align-items:flex-start;
       ">
 
-        <h3 style="
-          margin:0;
-          font-size:17px;
-          color:#111827;
+        <div style="
+          flex:1;
         ">
-          ${escapeHTML(title)}
-        </h3>
+
+          <h3 style="
+            margin:0;
+            font-size:17px;
+            color:#111827;
+          ">
+            ${escapeHTML(title)}
+          </h3>
+
+          <div style="
+            margin-top:6px;
+            color:#6b7280;
+            font-size:13px;
+          ">
+            📌 Kebutuhan
+          </div>
+
+        </div>
+
 
         <span style="
+          flex-shrink:0;
           padding:6px 10px;
           border-radius:999px;
           font-size:12px;
           font-weight:700;
           background:
-            ${getStatusBg(status)};
+            ${getStatusBackground(status)};
           color:
             ${getStatusColor(status)};
         ">
-          ${escapeHTML(statusLabel)}
+          ${escapeHTML(statusText)}
         </span>
 
       </div>
 
+
+      ${
+        description
+          ? `
+
+            <p style="
+              margin:12px 0 0;
+              color:#4b5563;
+              font-size:14px;
+              line-height:1.5;
+            ">
+              ${escapeHTML(
+                description
+              )}
+            </p>
+
+          `
+          : ""
+      }
+
+
       <div style="
-        display:flex;
+        display:grid;
+        grid-template-columns:
+          repeat(
+            auto-fit,
+            minmax(
+              130px,
+              1fr
+            )
+          );
         gap:10px;
         margin-top:14px;
-        flex-wrap:wrap;
       ">
 
+
         <div style="
-          flex:1;
-          min-width:140px;
-          padding:12px;
-          border-radius:10px;
           background:#f0fdf4;
+          padding:11px;
+          border-radius:10px;
         ">
 
-          <small>
-            Penawaran
+          <small style="
+            color:#6b7280;
+          ">
+            Penawaran Anda
           </small>
 
           <strong style="
             display:block;
             margin-top:4px;
             color:#16a34a;
+            font-size:16px;
           ">
-            ${rupiah(price)}
+            ${formatRupiah(price)}
           </strong>
 
         </div>
 
+
         <div style="
-          flex:1;
-          min-width:140px;
-          padding:12px;
+          background:#eff6ff;
+          padding:11px;
           border-radius:10px;
-          background:#f8fafc;
         ">
 
-          <small>
-            Dikirim
+          <small style="
+            color:#6b7280;
+          ">
+            Budget
           </small>
 
           <strong style="
             display:block;
             margin-top:4px;
-            font-size:13px;
+            color:#2563eb;
+            font-size:16px;
           ">
-            ${escapeHTML(
-              formatDate(date)
-            )}
+            ${formatRupiah(budget)}
+          </strong>
+
+        </div>
+
+
+        <div style="
+          background:#f9fafb;
+          padding:11px;
+          border-radius:10px;
+        ">
+
+          <small style="
+            color:#6b7280;
+          ">
+            Durasi
+          </small>
+
+          <strong style="
+            display:block;
+            margin-top:4px;
+            color:#374151;
+            font-size:14px;
+          ">
+            ${escapeHTML(duration)}
           </strong>
 
         </div>
 
       </div>
+
 
       ${
         message
@@ -930,8 +1184,8 @@ function createOfferCard(
             <div style="
               margin-top:12px;
               padding:11px;
+              background:#f9fafb;
               border-radius:10px;
-              background:#f8fafc;
               color:#4b5563;
               font-size:13px;
               line-height:1.5;
@@ -941,9 +1195,7 @@ function createOfferCard(
                 Pesan:
               </strong>
 
-              ${escapeHTML(
-                message
-              )}
+              ${escapeHTML(message)}
 
             </div>
 
@@ -951,16 +1203,64 @@ function createOfferCard(
           : ""
       }
 
-    </div>
+
+      <div style="
+        margin-top:12px;
+        font-size:12px;
+        color:#9ca3af;
+      ">
+
+        Dikirim:
+        ${escapeHTML(
+          formatDate(
+            offer.createdAt
+          )
+        )}
+
+      </div>
+
+
+      ${
+        needId
+          ? `
+
+            <button
+              class="view-need-btn"
+              data-id="${escapeHTML(
+                needId
+              )}"
+              type="button"
+              style="
+                width:100%;
+                margin-top:14px;
+                padding:11px;
+                border:1px solid #bfdbfe;
+                border-radius:10px;
+                background:#eff6ff;
+                color:#2563eb;
+                font-weight:700;
+                cursor:pointer;
+              "
+            >
+              👁️ Lihat Kebutuhan
+            </button>
+
+          `
+          : ""
+      }
+
+    </article>
 
   `;
+
 }
+
 
 // ============================================================
 // STATUS
 // ============================================================
 
-function getStatusLabel(
+function getStatusText(
   status
 ) {
 
@@ -986,36 +1286,60 @@ function getStatusLabel(
 
   };
 
+
   return (
     map[status] ||
     status
   );
+
 }
 
-function getStatusBg(
+
+function getStatusBackground(
   status
 ) {
 
   if (
     status === "accepted"
   ) {
+
     return "#dcfce7";
+
   }
+
 
   if (
     status === "rejected"
   ) {
+
     return "#fee2e2";
+
   }
+
 
   if (
     status === "completed"
   ) {
+
     return "#dbeafe";
+
   }
 
+
+  if (
+    status === "cancelled" ||
+    status === "canceled"
+  ) {
+
+    return "#f3f4f6";
+
+  }
+
+
   return "#fef3c7";
+
 }
+
 
 function getStatusColor(
   status
@@ -1024,23 +1348,83 @@ function getStatusColor(
   if (
     status === "accepted"
   ) {
+
     return "#15803d";
+
   }
+
 
   if (
     status === "rejected"
   ) {
+
     return "#b91c1c";
+
   }
+
 
   if (
     status === "completed"
   ) {
+
     return "#1d4ed8";
+
   }
 
+
+  if (
+    status === "cancelled" ||
+    status === "canceled"
+  ) {
+
+    return "#4b5563";
+
+  }
+
+
   return "#a16207";
+
 }
+
+
+// ============================================================
+// VIEW NEED
+// ============================================================
+
+function attachOfferButtons() {
+
+  document
+    .querySelectorAll(
+      ".view-need-btn"
+    )
+    .forEach(
+      button => {
+
+        button.addEventListener(
+          "click",
+          () => {
+
+            const needId =
+              button.dataset.id;
+
+            if (!needId) {
+              return;
+            }
+
+            window.location.href =
+              "detail.html?id=" +
+              encodeURIComponent(
+                needId
+              );
+
+          }
+        );
+
+      }
+    );
+
+}
+
 
 // ============================================================
 // SAVE PROFILE
@@ -1058,8 +1442,10 @@ async function saveProfile() {
     return;
   }
 
+
   const input =
-    profileNameInput();
+    getNameInput();
+
 
   if (!input) {
 
@@ -1071,8 +1457,10 @@ async function saveProfile() {
     return;
   }
 
+
   const name =
     input.value.trim();
+
 
   if (!name) {
 
@@ -1084,14 +1472,17 @@ async function saveProfile() {
     return;
   }
 
+
   const button =
     $("#saveProfileBtn") ||
     $("#btnSaveProfile");
 
+
   const oldText =
     button
       ? button.textContent
-      : "";
+      : "Simpan";
+
 
   if (button) {
 
@@ -1100,32 +1491,36 @@ async function saveProfile() {
 
     button.textContent =
       "Menyimpan...";
+
   }
+
 
   try {
 
-    await timeoutPromise(
-      updateProfile(
-        currentUser,
-        {
-          displayName:
-            name
-        }
-      )
+    await updateProfile(
+      currentUser,
+      {
+        displayName:
+          name
+      }
     );
 
-    renderUser(
+
+    renderProfile(
       currentUser
     );
+
 
     showToast(
       "Profil berhasil diperbarui.",
       "success"
     );
 
+
   } catch (error) {
 
     console.error(
+      "SAVE PROFILE:",
       error
     );
 
@@ -1142,11 +1537,14 @@ async function saveProfile() {
         false;
 
       button.textContent =
-        oldText ||
-        "Simpan";
+        oldText;
+
     }
+
   }
+
 }
+
 
 // ============================================================
 // PROFILE FORM
@@ -1155,11 +1553,12 @@ async function saveProfile() {
 const profileForm =
   $("#profileForm");
 
+
 if (profileForm) {
 
   profileForm.addEventListener(
     "submit",
-    (event) => {
+    event => {
 
       event.preventDefault();
 
@@ -1167,7 +1566,9 @@ if (profileForm) {
 
     }
   );
+
 }
+
 
 // ============================================================
 // SAVE BUTTON
@@ -1176,6 +1577,7 @@ if (profileForm) {
 const saveButton =
   $("#saveProfileBtn") ||
   $("#btnSaveProfile");
+
 
 if (
   saveButton &&
@@ -1186,7 +1588,9 @@ if (
     "click",
     saveProfile
   );
+
 }
+
 
 // ============================================================
 // LOGOUT
@@ -1195,6 +1599,7 @@ if (
 const logoutButton =
   $("#logoutBtn") ||
   $("#btnLogout");
+
 
 if (logoutButton) {
 
@@ -1207,22 +1612,17 @@ if (logoutButton) {
         logoutButton.disabled =
           true;
 
-        const {
-          signOut
-        } = await import(
-          "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
-        );
-
         await signOut(
           auth
         );
 
         window.location.href =
-          "index.html";
+          "login.html";
 
       } catch (error) {
 
         console.error(
+          "LOGOUT:",
           error
         );
 
@@ -1230,33 +1630,68 @@ if (logoutButton) {
           false;
 
         showToast(
-          "Gagal keluar.",
+          "Gagal logout.",
           "error"
         );
+
       }
+
     }
   );
+
 }
 
+
 // ============================================================
-// GLOBAL
+// GLOBAL DEBUG
 // ============================================================
 
 window.reloadOfferHistory =
-  function () {
+  function() {
 
     if (
       currentUser
     ) {
 
-      loadOffers(
+      return loadMyOffers(
         currentUser.uid
       );
 
     }
 
+    showToast(
+      "Silakan login terlebih dahulu.",
+      "error"
+    );
+
   };
 
+
+window.profileDebug = {
+
+  getUser() {
+
+    return currentUser;
+
+  },
+
+  reloadOffers() {
+
+    if (
+      currentUser
+    ) {
+
+      return loadMyOffers(
+        currentUser.uid
+      );
+
+    }
+
+  }
+
+};
+
+
 console.log(
-  "✅ profile.js berhasil dimuat"
+  "✅ profile.js aktif"
 );
