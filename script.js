@@ -2693,3 +2693,108 @@ document.addEventListener(
 
   }
 );
+
+/* =====================================================
+   OPEN NEED FROM PROFILE
+===================================================== */
+
+function openNeedFromURL() {
+
+  const params =
+    new URLSearchParams(
+      window.location.search
+    );
+
+  const needId =
+    params.get("need");
+
+
+  if (!needId) {
+    return;
+  }
+
+
+  /*
+    Tunggu Firebase Auth selesai
+    dan fungsi openNeedDetail tersedia.
+  */
+
+  let attempts = 0;
+
+  const timer =
+    setInterval(
+      () => {
+
+        attempts++;
+
+
+        if (
+          typeof window.openNeedDetail ===
+          "function"
+        ) {
+
+          clearInterval(timer);
+
+          window.openNeedDetail(
+            needId
+          );
+
+          /*
+            Bersihkan URL supaya setelah
+            refresh tidak membuka detail
+            terus-menerus.
+          */
+
+          window.history.replaceState(
+            {},
+            document.title,
+            "index.html"
+          );
+
+          return;
+
+        }
+
+
+        /*
+          Maksimal menunggu 10 detik.
+        */
+
+        if (
+          attempts >= 100
+        ) {
+
+          clearInterval(timer);
+
+          console.error(
+            "openNeedDetail belum tersedia."
+          );
+
+        }
+
+      },
+      100
+    );
+
+}
+
+
+/* =====================================================
+   START URL NEED
+===================================================== */
+
+if (
+  document.readyState ===
+  "loading"
+) {
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    openNeedFromURL
+  );
+
+} else {
+
+  openNeedFromURL();
+
+}
