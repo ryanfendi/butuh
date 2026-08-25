@@ -1,68 +1,22 @@
 // ============================================================
-// BUTUH - PROFILE.JS FINAL
-// Cocok dengan profile.html yang diberikan
-//
-// DATABASE:
-// users/{uid}
-// needs/{needId}
-// needs/{needId}/offers/{offerId}
-// ratings/{ratingId}
+// BUTUH - PROFILE.JS
+// VERSI ANTI LOADING TERUS
 // ============================================================
 
-import {
-  auth,
-  db
-} from "./firebase.js";
+const profilePhoto = document.getElementById("profilePhoto");
+const profileName = document.getElementById("profileName");
+const profileEmail = document.getElementById("profileEmail");
 
-import {
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+const ratingStars = document.getElementById("ratingStars");
+const ratingValue = document.getElementById("ratingValue");
 
-import {
-  collection,
-  collectionGroup,
-  getDocs,
-  query,
-  where
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const totalNeeds = document.getElementById("totalNeeds");
+const totalOffers = document.getElementById("totalOffers");
+const acceptedOffers = document.getElementById("acceptedOffers");
+const completedOffers = document.getElementById("completedOffers");
 
-
-// ============================================================
-// ELEMENT HTML
-// ============================================================
-
-const profilePhoto =
-  document.getElementById("profilePhoto");
-
-const profileName =
-  document.getElementById("profileName");
-
-const profileEmail =
-  document.getElementById("profileEmail");
-
-const ratingStars =
-  document.getElementById("ratingStars");
-
-const ratingValue =
-  document.getElementById("ratingValue");
-
-const totalNeeds =
-  document.getElementById("totalNeeds");
-
-const totalOffers =
-  document.getElementById("totalOffers");
-
-const acceptedOffers =
-  document.getElementById("acceptedOffers");
-
-const completedOffers =
-  document.getElementById("completedOffers");
-
-const needsList =
-  document.getElementById("needsList");
-
-const offersList =
-  document.getElementById("offersList");
+const needsList = document.getElementById("needsList");
+const offersList = document.getElementById("offersList");
 
 
 // ============================================================
@@ -70,327 +24,425 @@ const offersList =
 // ============================================================
 
 function escapeHTML(value) {
-
-  if (
-    value === null ||
-    value === undefined
-  ) {
-    return "";
-  }
+  if (value === null || value === undefined) return "";
 
   return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
-
-// ============================================================
-// RUPIAH
-// ============================================================
 
 function formatRupiah(value) {
-
   const number = Number(value);
 
-  if (!Number.isFinite(number)) {
-    return "Rp0";
-  }
+  if (!Number.isFinite(number)) return "Rp0";
 
-  return "Rp" +
-    number.toLocaleString("id-ID");
+  return "Rp" + number.toLocaleString("id-ID");
+}
+
+
+function formatDate(value) {
+  if (!value) return "-";
+
+  try {
+    let date;
+
+    if (typeof value.toDate === "function") {
+      date = value.toDate();
+    } else if (typeof value.seconds === "number") {
+      date = new Date(value.seconds * 1000);
+    } else {
+      date = new Date(value);
+    }
+
+    if (Number.isNaN(date.getTime())) return "-";
+
+    return date.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric"
+    });
+
+  } catch (error) {
+    return "-";
+  }
+}
+
+
+function getTime(value) {
+  if (!value) return 0;
+
+  try {
+    if (typeof value.toDate === "function") {
+      return value.toDate().getTime();
+    }
+
+    if (typeof value.seconds === "number") {
+      return value.seconds * 1000;
+    }
+
+    const time = new Date(value).getTime();
+
+    return Number.isNaN(time) ? 0 : time;
+
+  } catch (error) {
+    return 0;
+  }
+}
+
+
+function sortNewest(data) {
+  return data.sort((a, b) => {
+    const timeA = getTime(
+      a.createdAt || a.updatedAt || a.timestamp
+    );
+
+    const timeB = getTime(
+      b.createdAt || b.updatedAt || b.timestamp
+    );
+
+    return timeB - timeA;
+  });
+}
+
+
+function createAvatar(name) {
+  const initial = (name || "B")
+    .trim()
+    .charAt(0)
+    .toUpperCase();
+
+  return "https://ui-avatars.com/api/?name=" +
+    encodeURIComponent(initial) +
+    "&size=200&background=2563eb&color=ffffff";
 }
 
 
 // ============================================================
-// TANGGAL
+// ERROR TAMPILKAN DI HALAMAN
 // ============================================================
 
-function formatDate(value) {
+function showNeedsError(message) {
+  if (!needsList) return;
 
-  if (!value) {
-    return "-";
+  needsList.innerHTML = `
+    <div class="error-state">
+      <div class="error-icon">⚠️</div>
+      <strong>Gagal memuat kebutuhan</strong>
+      <p>${escapeHTML(message)}</p>
+    </div>
+  `;
+}
+
+
+function showOffersError(message) {
+  if (!offersList) return;
+
+  offersList.innerHTML = `
+    <div class="error-state">
+      <div class="error-icon">⚠️</div>
+      <strong>Gagal memuat penawaran</strong>
+      <p>${escapeHTML(message)}</p>
+    </div>
+  `;
+}
+
+
+// ============================================================
+// DEFAULT JIKA FIREBASE LAMBAT / ERROR
+// ============================================================
+
+let appStarted = false;
+
+const loadingTimeout = setTimeout(() => {
+
+  if (appStarted) return;
+
+  if (profileName) {
+    profileName.textContent = "Gagal memuat profil";
   }
+
+  if (profileEmail) {
+    profileEmail.textContent =
+      "Firebase belum merespons. Periksa firebase.js.";
+  }
+
+  showNeedsError(
+    "Profile.js tidak berhasil terhubung ke Firebase."
+  );
+
+  showOffersError(
+    "Profile.js tidak berhasil terhubung ke Firebase."
+  );
+
+}, 10000);
+
+
+// ============================================================
+// JALANKAN APLIKASI
+// ============================================================
+
+async function startProfile() {
 
   try {
 
-    let date;
+    console.log("1. Memulai profile.js...");
 
-    if (
-      value &&
-      typeof value.toDate === "function"
-    ) {
 
-      date = value.toDate();
+    // ========================================================
+    // IMPORT FIREBASE.JS
+    // ========================================================
 
-    } else if (
-      value &&
-      typeof value.seconds === "number"
-    ) {
+    const firebaseModule =
+      await import("./firebase.js");
 
-      date =
-        new Date(
-          value.seconds * 1000
+
+    const auth = firebaseModule.auth;
+    const db = firebaseModule.db;
+
+
+    if (!auth) {
+      throw new Error(
+        "firebase.js tidak mengekspor auth."
+      );
+    }
+
+    if (!db) {
+      throw new Error(
+        "firebase.js tidak mengekspor db."
+      );
+    }
+
+
+    console.log("2. firebase.js berhasil dimuat");
+
+
+    // ========================================================
+    // IMPORT AUTH
+    // ========================================================
+
+    const authModule =
+      await import(
+        "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+      );
+
+
+    // ========================================================
+    // IMPORT FIRESTORE
+    // ========================================================
+
+    const firestoreModule =
+      await import(
+        "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
+      );
+
+
+    const onAuthStateChanged =
+      authModule.onAuthStateChanged;
+
+    const collection =
+      firestoreModule.collection;
+
+    const collectionGroup =
+      firestoreModule.collectionGroup;
+
+    const getDocs =
+      firestoreModule.getDocs;
+
+    const query =
+      firestoreModule.query;
+
+    const where =
+      firestoreModule.where;
+
+
+    console.log("3. Firebase modules berhasil dimuat");
+
+
+    // ========================================================
+    // CEK LOGIN
+    // ========================================================
+
+    onAuthStateChanged(
+      auth,
+      async (user) => {
+
+        appStarted = true;
+
+        clearTimeout(loadingTimeout);
+
+
+        console.log(
+          "4. Auth selesai:",
+          user ? user.uid : "Belum login"
         );
 
-    } else {
 
-      date =
-        new Date(value);
+        // ====================================================
+        // BELUM LOGIN
+        // ====================================================
 
-    }
+        if (!user) {
 
-    if (
-      !date ||
-      Number.isNaN(date.getTime())
-    ) {
-      return "-";
-    }
+          window.location.href =
+            "login.html";
 
-    return date.toLocaleDateString(
-      "id-ID",
-      {
-        day: "2-digit",
-        month: "short",
-        year: "numeric"
+          return;
+
+        }
+
+
+        // ====================================================
+        // PROFIL
+        // ====================================================
+
+        const name =
+          user.displayName ||
+          user.email?.split("@")[0] ||
+          "Pengguna BUTUH";
+
+
+        const email =
+          user.email ||
+          "";
+
+
+        const photo =
+          user.photoURL ||
+          createAvatar(name);
+
+
+        if (profileName) {
+          profileName.textContent = name;
+        }
+
+
+        if (profileEmail) {
+          profileEmail.textContent = email;
+        }
+
+
+        if (profilePhoto) {
+
+          profilePhoto.src = photo;
+
+          profilePhoto.alt = name;
+
+          profilePhoto.onerror = function () {
+            profilePhoto.onerror = null;
+            profilePhoto.src =
+              createAvatar(name);
+          };
+
+        }
+
+
+        console.log(
+          "5. Profil Gmail berhasil ditampilkan"
+        );
+
+
+        // ====================================================
+        // LOAD SEMUA DATA
+        // ====================================================
+
+        await Promise.all([
+          loadNeeds(
+            user,
+            db,
+            collection,
+            query,
+            where,
+            getDocs
+          ),
+
+          loadOffers(
+            user,
+            db,
+            collectionGroup,
+            query,
+            where,
+            getDocs
+          ),
+
+          loadRating(
+            user,
+            db,
+            collection,
+            query,
+            where,
+            getDocs
+          )
+        ]);
+
       }
     );
 
-  } catch {
+  } catch (error) {
 
-    return "-";
+    clearTimeout(loadingTimeout);
 
-  }
+    appStarted = true;
 
-}
-
-
-// ============================================================
-// WAKTU UNTUK SORTING
-// ============================================================
-
-function getTimestamp(value) {
-
-  if (!value) {
-    return 0;
-  }
-
-  try {
-
-    if (
-      value &&
-      typeof value.toDate === "function"
-    ) {
-
-      return value.toDate().getTime();
-
-    }
-
-    if (
-      value &&
-      typeof value.seconds === "number"
-    ) {
-
-      return value.seconds * 1000;
-
-    }
-
-    const result =
-      new Date(value).getTime();
-
-    return Number.isNaN(result)
-      ? 0
-      : result;
-
-  } catch {
-
-    return 0;
-
-  }
-
-}
-
-
-// ============================================================
-// SORT TERBARU
-// ============================================================
-
-function sortNewest(items) {
-
-  return items.sort((a, b) => {
-
-    const aDate =
-      a.createdAt ||
-      a.updatedAt ||
-      a.timestamp;
-
-    const bDate =
-      b.createdAt ||
-      b.updatedAt ||
-      b.timestamp;
-
-    return (
-      getTimestamp(bDate) -
-      getTimestamp(aDate)
-    );
-
-  });
-
-}
-
-
-// ============================================================
-// AVATAR FALLBACK
-// ============================================================
-
-function createAvatar(name) {
-
-  const letter =
-    (name || "U")
-      .trim()
-      .charAt(0)
-      .toUpperCase();
-
-  return (
-    "https://ui-avatars.com/api/" +
-    "?name=" +
-    encodeURIComponent(letter) +
-    "&background=2563eb" +
-    "&color=ffffff" +
-    "&size=200"
-  );
-
-}
-
-
-// ============================================================
-// PROFIL GOOGLE
-// ============================================================
-
-function renderGoogleProfile(user) {
-
-  const name =
-    user.displayName ||
-    user.email?.split("@")[0] ||
-    "Pengguna BUTUH";
-
-  const email =
-    user.email ||
-    "";
-
-  const photo =
-    user.photoURL ||
-    createAvatar(name);
-
-
-  if (profileName) {
-
-    profileName.textContent =
-      name;
-
-  }
-
-
-  if (profileEmail) {
-
-    profileEmail.textContent =
-      email;
-
-  }
-
-
-  if (profilePhoto) {
-
-    profilePhoto.src =
-      photo;
-
-    profilePhoto.alt =
-      name;
-
-    profilePhoto.onerror =
-      function () {
-
-        profilePhoto.src =
-          createAvatar(name);
-
-      };
-
-  }
-
-}
-
-
-// ============================================================
-// LOGIN CHECK
-// ============================================================
-
-onAuthStateChanged(
-  auth,
-  async (user) => {
-
-    console.log(
-      "BUTUH Auth:",
-      user
+    console.error(
+      "PROFILE START ERROR:",
+      error
     );
 
 
-    if (!user) {
-
-      window.location.href =
-        "login.html";
-
-      return;
-
+    if (profileName) {
+      profileName.textContent =
+        "Gagal memuat profil";
     }
 
 
-    // ========================================================
-    // TAMPILKAN PROFIL GOOGLE SECEPATNYA
-    // ========================================================
+    if (profileEmail) {
+      profileEmail.textContent =
+        error.message;
+    }
 
-    renderGoogleProfile(user);
+
+    if (profilePhoto) {
+      profilePhoto.src =
+        createAvatar("BUTUH");
+    }
 
 
-    // ========================================================
-    // LOAD DATA
-    // ========================================================
+    showNeedsError(error.message);
 
-    await Promise.allSettled([
-
-      loadNeeds(user),
-
-      loadOffers(user),
-
-      loadRating(user)
-
-    ]);
+    showOffersError(error.message);
 
   }
-);
+
+}
 
 
 // ============================================================
-// LOAD KEBUTUHAN
+// LOAD NEEDS
 // ============================================================
 
-async function loadNeeds(user) {
+async function loadNeeds(
+  user,
+  db,
+  collection,
+  query,
+  where,
+  getDocs
+) {
 
   try {
 
     console.log(
-      "Mengambil kebutuhan user..."
+      "Memuat kebutuhan..."
     );
 
 
-    const q =
+    const needsQuery =
       query(
-        collection(
-          db,
-          "needs"
-        ),
-
+        collection(db, "needs"),
         where(
           "ownerId",
           "==",
@@ -400,88 +452,47 @@ async function loadNeeds(user) {
 
 
     const snapshot =
-      await getDocs(q);
+      await getDocs(needsQuery);
 
 
     const needs = [];
 
 
-    snapshot.forEach(
-      docSnap => {
+    snapshot.forEach((docSnap) => {
 
-        needs.push({
+      needs.push({
+        id: docSnap.id,
+        ...docSnap.data()
+      });
 
-          id: docSnap.id,
-
-          ...docSnap.data()
-
-        });
-
-      }
-    );
+    });
 
 
     sortNewest(needs);
 
 
     console.log(
-      "KEBUTUHAN:",
-      needs
+      "Kebutuhan ditemukan:",
+      needs.length
     );
 
 
-    // ========================================================
-    // STATISTIK
-    // ========================================================
-
     if (totalNeeds) {
-
       totalNeeds.textContent =
         needs.length;
-
     }
 
 
-    // ========================================================
-    // RENDER
-    // ========================================================
-
     renderNeeds(needs);
-
 
   } catch (error) {
 
     console.error(
-      "Gagal memuat kebutuhan:",
+      "NEEDS ERROR:",
       error
     );
 
-
-    if (needsList) {
-
-      needsList.innerHTML = `
-
-        <div class="error-state">
-
-          <div class="error-icon">
-            ⚠️
-          </div>
-
-          <strong>
-            Gagal memuat kebutuhan
-          </strong>
-
-          <p>
-            ${escapeHTML(
-              error.message
-            )}
-          </p>
-
-        </div>
-
-      `;
-
-    }
+    showNeedsError(error.message);
 
   }
 
@@ -489,36 +500,24 @@ async function loadNeeds(user) {
 
 
 // ============================================================
-// RENDER KEBUTUHAN
+// RENDER NEEDS
 // ============================================================
 
 function renderNeeds(needs) {
 
-  if (!needsList) {
-    return;
-  }
+  if (!needsList) return;
 
 
   if (needs.length === 0) {
 
     needsList.innerHTML = `
-
       <div class="empty-state">
-
-        <div class="empty-icon">
-          📋
-        </div>
-
-        <strong>
-          Belum ada kebutuhan
-        </strong>
-
+        <div class="empty-icon">📋</div>
+        <strong>Belum ada kebutuhan</strong>
         <p>
           Anda belum pernah memposting kebutuhan.
         </p>
-
       </div>
-
     `;
 
     return;
@@ -527,40 +526,30 @@ function renderNeeds(needs) {
 
 
   needsList.innerHTML =
-    needs.map(need => {
+    needs.map((need) => {
 
       const title =
         need.title ||
         need.judul ||
-        need.name ||
         "Kebutuhan";
-
 
       const description =
         need.description ||
         need.deskripsi ||
         "";
 
-
       const budget =
         need.budget ??
         need.price ??
         need.harga ??
-        need.amount ??
         0;
-
 
       const status =
         need.status ||
         "active";
 
 
-      const statusClass =
-        getStatusClass(status);
-
-
       return `
-
         <div class="history-card">
 
           <div class="history-main">
@@ -573,9 +562,7 @@ function renderNeeds(needs) {
               description
                 ? `
                   <p>
-                    ${escapeHTML(
-                      description
-                    )}
+                    ${escapeHTML(description)}
                   </p>
                 `
                 : ""
@@ -584,32 +571,22 @@ function renderNeeds(needs) {
             <div class="history-meta">
 
               <span>
-                📅
-                ${formatDate(
-                  need.createdAt
-                )}
+                📅 ${formatDate(need.createdAt)}
               </span>
 
               <span>
-                💰
-                ${formatRupiah(
-                  budget
-                )}
+                💰 ${formatRupiah(budget)}
               </span>
 
             </div>
 
           </div>
 
-
-          <span
-            class="status ${statusClass}"
-          >
+          <span class="status status-pending">
             ${escapeHTML(status)}
           </span>
 
         </div>
-
       `;
 
     }).join("");
@@ -618,210 +595,139 @@ function renderNeeds(needs) {
 
 
 // ============================================================
-// LOAD PENAWARAN
+// LOAD OFFERS
 // ============================================================
 
-async function loadOffers(user) {
+async function loadOffers(
+  user,
+  db,
+  collectionGroup,
+  query,
+  where,
+  getDocs
+) {
 
   try {
 
     console.log(
-      "Mengambil penawaran user..."
+      "Memuat penawaran..."
     );
 
 
-    /*
-      STRUKTUR DATABASE:
+    // offers berada di:
+    // needs/{needId}/offers/{offerId}
 
-      needs/{needId}/offers/{offerId}
-
-      Karena offers adalah SUBCOLLECTION,
-      kita menggunakan collectionGroup().
-    */
-
-
-    const q =
+    const offersQuery =
       query(
-
-        collectionGroup(
-          db,
-          "offers"
-        ),
-
+        collectionGroup(db, "offers"),
         where(
           "providerId",
           "==",
           user.uid
         )
-
       );
 
 
     const snapshot =
-      await getDocs(q);
+      await getDocs(offersQuery);
 
 
     const offers = [];
 
 
-    snapshot.forEach(
-      docSnap => {
+    snapshot.forEach((docSnap) => {
 
-        const data =
-          docSnap.data();
-
-
-        /*
-          Mengambil needId dari path:
-
-          needs/ABC123/offers/XYZ789
-        */
-
-        const needReference =
-          docSnap.ref.parent.parent;
+      const parentNeed =
+        docSnap.ref.parent.parent;
 
 
-        const needId =
-          needReference
-            ? needReference.id
-            : "";
+      offers.push({
 
+        id: docSnap.id,
 
-        offers.push({
+        needId:
+          parentNeed
+            ? parentNeed.id
+            : "",
 
-          id: docSnap.id,
+        ...docSnap.data()
 
-          needId,
+      });
 
-          ...data
-
-        });
-
-      }
-    );
+    });
 
 
     sortNewest(offers);
 
 
     console.log(
-      "PENAWARAN:",
-      offers
+      "Penawaran ditemukan:",
+      offers.length
     );
 
 
-    // ========================================================
-    // TOTAL PENAWARAN
-    // ========================================================
-
     if (totalOffers) {
-
       totalOffers.textContent =
         offers.length;
-
     }
 
 
-    // ========================================================
-    // HITUNG STATUS
-    // ========================================================
-
     let accepted = 0;
-
     let completed = 0;
 
 
-    offers.forEach(
-      offer => {
+    offers.forEach((offer) => {
 
-        const status =
-          String(
-            offer.status ||
-            ""
-          ).toLowerCase();
+      const status =
+        String(
+          offer.status || ""
+        ).toLowerCase();
 
 
-        if (
-          status === "accepted" ||
-          status === "diterima" ||
-          status === "accepted_offer"
-        ) {
-
-          accepted++;
-
-        }
-
-
-        if (
-          status === "completed" ||
-          status === "selesai" ||
-          status === "done"
-        ) {
-
-          completed++;
-
-        }
-
+      if (
+        status === "accepted" ||
+        status === "diterima"
+      ) {
+        accepted++;
       }
-    );
+
+
+      if (
+        status === "completed" ||
+        status === "selesai" ||
+        status === "done"
+      ) {
+        completed++;
+      }
+
+    });
 
 
     if (acceptedOffers) {
-
       acceptedOffers.textContent =
         accepted;
-
     }
 
 
     if (completedOffers) {
-
       completedOffers.textContent =
         completed;
-
     }
 
 
-    // ========================================================
-    // RENDER
-    // ========================================================
-
     renderOffers(offers);
-
 
   } catch (error) {
 
     console.error(
-      "Gagal memuat penawaran:",
+      "OFFERS ERROR:",
       error
     );
 
 
-    if (offersList) {
-
-      offersList.innerHTML = `
-
-        <div class="error-state">
-
-          <div class="error-icon">
-            ⚠️
-          </div>
-
-          <strong>
-            Gagal memuat penawaran
-          </strong>
-
-          <p>
-            ${escapeHTML(
-              error.message
-            )}
-          </p>
-
-        </div>
-
-      `;
-
-    }
+    // Jika membutuhkan index,
+    // error akan tampil di halaman
+    showOffersError(error.message);
 
   }
 
@@ -829,20 +735,17 @@ async function loadOffers(user) {
 
 
 // ============================================================
-// RENDER PENAWARAN
+// RENDER OFFERS
 // ============================================================
 
 function renderOffers(offers) {
 
-  if (!offersList) {
-    return;
-  }
+  if (!offersList) return;
 
 
   if (offers.length === 0) {
 
     offersList.innerHTML = `
-
       <div class="empty-state">
 
         <div class="empty-icon">
@@ -858,7 +761,6 @@ function renderOffers(offers) {
         </p>
 
       </div>
-
     `;
 
     return;
@@ -867,21 +769,18 @@ function renderOffers(offers) {
 
 
   offersList.innerHTML =
-    offers.map(offer => {
+    offers.map((offer) => {
 
       const title =
         offer.needTitle ||
         offer.title ||
-        offer.needName ||
-        "Kebutuhan";
-
+        "Penawaran";
 
       const message =
         offer.message ||
         offer.description ||
         offer.catatan ||
         "";
-
 
       const price =
         offer.price ??
@@ -890,18 +789,12 @@ function renderOffers(offers) {
         offer.amount ??
         0;
 
-
       const status =
         offer.status ||
         "pending";
 
 
-      const statusClass =
-        getStatusClass(status);
-
-
       return `
-
         <div class="history-card">
 
           <div class="history-main">
@@ -910,46 +803,25 @@ function renderOffers(offers) {
               ${escapeHTML(title)}
             </h3>
 
-
             ${
               message
                 ? `
                   <p>
-                    ${escapeHTML(
-                      message
-                    )}
+                    ${escapeHTML(message)}
                   </p>
                 `
                 : ""
             }
 
-
             <div class="history-meta">
 
               <span>
-                📅
-                ${formatDate(
-                  offer.createdAt
-                )}
+                📅 ${formatDate(offer.createdAt)}
               </span>
-
-              ${
-                offer.needId
-                  ? `
-                    <span>
-                      ID:
-                      ${escapeHTML(
-                        offer.needId
-                      )}
-                    </span>
-                  `
-                  : ""
-              }
 
             </div>
 
           </div>
-
 
           <div>
 
@@ -957,16 +829,13 @@ function renderOffers(offers) {
               ${formatRupiah(price)}
             </div>
 
-            <span
-              class="status ${statusClass}"
-            >
+            <span class="status status-pending">
               ${escapeHTML(status)}
             </span>
 
           </div>
 
         </div>
-
       `;
 
     }).join("");
@@ -975,145 +844,71 @@ function renderOffers(offers) {
 
 
 // ============================================================
-// STATUS CLASS
-// ============================================================
-
-function getStatusClass(status) {
-
-  const value =
-    String(status || "")
-      .toLowerCase();
-
-
-  if (
-    value === "accepted" ||
-    value === "diterima" ||
-    value === "success"
-  ) {
-
-    return "status-success";
-
-  }
-
-
-  if (
-    value === "completed" ||
-    value === "selesai" ||
-    value === "done"
-  ) {
-
-    return "status-completed";
-
-  }
-
-
-  if (
-    value === "rejected" ||
-    value === "ditolak" ||
-    value === "cancelled" ||
-    value === "canceled"
-  ) {
-
-    return "status-danger";
-
-  }
-
-
-  return "status-pending";
-
-}
-
-
-// ============================================================
 // LOAD RATING
 // ============================================================
 
-async function loadRating(user) {
+async function loadRating(
+  user,
+  db,
+  collection,
+  query,
+  where,
+  getDocs
+) {
 
   try {
 
-    /*
-      Untuk sementara kita cari rating
-      berdasarkan field reviewerId.
-
-      Jika database rating Anda mempunyai
-      field penerima seperti receiverId,
-      ratedUserId, targetUserId, dll,
-      nanti bisa kita sesuaikan.
-    */
-
-
-    const q =
+    const ratingQuery =
       query(
-
-        collection(
-          db,
-          "ratings"
-        ),
-
+        collection(db, "ratings"),
         where(
           "reviewerId",
           "==",
           user.uid
         )
-
       );
 
 
     const snapshot =
-      await getDocs(q);
+      await getDocs(ratingQuery);
 
 
     let total = 0;
-
     let count = 0;
 
 
-    snapshot.forEach(
-      docSnap => {
+    snapshot.forEach((docSnap) => {
 
-        const data =
-          docSnap.data();
+      const data =
+        docSnap.data();
 
-
-        const rating =
-          Number(
-            data.rating ??
-            data.stars ??
-            data.score ??
-            0
-          );
+      const rating =
+        Number(
+          data.rating ||
+          data.stars ||
+          data.score ||
+          0
+        );
 
 
-        if (
-          Number.isFinite(rating) &&
-          rating > 0
-        ) {
-
-          total += rating;
-
-          count++;
-
-        }
-
+      if (rating > 0) {
+        total += rating;
+        count++;
       }
-    );
+
+    });
 
 
     if (count === 0) {
 
       if (ratingStars) {
-
         ratingStars.textContent =
           "☆☆☆☆☆";
-
       }
 
       if (ratingValue) {
-
         ratingValue.textContent =
           "Belum ada rating";
-
       }
 
       return;
@@ -1124,7 +919,6 @@ async function loadRating(user) {
     const average =
       total / count;
 
-
     const rounded =
       Math.round(average);
 
@@ -1133,9 +927,7 @@ async function loadRating(user) {
 
       ratingStars.textContent =
         "★".repeat(rounded) +
-        "☆".repeat(
-          5 - rounded
-        );
+        "☆".repeat(5 - rounded);
 
     }
 
@@ -1144,36 +936,24 @@ async function loadRating(user) {
 
       ratingValue.textContent =
         average.toFixed(1) +
-        " / 5 (" +
-        count +
-        " rating)";
+        " / 5";
 
     }
-
 
   } catch (error) {
 
     console.error(
-      "Gagal memuat rating:",
+      "RATING ERROR:",
       error
     );
-
-
-    if (ratingStars) {
-
-      ratingStars.textContent =
-        "☆☆☆☆☆";
-
-    }
-
-
-    if (ratingValue) {
-
-      ratingValue.textContent =
-        "Belum ada rating";
-
-    }
 
   }
 
 }
+
+
+// ============================================================
+// START
+// ============================================================
+
+startProfile();
