@@ -595,33 +595,18 @@ function createNeedCard(
    VIEW NEED
 ===================================================== */
 
-window.viewNeed =
-  async function(
-    needId
-  ) {
+window.viewNeed = function(needId) {
 
-    if (!needId) {
-      return;
-    }
+  if (!needId) {
+    alert("ID kebutuhan tidak ditemukan.");
+    return;
+  }
 
+  window.location.href =
+    "index.html?need=" +
+    encodeURIComponent(needId);
 
-    /*
-      Cara aman:
-
-      langsung arahkan ke index.html
-      dengan ID kebutuhan.
-
-      Tidak menuju need.html,
-      sehingga tidak terjadi 404.
-    */
-
-    window.location.href =
-      "index.html?need=" +
-      encodeURIComponent(
-        needId
-      );
-
-  };
+};
 
 
 /* =====================================================
