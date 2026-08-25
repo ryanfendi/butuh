@@ -1,8 +1,8 @@
 // ============================================================
 // PROFILE.JS
-// BUTUH - PROFILE & RIWAYAT
+// BUTUH - Profile & History
 // Firebase v12.1.0
-// REALTIME VERSION
+// VERSI TERBARU - FIX OFFER PERMISSION
 // ============================================================
 
 import {
@@ -19,13 +19,9 @@ import {
 import {
   getFirestore,
   collection,
-  collectionGroup,
   query,
   where,
-  getDocs,
-  getDoc,
-  doc,
-  onSnapshot
+  getDocs
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 
@@ -82,17 +78,7 @@ let myNeeds = [];
 
 let myOffers = [];
 
-let unsubscribeNeeds = null;
-
-let unsubscribeOffers = null;
-
-let loadingNeeds = false;
-
-let loadingOffers = false;
-
-
-// Cache kebutuhan agar tombol detail cepat
-const needCache = new Map();
+let loading = false;
 
 
 // ============================================================
@@ -115,8 +101,6 @@ onAuthStateChanged(
 
     if (!user) {
 
-      stopRealtime();
-
       window.location.href =
         "login.html";
 
@@ -126,9 +110,7 @@ onAuthStateChanged(
 
     updateProfileUI(user);
 
-    await loadNeeds();
-
-    startOffersRealtime();
+    await loadProfile();
 
   }
 );
@@ -172,32 +154,39 @@ function updateProfileUI(user) {
 
 
 // ============================================================
-// LOAD MY NEEDS
+// LOAD PROFILE
 // ============================================================
 
-async function loadNeeds() {
+async function loadProfile() {
 
   if (
     !currentUser ||
-    loadingNeeds
+    loading
   ) {
-
     return;
-
   }
 
-  loadingNeeds = true;
+  loading = true;
 
   showNeedsLoading();
 
+  showOffersLoading();
+
   try {
 
-    const q =
+    // ========================================================
+    // LOAD NEEDS MILIK USER
+    // ========================================================
+
+    const needsRef =
+      collection(
+        db,
+        "needs"
+      );
+
+    const needsQuery =
       query(
-        collection(
-          db,
-          "needs"
-        ),
+        needsRef,
         where(
           "ownerId",
           "==",
@@ -205,42 +194,48 @@ async function loadNeeds() {
         )
       );
 
-    const snapshot =
-      await getDocs(q);
+    const needsSnapshot =
+      await getDocs(
+        needsQuery
+      );
 
     myNeeds = [];
 
-    snapshot.forEach(
+    needsSnapshot.forEach(
       item => {
 
-        const need = {
+        myNeeds.push({
 
           id:
             item.id,
 
           ...item.data()
 
-        };
+        });
 
-        myNeeds.push(
-          need
-        );
+      }
+    );
 
-        needCache.set(
-          need.id,
-          need
+
+    // ========================================================
+    // SORT NEEDS
+    // ========================================================
+
+    myNeeds.sort(
+      (a, b) => {
+
+        return (
+          getTime(b.createdAt) -
+          getTime(a.createdAt)
         );
 
       }
     );
 
 
-    myNeeds.sort(
-      (a, b) =>
-        getTime(b.createdAt) -
-        getTime(a.createdAt)
-    );
-
+    // ========================================================
+    // TAMPILKAN NEEDS SECEPATNYA
+    // ========================================================
 
     renderNeeds();
 
@@ -249,10 +244,38 @@ async function loadNeeds() {
       myNeeds.length
     );
 
+
+    // ========================================================
+    // LOAD OFFERS
+    // ========================================================
+
+    await loadOffers();
+
+
+    // ========================================================
+    // RENDER OFFERS
+    // ========================================================
+
+    renderOffers();
+
+
+    // ========================================================
+    // UPDATE STATISTICS
+    // ========================================================
+
+    updateStatistics();
+
+
+    // ========================================================
+    // RATING
+    // ========================================================
+
+    calculateRating();
+
   } catch (error) {
 
     console.error(
-      "LOAD NEEDS ERROR:",
+      "PROFILE ERROR:",
       error
     );
 
@@ -260,9 +283,13 @@ async function loadNeeds() {
       error
     );
 
+    showOffersError(
+      error
+    );
+
   } finally {
 
-    loadingNeeds = false;
+    loading = false;
 
   }
 
@@ -270,101 +297,104 @@ async function loadNeeds() {
 
 
 // ============================================================
-// REALTIME OFFERS
+// LOAD OFFERS - FIXED
 // ============================================================
 
-function startOffersRealtime() {
+async function loadOffers() {
 
-  if (!currentUser) {
+  myOffers = [];
+
+
+  if (
+    !myNeeds.length
+  ) {
+
+    renderOffers();
+
     return;
-  }
-
-
-  if (unsubscribeOffers) {
-
-    unsubscribeOffers();
-
-    unsubscribeOffers = null;
 
   }
-
-
-  showOffersLoading();
 
 
   /*
     PENTING:
 
-    Semua offers berada di:
+    Jangan lagi:
 
-    needs/{needId}/offers/{offerId}
+      getDocs(offersRef)
 
-    collectionGroup("offers")
-    mencari SEMUA subcollection bernama offers.
+    karena itu mengambil SEMUA offer.
 
-    Jadi penawaran yang dikirim ke kebutuhan
-    milik orang lain juga ditemukan.
+    Kita langsung query:
+
+      providerId == currentUser.uid
+
+    sehingga Firestore hanya diminta
+    mengirim offer milik user ini.
+
+    Ini cocok dengan Firestore Rules.
   */
 
-  const offersQuery =
-    query(
 
-      collectionGroup(
-        db,
-        "offers"
-      ),
-
-      where(
-        "providerId",
-        "==",
-        currentUser.uid
-      )
-
-    );
-
-
-  unsubscribeOffers =
-    onSnapshot(
-
-      offersQuery,
-
-      async snapshot => {
+  const requests =
+    myNeeds.map(
+      async need => {
 
         try {
 
-          const offers = [];
+          const offersRef =
+            collection(
+              db,
+              "needs",
+              need.id,
+              "offers"
+            );
+
+
+          const offersQuery =
+            query(
+              offersRef,
+              where(
+                "providerId",
+                "==",
+                currentUser.uid
+              )
+            );
+
+
+          const snapshot =
+            await getDocs(
+              offersQuery
+            );
+
+
+          const results = [];
+
 
           snapshot.forEach(
             item => {
 
-              /*
-                Parent:
-                needs/{needId}
-
-                Document:
-                offers/{offerId}
-              */
-
-              const needRef =
-                item.ref.parent.parent;
-
-              const needId =
-                needRef
-                  ? needRef.id
-                  : "";
-
-              const data =
+              const offer =
                 item.data();
 
 
-              offers.push({
+              results.push({
 
                 id:
                   item.id,
 
-                needId,
+                needId:
+                  need.id,
 
-                ...data
+                needTitle:
+                  need.title ||
+                  "Kebutuhan",
+
+                needBudget:
+                  need.budget ||
+                  0,
+
+                ...offer
 
               });
 
@@ -372,191 +402,23 @@ function startOffersRealtime() {
           );
 
 
-          /*
-            Ambil informasi kebutuhan
-            untuk judul / budget.
-          */
-
-          await enrichOffers(
-            offers
-          );
-
-
-          /*
-            Urutkan terbaru.
-          */
-
-          offers.sort(
-            (a, b) =>
-              getTime(
-                b.createdAt
-              ) -
-              getTime(
-                a.createdAt
-              )
-          );
-
-
-          myOffers =
-            offers;
-
-
-          /*
-            LANGSUNG RENDER
-          */
-
-          renderOffers();
-
-
-          updateStatistics();
-
-          calculateRating();
-
+          return results;
 
         } catch (error) {
 
           console.error(
-            "PROCESS OFFERS ERROR:",
+            "Offer gagal:",
+            need.id,
             error
           );
 
-          showOffersError(
-            error
-          );
 
-        }
+          /*
+            Jangan membuat seluruh profile
+            gagal hanya karena satu kebutuhan.
+          */
 
-      },
-
-      error => {
-
-        console.error(
-          "OFFERS REALTIME ERROR:",
-          error
-        );
-
-        showOffersError(
-          error
-        );
-
-      }
-
-    );
-
-}
-
-
-// ============================================================
-// ENRICH OFFERS
-// ============================================================
-
-async function enrichOffers(
-  offers
-) {
-
-  const requests =
-    offers.map(
-      async offer => {
-
-        if (!offer.needId) {
-          return;
-        }
-
-
-        /*
-          Gunakan cache terlebih dahulu.
-        */
-
-        if (
-          needCache.has(
-            offer.needId
-          )
-        ) {
-
-          const need =
-            needCache.get(
-              offer.needId
-            );
-
-          offer.needTitle =
-            need.title ||
-            "Kebutuhan";
-
-          offer.needBudget =
-            need.budget ||
-            0;
-
-          return;
-
-        }
-
-
-        try {
-
-          const reference =
-            doc(
-              db,
-              "needs",
-              offer.needId
-            );
-
-          const snapshot =
-            await getDoc(
-              reference
-            );
-
-
-          if (
-            snapshot.exists()
-          ) {
-
-            const need = {
-
-              id:
-                snapshot.id,
-
-              ...snapshot.data()
-
-            };
-
-
-            needCache.set(
-              need.id,
-              need
-            );
-
-
-            offer.needTitle =
-              need.title ||
-              "Kebutuhan";
-
-            offer.needBudget =
-              need.budget ||
-              0;
-
-          } else {
-
-            offer.needTitle =
-              "Kebutuhan";
-
-            offer.needBudget =
-              0;
-
-          }
-
-        } catch (error) {
-
-          console.warn(
-            "Gagal mengambil kebutuhan:",
-            offer.needId,
-            error
-          );
-
-          offer.needTitle =
-            "Kebutuhan";
-
-          offer.needBudget =
-            0;
+          return [];
 
         }
 
@@ -564,8 +426,29 @@ async function enrichOffers(
     );
 
 
-  await Promise.all(
-    requests
+  const results =
+    await Promise.all(
+      requests
+    );
+
+
+  myOffers =
+    results.flat();
+
+
+  // ========================================================
+  // SORT TERBARU
+  // ========================================================
+
+  myOffers.sort(
+    (a, b) => {
+
+      return (
+        getTime(b.createdAt) -
+        getTime(a.createdAt)
+      );
+
+    }
   );
 
 }
@@ -703,15 +586,9 @@ function createNeedCard(
 
       <div>
 
-        <span
-          class="status ${getStatusClass(
-            status
-          )}"
-        >
+        <span class="status ${getStatusClass(status)}">
 
-          ${getStatusText(
-            status
-          )}
+          ${getStatusText(status)}
 
         </span>
 
@@ -746,9 +623,7 @@ function createNeedCard(
 // ============================================================
 
 window.viewNeed =
-  function(
-    needId
-  ) {
+  function(needId) {
 
     if (!needId) {
 
@@ -760,11 +635,6 @@ window.viewNeed =
 
     }
 
-
-    /*
-      Gunakan parameter yang sama
-      dengan script.js.
-    */
 
     window.location.href =
       "index.html?need=" +
@@ -806,7 +676,7 @@ function renderOffers() {
         </strong>
 
         <p>
-          Anda belum pernah mengirim penawaran.
+          Anda belum mengirim penawaran.
         </p>
 
       </div>
@@ -879,18 +749,13 @@ function createOfferCard(
           ${title}
         </h3>
 
-
         <div class="offer-price">
-
           Rp ${price}
-
         </div>
-
 
         <p>
           ${message}
         </p>
-
 
         <div class="history-meta">
 
@@ -911,15 +776,9 @@ function createOfferCard(
 
       <div>
 
-        <span
-          class="status ${getStatusClass(
-            status
-          )}"
-        >
+        <span class="status ${getStatusClass(status)}">
 
-          ${getStatusText(
-            status
-          )}
+          ${getStatusText(status)}
 
         </span>
 
@@ -977,12 +836,10 @@ function updateStatistics() {
           ).toLowerCase();
 
         return (
-
           status === "accepted" ||
           status === "accept" ||
           status === "diterima" ||
           status === "success"
-
         );
 
       }
@@ -1000,11 +857,9 @@ function updateStatistics() {
           ).toLowerCase();
 
         return (
-
           status === "completed" ||
           status === "complete" ||
           status === "selesai"
-
         );
 
       }
@@ -1031,13 +886,13 @@ function updateStatistics() {
 function calculateRating() {
 
   setText(
-    "ratingStars",
-    "☆☆☆☆☆"
+    "ratingValue",
+    "Belum ada rating"
   );
 
   setText(
-    "ratingValue",
-    "Belum ada rating"
+    "ratingStars",
+    "☆☆☆☆☆"
   );
 
 }
@@ -1098,7 +953,7 @@ function showOffersLoading() {
 
 
 // ============================================================
-// ERROR NEEDS
+// ERROR
 // ============================================================
 
 function showNeedsError(
@@ -1136,9 +991,7 @@ function showNeedsError(
         class="btn btn-primary"
         onclick="window.reloadProfile()"
       >
-
         🔄 Coba Lagi
-
       </button>
 
     </div>
@@ -1147,10 +1000,6 @@ function showNeedsError(
 
 }
 
-
-// ============================================================
-// ERROR OFFERS
-// ============================================================
 
 function showOffersError(
   error
@@ -1161,29 +1010,6 @@ function showOffersError(
 
   if (!container) {
     return;
-  }
-
-
-  let message =
-    error?.message ||
-    "Terjadi kesalahan.";
-
-
-  /*
-    Pesan khusus jika Collection Group
-    membutuhkan index.
-  */
-
-  if (
-    String(
-      message
-    ).toLowerCase()
-      .includes("index")
-  ) {
-
-    message =
-      "Firestore membutuhkan Collection Group Index untuk offers. Buat index yang diminta Firebase Console.";
-
   }
 
 
@@ -1201,7 +1027,8 @@ function showOffersError(
 
       <p>
         ${escapeHTML(
-          message
+          error?.message ||
+          "Terjadi kesalahan."
         )}
       </p>
 
@@ -1209,9 +1036,7 @@ function showOffersError(
         class="btn btn-primary"
         onclick="window.reloadProfile()"
       >
-
         🔄 Coba Lagi
-
       </button>
 
     </div>
@@ -1228,44 +1053,13 @@ function showOffersError(
 window.reloadProfile =
   async function() {
 
-    if (!currentUser) {
+    if (loading) {
       return;
     }
 
-
-    await loadNeeds();
-
-    startOffersRealtime();
+    await loadProfile();
 
   };
-
-
-// ============================================================
-// STOP REALTIME
-// ============================================================
-
-function stopRealtime() {
-
-  if (unsubscribeNeeds) {
-
-    unsubscribeNeeds();
-
-    unsubscribeNeeds =
-      null;
-
-  }
-
-
-  if (unsubscribeOffers) {
-
-    unsubscribeOffers();
-
-    unsubscribeOffers =
-      null;
-
-  }
-
-}
 
 
 // ============================================================
@@ -1420,60 +1214,52 @@ function getTime(
   }
 
 
-  try {
+  if (
+    typeof value.toMillis ===
+    "function"
+  ) {
 
-    if (
-      typeof value.toMillis ===
-      "function"
-    ) {
-
-      return value.toMillis();
-
-    }
-
-
-    if (
-      typeof value.toDate ===
-      "function"
-    ) {
-
-      return value
-        .toDate()
-        .getTime();
-
-    }
-
-
-    if (
-      typeof value.seconds ===
-      "number"
-    ) {
-
-      return (
-        value.seconds *
-        1000
-      );
-
-    }
-
-
-    const time =
-      new Date(
-        value
-      ).getTime();
-
-
-    return Number.isFinite(
-      time
-    )
-      ? time
-      : 0;
-
-  } catch {
-
-    return 0;
+    return value.toMillis();
 
   }
+
+
+  if (
+    typeof value.toDate ===
+    "function"
+  ) {
+
+    return value
+      .toDate()
+      .getTime();
+
+  }
+
+
+  if (
+    typeof value.seconds ===
+    "number"
+  ) {
+
+    return (
+      value.seconds *
+      1000
+    );
+
+  }
+
+
+  const time =
+    new Date(
+      value
+    ).getTime();
+
+
+  return Number.isFinite(
+    time
+  )
+    ? time
+    : 0;
 
 }
 
@@ -1493,7 +1279,9 @@ function formatDate(
 
 
   if (!time) {
+
     return "Baru saja";
+
   }
 
 
@@ -1753,39 +1541,6 @@ function createAvatar(
 }
 
 
-// ============================================================
-// DEBUG
-// ============================================================
-
-window.butuhProfile = {
-
-  getUser() {
-
-    return currentUser;
-
-  },
-
-  getNeeds() {
-
-    return myNeeds;
-
-  },
-
-  getOffers() {
-
-    return myOffers;
-
-  },
-
-  reload() {
-
-    window.reloadProfile();
-
-  }
-
-};
-
-
 console.log(
-  "✅ BUTUH profile.js REALTIME aktif"
+  "✅ BUTUH profile.js VERSI TERBARU aktif"
 );
