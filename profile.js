@@ -1,6 +1,13 @@
 // ============================================================
 // BUTUH - PROFILE.JS
-// Versi stabil tanpa composite index
+// FINAL
+// Database:
+//
+// users/{uid}
+// needs/{needId}
+// needs/{needId}/offers/{offerId}
+// ratings/{ratingId}
+//
 // ============================================================
 
 import {
@@ -9,11 +16,13 @@ import {
 } from "./firebase.js";
 
 import {
-  onAuthStateChanged
+  onAuthStateChanged,
+  signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 import {
   collection,
+  collectionGroup,
   getDocs,
   query,
   where
@@ -24,28 +33,47 @@ import {
 // ELEMENT
 // ============================================================
 
-const profilePhoto = document.getElementById("profilePhoto");
-const profileName = document.getElementById("profileName");
-const profileEmail = document.getElementById("profileEmail");
+const profilePhoto =
+  document.getElementById("profilePhoto");
 
-const statNeeds = document.getElementById("statNeeds");
-const statOffers = document.getElementById("statOffers");
-const statRating = document.getElementById("statRating");
+const profileName =
+  document.getElementById("profileName");
 
-const needsList = document.getElementById("needsList");
-const offersList = document.getElementById("offersList");
+const profileEmail =
+  document.getElementById("profileEmail");
 
-const loadingNeeds = document.getElementById("loadingNeeds");
-const loadingOffers = document.getElementById("loadingOffers");
+const statNeeds =
+  document.getElementById("statNeeds");
+
+const statOffers =
+  document.getElementById("statOffers");
+
+const statRating =
+  document.getElementById("statRating");
+
+const needsList =
+  document.getElementById("needsList");
+
+const offersList =
+  document.getElementById("offersList");
+
+const loadingNeeds =
+  document.getElementById("loadingNeeds");
+
+const loadingOffers =
+  document.getElementById("loadingOffers");
+
+const logoutBtn =
+  document.getElementById("logoutBtn");
 
 
 // ============================================================
-// HELPER
+// ESCAPE HTML
 // ============================================================
 
 function escapeHTML(value) {
 
-  if (value === null || value === undefined) {
+  if (value === undefined || value === null) {
     return "";
   }
 
@@ -59,10 +87,10 @@ function escapeHTML(value) {
 
 
 // ============================================================
-// FORMAT RUPIAH
+// RUPIAH
 // ============================================================
 
-function rupiah(value) {
+function formatRupiah(value) {
 
   const number = Number(value);
 
@@ -75,7 +103,7 @@ function rupiah(value) {
 
 
 // ============================================================
-// FORMAT TANGGAL
+// DATE
 // ============================================================
 
 function formatDate(value) {
@@ -88,27 +116,71 @@ function formatDate(value) {
 
     let date;
 
-    if (value?.toDate) {
+    if (value.toDate) {
+
       date = value.toDate();
-    } else if (value?.seconds) {
-      date = new Date(value.seconds * 1000);
+
+    } else if (value.seconds) {
+
+      date =
+        new Date(value.seconds * 1000);
+
     } else {
-      date = new Date(value);
+
+      date =
+        new Date(value);
     }
 
     if (Number.isNaN(date.getTime())) {
       return "-";
     }
 
-    return date.toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric"
-    });
+    return date.toLocaleDateString(
+      "id-ID",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      }
+    );
 
-  } catch (error) {
+  } catch {
 
     return "-";
+  }
+}
+
+
+// ============================================================
+// TIME
+// ============================================================
+
+function getTime(value) {
+
+  if (!value) {
+    return 0;
+  }
+
+  try {
+
+    if (value.toDate) {
+      return value.toDate().getTime();
+    }
+
+    if (value.seconds) {
+      return value.seconds * 1000;
+    }
+
+    const time =
+      new Date(value).getTime();
+
+    return Number.isNaN(time)
+      ? 0
+      : time;
+
+  } catch {
+
+    return 0;
   }
 }
 
@@ -117,75 +189,55 @@ function formatDate(value) {
 // SORT TERBARU
 // ============================================================
 
-function sortNewest(items) {
+function sortNewest(array) {
 
-  return items.sort((a, b) => {
+  return array.sort((a, b) => {
 
-    const getTime = item => {
+    const dateA =
+      a.createdAt ||
+      a.updatedAt ||
+      a.timestamp;
 
-      const value =
-        item.createdAt ||
-        item.updatedAt ||
-        item.timestamp;
+    const dateB =
+      b.createdAt ||
+      b.updatedAt ||
+      b.timestamp;
 
-      if (!value) return 0;
+    return getTime(dateB) - getTime(dateA);
 
-      if (value?.seconds) {
-        return value.seconds * 1000;
-      }
-
-      if (value?.toDate) {
-        return value.toDate().getTime();
-      }
-
-      const time = new Date(value).getTime();
-
-      return Number.isNaN(time) ? 0 : time;
-    };
-
-    return getTime(b) - getTime(a);
   });
+
 }
 
 
 // ============================================================
-// LOGIN USER
+// AVATAR
 // ============================================================
 
-onAuthStateChanged(auth, async (user) => {
+function createAvatar(name) {
 
-  if (!user) {
+  const first =
+    (name || "U")
+      .trim()
+      .charAt(0)
+      .toUpperCase();
 
-    window.location.href =
-      "https://ryanfendi.github.io/butuh/login.html";
-
-    return;
-  }
-
-  console.log("USER LOGIN:", user.uid);
-
-  // tampilkan profil Gmail secepat mungkin
-  renderUserProfile(user);
-
-  // statistik awal
-  if (statNeeds) statNeeds.textContent = "0";
-  if (statOffers) statOffers.textContent = "0";
-  if (statRating) statRating.textContent = "0";
-
-  // load data secara terpisah
-  await Promise.allSettled([
-    loadNeeds(user),
-    loadOffers(user)
-  ]);
-
-});
+  return (
+    "https://ui-avatars.com/api/" +
+    "?name=" +
+    encodeURIComponent(first) +
+    "&background=2563eb" +
+    "&color=ffffff" +
+    "&size=200"
+  );
+}
 
 
 // ============================================================
-// PROFIL GMAIL
+// PROFIL USER
 // ============================================================
 
-function renderUserProfile(user) {
+function renderProfile(user) {
 
   const name =
     user.displayName ||
@@ -193,28 +245,44 @@ function renderUserProfile(user) {
     "Pengguna BUTUH";
 
   const email =
-    user.email ||
-    "";
+    user.email || "";
 
   const photo =
     user.photoURL ||
     createAvatar(name);
 
+
   if (profileName) {
-    profileName.textContent = name;
+
+    profileName.textContent =
+      name;
+
   }
 
+
   if (profileEmail) {
-    profileEmail.textContent = email;
+
+    profileEmail.textContent =
+      email;
+
   }
+
 
   if (profilePhoto) {
 
-    profilePhoto.src = photo;
+    profilePhoto.src =
+      photo;
 
-    profilePhoto.onerror = () => {
-      profilePhoto.src = createAvatar(name);
-    };
+    profilePhoto.alt =
+      name;
+
+    profilePhoto.onerror =
+      () => {
+
+        profilePhoto.src =
+          createAvatar(name);
+
+      };
 
   }
 
@@ -222,87 +290,158 @@ function renderUserProfile(user) {
 
 
 // ============================================================
-// AVATAR FALLBACK
+// LOAD USER
 // ============================================================
 
-function createAvatar(name) {
+onAuthStateChanged(
+  auth,
+  async (user) => {
 
-  const letter =
-    encodeURIComponent(
-      (name || "U").charAt(0).toUpperCase()
+    if (!user) {
+
+      window.location.href =
+        "login.html";
+
+      return;
+    }
+
+
+    console.log(
+      "BUTUH PROFILE USER:",
+      user.uid
     );
 
-  return `https://ui-avatars.com/api/?name=${letter}&background=2563eb&color=ffffff&size=200`;
-}
+
+    // Tampilkan Gmail langsung
+    renderProfile(user);
+
+
+    // Jalankan semuanya
+    await Promise.allSettled([
+
+      loadNeeds(user),
+
+      loadOffers(user),
+
+      loadRating(user)
+
+    ]);
+
+  }
+);
 
 
 // ============================================================
-// LOAD KEBUTUHAN
+// LOAD KEBUTUHAN USER
 // ============================================================
 
 async function loadNeeds(user) {
 
   if (loadingNeeds) {
-    loadingNeeds.style.display = "block";
+
+    loadingNeeds.style.display =
+      "block";
+
   }
 
+
   if (needsList) {
+
     needsList.innerHTML = "";
+
   }
+
 
   try {
 
-    /*
-      PENTING:
-
-      Hanya where(ownerId == uid)
-
-      Jangan gunakan:
-
-      orderBy("createdAt")
-
-      karena itu menyebabkan composite index.
-    */
-
-    const q = query(
-      collection(db, "needs"),
-      where("ownerId", "==", user.uid)
+    console.log(
+      "Mengambil kebutuhan..."
     );
 
-    const snapshot = await getDocs(q);
+
+    // HANYA ownerId
+    // Tidak menggunakan orderBy
+    // Tidak membutuhkan composite index
+
+    const q = query(
+
+      collection(db, "needs"),
+
+      where(
+        "ownerId",
+        "==",
+        user.uid
+      )
+
+    );
+
+
+    const snapshot =
+      await getDocs(q);
+
 
     const needs = [];
 
-    snapshot.forEach(docSnap => {
 
-      needs.push({
-        id: docSnap.id,
-        ...docSnap.data()
-      });
+    snapshot.forEach(
+      doc => {
 
-    });
+        needs.push({
+
+          id: doc.id,
+
+          ...doc.data()
+
+        });
+
+      }
+    );
+
 
     sortNewest(needs);
 
-    console.log("KEBUTUHAN USER:", needs);
+
+    console.log(
+      "Jumlah kebutuhan:",
+      needs.length
+    );
+
 
     if (statNeeds) {
-      statNeeds.textContent = needs.length;
+
+      statNeeds.textContent =
+        needs.length;
+
     }
+
 
     renderNeeds(needs);
 
+
   } catch (error) {
 
-    console.error("Gagal memuat kebutuhan:", error);
+    console.error(
+      "ERROR NEEDS:",
+      error
+    );
+
 
     if (needsList) {
 
       needsList.innerHTML = `
+
         <div class="error-box">
-          <strong>⚠️ Gagal memuat kebutuhan</strong>
-          <p>${escapeHTML(error.message)}</p>
+
+          <strong>
+            ⚠️ Gagal memuat kebutuhan
+          </strong>
+
+          <p>
+            ${escapeHTML(error.message)}
+          </p>
+
         </div>
+
       `;
 
     }
@@ -310,15 +449,19 @@ async function loadNeeds(user) {
   } finally {
 
     if (loadingNeeds) {
-      loadingNeeds.style.display = "none";
+
+      loadingNeeds.style.display =
+        "none";
+
     }
 
   }
+
 }
 
 
 // ============================================================
-// RENDER KEBUTUHAN
+// RENDER NEEDS
 // ============================================================
 
 function renderNeeds(needs) {
@@ -327,164 +470,259 @@ function renderNeeds(needs) {
     return;
   }
 
-  if (!needs.length) {
+
+  if (needs.length === 0) {
 
     needsList.innerHTML = `
+
       <div class="empty-box">
-        <div class="empty-icon">📋</div>
-        <strong>Belum ada kebutuhan</strong>
-        <p>Anda belum pernah memposting kebutuhan.</p>
+
+        <div class="empty-icon">
+          📋
+        </div>
+
+        <strong>
+          Belum ada kebutuhan
+        </strong>
+
+        <p>
+          Anda belum memposting kebutuhan.
+        </p>
 
         <a
+          href="index.html"
           class="btn-primary"
-          href="https://ryanfendi.github.io/butuh/index.html"
         >
-          + Tambah Kebutuhan
+          + Posting Kebutuhan
         </a>
+
       </div>
+
     `;
 
     return;
   }
 
-  needsList.innerHTML = needs.map(need => {
 
-    const title =
-      need.title ||
-      need.judul ||
-      need.name ||
-      "Kebutuhan tanpa judul";
+  needsList.innerHTML =
+    needs.map(need => {
 
-    const description =
-      need.description ||
-      need.deskripsi ||
-      "";
 
-    const budget =
-      need.budget ??
-      need.price ??
-      need.harga ??
-      0;
+      const title =
+        need.title ||
+        need.judul ||
+        need.name ||
+        "Kebutuhan";
 
-    const status =
-      need.status ||
-      "active";
 
-    return `
-      <article class="history-card">
+      const description =
+        need.description ||
+        need.deskripsi ||
+        "";
 
-        <div class="history-card-top">
 
-          <div>
+      const budget =
+        need.budget ??
+        need.price ??
+        need.harga ??
+        0;
 
-            <h3>
-              ${escapeHTML(title)}
-            </h3>
 
-            <span class="date">
-              ${formatDate(need.createdAt)}
+      const status =
+        need.status ||
+        "active";
+
+
+      return `
+
+        <article class="history-card">
+
+          <div class="history-card-top">
+
+            <div>
+
+              <h3>
+                ${escapeHTML(title)}
+              </h3>
+
+              <span class="date">
+                ${formatDate(
+                  need.createdAt
+                )}
+              </span>
+
+            </div>
+
+            <span class="status">
+              ${escapeHTML(status)}
             </span>
 
           </div>
 
-          <span class="status ${escapeHTML(status)}">
-            ${escapeHTML(status)}
-          </span>
 
-        </div>
+          ${
+            description
+              ? `
+                <p>
+                  ${escapeHTML(
+                    description
+                  )}
+                </p>
+              `
+              : ""
+          }
 
-        ${
-          description
-            ? `<p>${escapeHTML(description)}</p>`
-            : ""
-        }
 
-        <div class="history-card-bottom">
+          <div class="history-card-bottom">
 
-          <strong>
-            ${rupiah(budget)}
-          </strong>
+            <strong>
+              ${formatRupiah(budget)}
+            </strong>
 
-          <a
-            href="index.html"
-            class="detail-link"
-          >
-            Lihat →
-          </a>
+          </div>
 
-        </div>
+        </article>
 
-      </article>
-    `;
+      `;
 
-  }).join("");
+    }).join("");
 
 }
 
 
 // ============================================================
-// LOAD PENAWARAN
+// LOAD OFFERS
 // ============================================================
 
 async function loadOffers(user) {
 
   if (loadingOffers) {
-    loadingOffers.style.display = "block";
+
+    loadingOffers.style.display =
+      "block";
+
   }
 
+
   if (offersList) {
+
     offersList.innerHTML = "";
+
   }
+
 
   try {
 
-    /*
-      Jangan orderBy di sini.
-      Hanya filter providerId.
+    console.log(
+      "Mengambil riwayat penawaran..."
+    );
 
-      Setelah data diterima,
-      sorting dilakukan dengan JavaScript.
+
+    /*
+      PENTING:
+
+      offers berada di:
+
+      needs/{needId}/offers/{offerId}
+
+      Karena itu harus collectionGroup.
     */
 
     const q = query(
-      collection(db, "offers"),
-      where("providerId", "==", user.uid)
+
+      collectionGroup(
+        db,
+        "offers"
+      ),
+
+      where(
+        "providerId",
+        "==",
+        user.uid
+      )
+
     );
 
-    const snapshot = await getDocs(q);
+
+    const snapshot =
+      await getDocs(q);
+
 
     const offers = [];
 
-    snapshot.forEach(docSnap => {
 
-      offers.push({
-        id: docSnap.id,
-        ...docSnap.data()
-      });
+    snapshot.forEach(
+      doc => {
 
-    });
+        const data =
+          doc.data();
+
+
+        offers.push({
+
+          id: doc.id,
+
+          ...data,
+
+          // Ambil needId
+          // dari path dokumen
+          needId:
+            doc.ref.parent.parent?.id ||
+            data.needId ||
+            ""
+
+        });
+
+      }
+    );
+
 
     sortNewest(offers);
 
-    console.log("PENAWARAN USER:", offers);
+
+    console.log(
+      "Jumlah penawaran:",
+      offers.length
+    );
+
 
     if (statOffers) {
-      statOffers.textContent = offers.length;
+
+      statOffers.textContent =
+        offers.length;
+
     }
+
 
     renderOffers(offers);
 
+
   } catch (error) {
 
-    console.error("Gagal memuat penawaran:", error);
+    console.error(
+      "ERROR OFFERS:",
+      error
+    );
+
 
     if (offersList) {
 
       offersList.innerHTML = `
+
         <div class="error-box">
-          <strong>⚠️ Gagal memuat penawaran</strong>
-          <p>${escapeHTML(error.message)}</p>
+
+          <strong>
+            ⚠️ Gagal memuat penawaran
+          </strong>
+
+          <p>
+            ${escapeHTML(
+              error.message
+            )}
+          </p>
+
         </div>
+
       `;
 
     }
@@ -492,15 +730,19 @@ async function loadOffers(user) {
   } finally {
 
     if (loadingOffers) {
-      loadingOffers.style.display = "none";
+
+      loadingOffers.style.display =
+        "none";
+
     }
 
   }
+
 }
 
 
 // ============================================================
-// RENDER PENAWARAN
+// RENDER OFFERS
 // ============================================================
 
 function renderOffers(offers) {
@@ -509,93 +751,237 @@ function renderOffers(offers) {
     return;
   }
 
-  if (!offers.length) {
+
+  if (offers.length === 0) {
 
     offersList.innerHTML = `
-      <div class="empty-box">
-        <div class="empty-icon">💼</div>
 
-        <strong>Belum ada penawaran</strong>
+      <div class="empty-box">
+
+        <div class="empty-icon">
+          💼
+        </div>
+
+        <strong>
+          Belum ada penawaran
+        </strong>
 
         <p>
-          Anda belum pernah mengirim penawaran.
+          Anda belum mengirim penawaran.
         </p>
+
       </div>
+
     `;
 
     return;
   }
 
-  offersList.innerHTML = offers.map(offer => {
 
-    const title =
-      offer.needTitle ||
-      offer.title ||
-      offer.needName ||
-      "Penawaran";
+  offersList.innerHTML =
+    offers.map(offer => {
 
-    const description =
-      offer.message ||
-      offer.description ||
-      offer.catatan ||
-      "";
 
-    const price =
-      offer.price ??
-      offer.offerPrice ??
-      offer.harga ??
-      offer.amount ??
-      0;
+      const title =
+        offer.needTitle ||
+        offer.title ||
+        offer.needName ||
+        "Penawaran";
 
-    const status =
-      offer.status ||
-      "pending";
 
-    return `
-      <article class="history-card">
+      const message =
+        offer.message ||
+        offer.description ||
+        offer.catatan ||
+        "";
 
-        <div class="history-card-top">
 
-          <div>
+      const price =
+        offer.price ??
+        offer.offerPrice ??
+        offer.harga ??
+        offer.amount ??
+        0;
 
-            <h3>
-              ${escapeHTML(title)}
-            </h3>
 
-            <span class="date">
-              ${formatDate(offer.createdAt)}
+      const status =
+        offer.status ||
+        "pending";
+
+
+      return `
+
+        <article class="history-card">
+
+          <div class="history-card-top">
+
+            <div>
+
+              <h3>
+                ${escapeHTML(title)}
+              </h3>
+
+              <span class="date">
+
+                ${formatDate(
+                  offer.createdAt
+                )}
+
+              </span>
+
+            </div>
+
+
+            <span class="status">
+
+              ${escapeHTML(status)}
+
             </span>
 
           </div>
 
-          <span class="status ${escapeHTML(status)}">
-            ${escapeHTML(status)}
-          </span>
 
-        </div>
+          ${
+            message
+              ? `
+                <p>
+                  ${escapeHTML(message)}
+                </p>
+              `
+              : ""
+          }
 
-        ${
-          description
-            ? `
-              <p>
-                ${escapeHTML(description)}
-              </p>
-            `
-            : ""
+
+          <div class="history-card-bottom">
+
+            <strong>
+              ${formatRupiah(price)}
+            </strong>
+
+          </div>
+
+        </article>
+
+      `;
+
+    }).join("");
+
+}
+
+
+// ============================================================
+// LOAD RATING
+// ============================================================
+
+async function loadRating(user) {
+
+  if (!statRating) {
+    return;
+  }
+
+
+  try {
+
+    /*
+      Karena struktur ratings Anda:
+
+      ratings/{ratingId}
+
+      dan reviewerId adalah pemberi rating.
+
+      Kita ambil rating yang diberikan user.
+
+      Jika nanti ingin menghitung rating
+      yang DITERIMA user, kita perlu mengetahui
+      field penerimanya.
+    */
+
+    const q = query(
+
+      collection(
+        db,
+        "ratings"
+      ),
+
+      where(
+        "reviewerId",
+        "==",
+        user.uid
+      )
+
+    );
+
+
+    const snapshot =
+      await getDocs(q);
+
+
+    let total = 0;
+
+    let count = 0;
+
+
+    snapshot.forEach(
+      doc => {
+
+        const data =
+          doc.data();
+
+
+        const rating =
+          Number(
+            data.rating ??
+            data.stars ??
+            data.score ??
+            0
+          );
+
+
+        if (
+          Number.isFinite(rating) &&
+          rating > 0
+        ) {
+
+          total += rating;
+
+          count++;
+
         }
 
-        <div class="history-card-bottom">
+      }
+    );
 
-          <strong>
-            ${rupiah(price)}
-          </strong>
 
-        </div>
+    if (count === 0) {
 
-      </article>
-    `;
+      statRating.textContent =
+        "0";
 
-  }).join("");
+      return;
+
+    }
+
+
+    const average =
+      total / count;
+
+
+    statRating.textContent =
+      average.toFixed(1);
+
+
+  } catch (error) {
+
+    console.error(
+      "ERROR RATING:",
+      error
+    );
+
+
+    statRating.textContent =
+      "0";
+
+  }
 
 }
 
@@ -604,31 +990,31 @@ function renderOffers(offers) {
 // LOGOUT
 // ============================================================
 
-const logoutBtn =
-  document.getElementById("logoutBtn");
-
 if (logoutBtn) {
 
-  logoutBtn.addEventListener("click", async () => {
+  logoutBtn.addEventListener(
+    "click",
+    async () => {
 
-    try {
+      try {
 
-      await auth.signOut();
+        await signOut(auth);
 
-      window.location.href =
-        "https://ryanfendi.github.io/butuh/login.html";
+        window.location.href =
+          "login.html";
 
-    } catch (error) {
+      } catch (error) {
 
-      console.error(error);
+        console.error(error);
 
-      alert(
-        "Gagal logout: " +
-        error.message
-      );
+        alert(
+          "Gagal keluar: " +
+          error.message
+        );
+
+      }
 
     }
-
-  });
+  );
 
 }
