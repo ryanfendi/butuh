@@ -1,8 +1,8 @@
 // ============================================================
 // PROFILE.JS
-// BUTUH - Profile & History
+// BUTUH - Profile & Riwayat
 // Firebase v12.1.0
-// VERSI TERBARU - FIX OFFER PERMISSION
+// VERSI FIX - RIWAYAT PENAWARAN
 // ============================================================
 
 import {
@@ -78,6 +78,8 @@ let myNeeds = [];
 
 let myOffers = [];
 
+let allNeeds = [];
+
 let loading = false;
 
 
@@ -85,8 +87,9 @@ let loading = false;
 // HELPER
 // ============================================================
 
-const $ = id =>
-  document.getElementById(id);
+function $(id) {
+  return document.getElementById(id);
+}
 
 
 // ============================================================
@@ -174,19 +177,16 @@ async function loadProfile() {
 
   try {
 
-    // ========================================================
-    // LOAD NEEDS MILIK USER
-    // ========================================================
+    // ======================================================
+    // 1. AMBIL KEBUTUHAN MILIK USER
+    // ======================================================
 
-    const needsRef =
-      collection(
-        db,
-        "needs"
-      );
-
-    const needsQuery =
+    const myNeedsQuery =
       query(
-        needsRef,
+        collection(
+          db,
+          "needs"
+        ),
         where(
           "ownerId",
           "==",
@@ -194,14 +194,14 @@ async function loadProfile() {
         )
       );
 
-    const needsSnapshot =
+    const myNeedsSnapshot =
       await getDocs(
-        needsQuery
+        myNeedsQuery
       );
 
     myNeeds = [];
 
-    needsSnapshot.forEach(
+    myNeedsSnapshot.forEach(
       item => {
 
         myNeeds.push({
@@ -217,25 +217,29 @@ async function loadProfile() {
     );
 
 
-    // ========================================================
-    // SORT NEEDS
-    // ========================================================
+    // ======================================================
+    // 2. URUTKAN KEBUTUHAN USER
+    // ======================================================
 
     myNeeds.sort(
       (a, b) => {
 
         return (
-          getTime(b.createdAt) -
-          getTime(a.createdAt)
+          getTime(
+            b.createdAt
+          ) -
+          getTime(
+            a.createdAt
+          )
         );
 
       }
     );
 
 
-    // ========================================================
-    // TAMPILKAN NEEDS SECEPATNYA
-    // ========================================================
+    // ======================================================
+    // 3. RENDER KEBUTUHAN SEGERA
+    // ======================================================
 
     renderNeeds();
 
@@ -245,32 +249,73 @@ async function loadProfile() {
     );
 
 
-    // ========================================================
-    // LOAD OFFERS
-    // ========================================================
+    // ======================================================
+    // 4. AMBIL SEMUA KEBUTUHAN
+    // ======================================================
+    //
+    // Penting:
+    //
+    // Penawaran user bisa berada di kebutuhan milik
+    // orang lain.
+    //
+    // Karena itu kita tidak boleh hanya menggunakan
+    // myNeeds.
+    //
+    // ======================================================
 
-    await loadOffers();
+    const allNeedsSnapshot =
+      await getDocs(
+        collection(
+          db,
+          "needs"
+        )
+      );
+
+    allNeeds = [];
+
+    allNeedsSnapshot.forEach(
+      item => {
+
+        allNeeds.push({
+
+          id:
+            item.id,
+
+          ...item.data()
+
+        });
+
+      }
+    );
 
 
-    // ========================================================
-    // RENDER OFFERS
-    // ========================================================
+    // ======================================================
+    // 5. CARI SEMUA PENAWARAN USER
+    // ======================================================
+
+    await loadMyOffers();
+
+
+    // ======================================================
+    // 6. RENDER OFFER
+    // ======================================================
 
     renderOffers();
 
 
-    // ========================================================
-    // UPDATE STATISTICS
-    // ========================================================
+    // ======================================================
+    // 7. STATISTICS
+    // ======================================================
 
     updateStatistics();
 
 
-    // ========================================================
-    // RATING
-    // ========================================================
+    // ======================================================
+    // 8. RATING
+    // ======================================================
 
     calculateRating();
+
 
   } catch (error) {
 
@@ -297,16 +342,15 @@ async function loadProfile() {
 
 
 // ============================================================
-// LOAD OFFERS - FIXED
+// LOAD MY OFFERS
 // ============================================================
 
-async function loadOffers() {
+async function loadMyOffers() {
 
   myOffers = [];
 
-
   if (
-    !myNeeds.length
+    !allNeeds.length
   ) {
 
     renderOffers();
@@ -316,28 +360,12 @@ async function loadOffers() {
   }
 
 
-  /*
-    PENTING:
-
-    Jangan lagi:
-
-      getDocs(offersRef)
-
-    karena itu mengambil SEMUA offer.
-
-    Kita langsung query:
-
-      providerId == currentUser.uid
-
-    sehingga Firestore hanya diminta
-    mengirim offer milik user ini.
-
-    Ini cocok dengan Firestore Rules.
-  */
-
+  // ========================================================
+  // JALANKAN PARALEL
+  // ========================================================
 
   const requests =
-    myNeeds.map(
+    allNeeds.map(
       async need => {
 
         try {
@@ -350,6 +378,10 @@ async function loadOffers() {
               "offers"
             );
 
+
+          // ==================================================
+          // QUERY HANYA OFFER MILIK USER
+          // ==================================================
 
           const offersQuery =
             query(
@@ -368,7 +400,7 @@ async function loadOffers() {
             );
 
 
-          const results = [];
+          const result = [];
 
 
           snapshot.forEach(
@@ -378,7 +410,7 @@ async function loadOffers() {
                 item.data();
 
 
-              results.push({
+              result.push({
 
                 id:
                   item.id,
@@ -394,6 +426,10 @@ async function loadOffers() {
                   need.budget ||
                   0,
 
+                needOwnerId:
+                  need.ownerId ||
+                  "",
+
                 ...offer
 
               });
@@ -402,21 +438,16 @@ async function loadOffers() {
           );
 
 
-          return results;
+          return result;
+
 
         } catch (error) {
 
-          console.error(
-            "Offer gagal:",
+          console.warn(
+            "Gagal membaca offers:",
             need.id,
             error
           );
-
-
-          /*
-            Jangan membuat seluruh profile
-            gagal hanya karena satu kebutuhan.
-          */
 
           return [];
 
@@ -432,20 +463,56 @@ async function loadOffers() {
     );
 
 
+  // ========================================================
+  // GABUNGKAN SEMUA
+  // ========================================================
+
   myOffers =
     results.flat();
 
 
   // ========================================================
-  // SORT TERBARU
+  // HILANGKAN DUPLIKAT
+  // ========================================================
+
+  const unique =
+    new Map();
+
+
+  myOffers.forEach(
+    offer => {
+
+      unique.set(
+        offer.id +
+        "_" +
+        offer.needId,
+        offer
+      );
+
+    }
+  );
+
+
+  myOffers =
+    Array.from(
+      unique.values()
+    );
+
+
+  // ========================================================
+  // URUTKAN TERBARU
   // ========================================================
 
   myOffers.sort(
     (a, b) => {
 
       return (
-        getTime(b.createdAt) -
-        getTime(a.createdAt)
+        getTime(
+          b.createdAt
+        ) -
+        getTime(
+          a.createdAt
+        )
       );
 
     }
@@ -508,7 +575,7 @@ function renderNeeds() {
 
 
 // ============================================================
-// NEED CARD
+// CREATE NEED CARD
 // ============================================================
 
 function createNeedCard(
@@ -521,6 +588,7 @@ function createNeedCard(
       "Tanpa judul"
     );
 
+
   const description =
     escapeHTML(
       truncate(
@@ -530,6 +598,7 @@ function createNeedCard(
       )
     );
 
+
   const category =
     escapeHTML(
       getCategory(
@@ -537,10 +606,12 @@ function createNeedCard(
       )
     );
 
+
   const budget =
     formatMoney(
       need.budget
     );
+
 
   const status =
     String(
@@ -583,7 +654,6 @@ function createNeedCard(
 
       </div>
 
-
       <div>
 
         <span class="status ${getStatusClass(status)}">
@@ -592,9 +662,7 @@ function createNeedCard(
 
         </span>
 
-
         <br>
-
 
         <button
           type="button"
@@ -676,7 +744,7 @@ function renderOffers() {
         </strong>
 
         <p>
-          Anda belum mengirim penawaran.
+          Anda belum pernah mengirim penawaran.
         </p>
 
       </div>
@@ -699,7 +767,7 @@ function renderOffers() {
 
 
 // ============================================================
-// OFFER CARD
+// CREATE OFFER CARD
 // ============================================================
 
 function createOfferCard(
@@ -712,6 +780,7 @@ function createOfferCard(
       "Kebutuhan"
     );
 
+
   const message =
     escapeHTML(
       truncate(
@@ -721,16 +790,19 @@ function createOfferCard(
       )
     );
 
+
   const price =
     formatMoney(
       offer.price
     );
+
 
   const duration =
     escapeHTML(
       offer.duration ||
       "-"
     );
+
 
   const status =
     String(
@@ -773,7 +845,6 @@ function createOfferCard(
 
       </div>
 
-
       <div>
 
         <span class="status ${getStatusClass(status)}">
@@ -782,9 +853,7 @@ function createOfferCard(
 
         </span>
 
-
         <br>
-
 
         <button
           type="button"
@@ -818,6 +887,7 @@ function updateStatistics() {
     "totalNeeds",
     myNeeds.length
   );
+
 
   setText(
     "totalOffers",
@@ -870,6 +940,7 @@ function updateStatistics() {
     "acceptedOffers",
     accepted
   );
+
 
   setText(
     "completedOffers",
@@ -991,7 +1062,9 @@ function showNeedsError(
         class="btn btn-primary"
         onclick="window.reloadProfile()"
       >
+
         🔄 Coba Lagi
+
       </button>
 
     </div>
@@ -1036,7 +1109,9 @@ function showOffersError(
         class="btn btn-primary"
         onclick="window.reloadProfile()"
       >
+
         🔄 Coba Lagi
+
       </button>
 
     </div>
@@ -1214,52 +1289,60 @@ function getTime(
   }
 
 
-  if (
-    typeof value.toMillis ===
-    "function"
-  ) {
+  try {
 
-    return value.toMillis();
+    if (
+      typeof value.toMillis ===
+      "function"
+    ) {
+
+      return value.toMillis();
+
+    }
+
+
+    if (
+      typeof value.toDate ===
+      "function"
+    ) {
+
+      return value
+        .toDate()
+        .getTime();
+
+    }
+
+
+    if (
+      typeof value.seconds ===
+      "number"
+    ) {
+
+      return (
+        value.seconds *
+        1000
+      );
+
+    }
+
+
+    const time =
+      new Date(
+        value
+      ).getTime();
+
+
+    return Number.isFinite(
+      time
+    )
+      ? time
+      : 0;
+
+  } catch {
+
+    return 0;
 
   }
-
-
-  if (
-    typeof value.toDate ===
-    "function"
-  ) {
-
-    return value
-      .toDate()
-      .getTime();
-
-  }
-
-
-  if (
-    typeof value.seconds ===
-    "number"
-  ) {
-
-    return (
-      value.seconds *
-      1000
-    );
-
-  }
-
-
-  const time =
-    new Date(
-      value
-    ).getTime();
-
-
-  return Number.isFinite(
-    time
-  )
-    ? time
-    : 0;
 
 }
 
@@ -1541,6 +1624,39 @@ function createAvatar(
 }
 
 
+// ============================================================
+// DEBUG
+// ============================================================
+
+window.butuhProfile = {
+
+  getUser() {
+
+    return currentUser;
+
+  },
+
+  getNeeds() {
+
+    return myNeeds;
+
+  },
+
+  getOffers() {
+
+    return myOffers;
+
+  },
+
+  reload() {
+
+    return loadProfile();
+
+  }
+
+};
+
+
 console.log(
-  "✅ BUTUH profile.js VERSI TERBARU aktif"
+  "✅ BUTUH profile.js FIX RIWAYAT PENAWARAN aktif"
 );
