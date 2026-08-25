@@ -1,3 +1,10 @@
+// ============================================================
+// BUTUH - PROFILE.JS
+// Profil pengguna
+// Firebase v12.1.0
+// VERSI CEPAT
+// ============================================================
+
 import {
   initializeApp,
   getApps,
@@ -14,15 +21,13 @@ import {
   collection,
   query,
   where,
-  getDocs,
-  getDoc,
-  doc
+  getDocs
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 
-/* =====================================================
-   FIREBASE
-===================================================== */
+// ============================================================
+// FIREBASE
+// ============================================================
 
 const firebaseConfig = {
 
@@ -50,48 +55,51 @@ const firebaseConfig = {
 const app =
   getApps().length
     ? getApp()
-    : initializeApp(firebaseConfig);
-
+    : initializeApp(
+        firebaseConfig
+      );
 
 const auth =
   getAuth(app);
-
 
 const db =
   getFirestore(app);
 
 
-/* =====================================================
-   GLOBAL
-===================================================== */
+// ============================================================
+// STATE
+// ============================================================
 
-let currentUser = null;
+let currentUser =
+  null;
 
 let myNeeds = [];
 
 let myOffers = [];
 
-let loading = false;
+let loading =
+  false;
 
 
-/* =====================================================
-   HELPERS
-===================================================== */
+// ============================================================
+// HELPER
+// ============================================================
 
-const $ = id =>
-  document.getElementById(id);
+const $ =
+  id =>
+    document.getElementById(id);
 
 
-/* =====================================================
-   AUTH
-===================================================== */
+// ============================================================
+// AUTH
+// ============================================================
 
 onAuthStateChanged(
   auth,
   async user => {
 
-    currentUser = user;
-
+    currentUser =
+      user;
 
     if (!user) {
 
@@ -102,8 +110,9 @@ onAuthStateChanged(
 
     }
 
-
-    updateProfileUI(user);
+    updateProfileUI(
+      user
+    );
 
     await loadProfile();
 
@@ -111,51 +120,41 @@ onAuthStateChanged(
 );
 
 
-/* =====================================================
-   PROFILE UI
-===================================================== */
+// ============================================================
+// PROFILE UI
+// ============================================================
 
-function updateProfileUI(user) {
+function updateProfileUI(
+  user
+) {
 
   const name =
     user.displayName ||
     user.email?.split("@")[0] ||
     "Pengguna";
 
-
-  const email =
-    user.email ||
-    "";
-
-
-  const photo =
-    user.photoURL ||
-    createAvatar(name);
-
-
   setText(
     "profileName",
     name
   );
 
-
   setText(
     "profileEmail",
-    email
+    user.email || ""
   );
-
 
   setImage(
     "profilePhoto",
-    photo
+    user.photoURL ||
+    createAvatar(name)
   );
 
 }
 
 
-/* =====================================================
-   LOAD PROFILE
-===================================================== */
+// ============================================================
+// LOAD PROFILE
+// ============================================================
 
 async function loadProfile() {
 
@@ -166,24 +165,18 @@ async function loadProfile() {
     return;
   }
 
-
-  loading = true;
-
+  loading =
+    true;
 
   showNeedsLoading();
 
   showOffersLoading();
 
-
   try {
 
     /*
-      PENTING:
-
-      Kita hanya query needs berdasarkan ownerId.
-
+      Hanya query ownerId.
       Tidak menggunakan orderBy.
-      Tidak membutuhkan composite index.
     */
 
     const needsQuery =
@@ -199,59 +192,40 @@ async function loadProfile() {
         )
       );
 
-
-    const needsSnapshot =
+    const snapshot =
       await getDocs(
         needsQuery
       );
 
-
     myNeeds = [];
 
-
-    needsSnapshot.forEach(
+    snapshot.forEach(
       item => {
 
         myNeeds.push({
-
-          id:
-            item.id,
-
+          id: item.id,
           ...item.data()
-
         });
 
       }
     );
 
-
-    /*
-      Urutkan di browser.
-    */
-
     myNeeds.sort(
-      (a, b) => {
-
-        return (
-          getTime(b.createdAt) -
-          getTime(a.createdAt)
-        );
-
-      }
+      (a, b) =>
+        getTime(
+          b.createdAt
+        ) -
+        getTime(
+          a.createdAt
+        )
     );
 
-
     /*
-      Setelah kebutuhan berhasil,
-      ambil semua offers dari
-      subcollection masing-masing kebutuhan.
-
-      Tidak memakai collectionGroup.
-      Tidak membutuhkan index.
+      Load offers dari kebutuhan
+      milik user.
     */
 
     await loadOffers();
-
 
     renderNeeds();
 
@@ -261,19 +235,16 @@ async function loadProfile() {
 
     calculateRating();
 
-
   } catch (error) {
 
     console.error(
-      "PROFILE ERROR:",
+      "PROFILE:",
       error
     );
-
 
     showNeedsError(
       error
     );
-
 
     showOffersError(
       error
@@ -281,34 +252,33 @@ async function loadProfile() {
 
   } finally {
 
-    loading = false;
+    loading =
+      false;
 
   }
 
 }
 
 
-/* =====================================================
-   LOAD OFFERS
-===================================================== */
+// ============================================================
+// LOAD OFFERS
+// ============================================================
 
 async function loadOffers() {
 
   myOffers = [];
 
-
-  if (
-    !myNeeds.length
-  ) {
-
+  if (!myNeeds.length) {
     return;
-
   }
 
-
   /*
-    Jalankan request secara paralel
-    agar lebih cepat.
+    Penting:
+
+    Kita mencari offers di setiap
+    kebutuhan.
+
+    Tidak menggunakan collectionGroup.
   */
 
   const requests =
@@ -325,64 +295,53 @@ async function loadOffers() {
               "offers"
             );
 
+          /*
+            Query providerId sederhana.
+            Tidak memakai orderBy.
+          */
 
-          const snapshot =
-            await getDocs(
-              offersRef
+          const q =
+            query(
+              offersRef,
+              where(
+                "providerId",
+                "==",
+                currentUser.uid
+              )
             );
 
+          const snapshot =
+            await getDocs(q);
 
           snapshot.forEach(
             item => {
 
-              const offer =
-                item.data();
+              myOffers.push({
 
+                id:
+                  item.id,
 
-              /*
-                Hanya ambil offer
-                milik user saat ini.
-              */
+                needId:
+                  need.id,
 
-              if (
-                offer.providerId ===
-                currentUser.uid
-              ) {
+                needTitle:
+                  need.title ||
+                  "Kebutuhan",
 
-                myOffers.push({
+                needBudget:
+                  need.budget ||
+                  0,
 
-                  id:
-                    item.id,
+                ...item.data()
 
-                  needId:
-                    need.id,
-
-                  needTitle:
-                    need.title ||
-                    "Kebutuhan",
-
-                  needBudget:
-                    need.budget ||
-                    0,
-
-                  ...offer
-
-                });
-
-              }
+              });
 
             }
           );
 
-
         } catch (error) {
 
-          /*
-            Jangan hentikan seluruh halaman
-            jika satu kebutuhan gagal.
-          */
-
-          console.error(
+          console.warn(
             "Offer gagal:",
             need.id,
             error
@@ -393,51 +352,39 @@ async function loadOffers() {
       }
     );
 
-
   await Promise.all(
     requests
   );
 
-
-  /*
-    Urutkan terbaru.
-  */
-
   myOffers.sort(
-    (a, b) => {
-
-      return (
-        getTime(b.createdAt) -
-        getTime(a.createdAt)
-      );
-
-    }
+    (a, b) =>
+      getTime(
+        b.createdAt
+      ) -
+      getTime(
+        a.createdAt
+      )
   );
 
 }
 
 
-/* =====================================================
-   RENDER NEEDS
-===================================================== */
+// ============================================================
+// RENDER NEEDS
+// ============================================================
 
 function renderNeeds() {
 
   const container =
     $("needsList");
 
-
   if (!container) {
     return;
   }
 
-
-  if (
-    myNeeds.length === 0
-  ) {
+  if (!myNeeds.length) {
 
     container.innerHTML = `
-
       <div class="empty-state">
 
         <div class="empty-icon">
@@ -453,13 +400,10 @@ function renderNeeds() {
         </p>
 
       </div>
-
     `;
 
     return;
-
   }
-
 
   container.innerHTML =
     myNeeds
@@ -468,13 +412,12 @@ function renderNeeds() {
       )
       .join("");
 
-
 }
 
 
-/* =====================================================
-   NEED CARD
-===================================================== */
+// ============================================================
+// NEED CARD
+// ============================================================
 
 function createNeedCard(
   need
@@ -486,7 +429,6 @@ function createNeedCard(
       "Tanpa judul"
     );
 
-
   const description =
     escapeHTML(
       truncate(
@@ -496,7 +438,6 @@ function createNeedCard(
       )
     );
 
-
   const category =
     escapeHTML(
       getCategory(
@@ -504,12 +445,10 @@ function createNeedCard(
       )
     );
 
-
   const budget =
     formatMoney(
       need.budget
     );
-
 
   const status =
     String(
@@ -517,9 +456,7 @@ function createNeedCard(
       "open"
     ).toLowerCase();
 
-
   return `
-
     <article class="history-card">
 
       <div class="history-main">
@@ -531,7 +468,6 @@ function createNeedCard(
         <p>
           ${description}
         </p>
-
 
         <div class="history-meta">
 
@@ -553,83 +489,92 @@ function createNeedCard(
 
       </div>
 
-
       <div>
 
-        <span class="status ${getStatusClass(status)}">
-
-          ${getStatusText(status)}
-
+        <span class="status ${
+          getStatusClass(
+            status
+          )
+        }">
+          ${getStatusText(
+            status
+          )}
         </span>
 
-
         <br>
-
 
         <button
           type="button"
           class="btn btn-primary"
           style="margin-top:12px"
-          data-need-id="${escapeHTML(
-            need.id
-          )}"
           onclick="window.viewNeed('${escapeJS(
             need.id
           )}')"
         >
-
           👁️ Lihat Kebutuhan
-
         </button>
 
       </div>
 
     </article>
-
   `;
 
 }
 
 
-/* =====================================================
-   VIEW NEED
-===================================================== */
+// ============================================================
+// VIEW NEED
+// ============================================================
 
-window.viewNeed = function(needId) {
+window.viewNeed =
+  function(
+    needId
+  ) {
 
-  if (!needId) {
-    alert("ID kebutuhan tidak ditemukan.");
-    return;
-  }
+    if (!needId) {
 
-  window.location.href =
-    "index.html?need=" +
-    encodeURIComponent(needId);
+      alert(
+        "ID kebutuhan tidak ditemukan."
+      );
 
-};
+      return;
+    }
+
+    /*
+      Ini penting.
+
+      Jangan menuju halaman detail yang
+      belum ada.
+
+      Kita kembali ke index.html dan
+      script.js akan membuka modal detail.
+    */
+
+    window.location.href =
+      "index.html?need=" +
+      encodeURIComponent(
+        needId
+      );
+
+  };
 
 
-/* =====================================================
-   RENDER OFFERS
-===================================================== */
+// ============================================================
+// RENDER OFFERS
+// ============================================================
 
 function renderOffers() {
 
   const container =
     $("offersList");
 
-
   if (!container) {
     return;
   }
 
-
-  if (
-    myOffers.length === 0
-  ) {
+  if (!myOffers.length) {
 
     container.innerHTML = `
-
       <div class="empty-state">
 
         <div class="empty-icon">
@@ -645,13 +590,10 @@ function renderOffers() {
         </p>
 
       </div>
-
     `;
 
     return;
-
   }
-
 
   container.innerHTML =
     myOffers
@@ -663,9 +605,9 @@ function renderOffers() {
 }
 
 
-/* =====================================================
-   OFFER CARD
-===================================================== */
+// ============================================================
+// OFFER CARD
+// ============================================================
 
 function createOfferCard(
   offer
@@ -677,7 +619,6 @@ function createOfferCard(
       "Kebutuhan"
     );
 
-
   const message =
     escapeHTML(
       truncate(
@@ -687,12 +628,10 @@ function createOfferCard(
       )
     );
 
-
   const price =
     formatMoney(
       offer.price
     );
-
 
   const duration =
     escapeHTML(
@@ -700,16 +639,13 @@ function createOfferCard(
       "-"
     );
 
-
   const status =
     String(
       offer.status ||
       "pending"
     ).toLowerCase();
 
-
   return `
-
     <article class="history-card">
 
       <div class="history-main">
@@ -718,16 +654,13 @@ function createOfferCard(
           ${title}
         </h3>
 
-
         <div class="offer-price">
           Rp ${price}
         </div>
 
-
         <p>
           ${message}
         </p>
-
 
         <div class="history-meta">
 
@@ -745,18 +678,19 @@ function createOfferCard(
 
       </div>
 
-
       <div>
 
-        <span class="status ${getStatusClass(status)}">
-
-          ${getStatusText(status)}
-
+        <span class="status ${
+          getStatusClass(
+            status
+          )
+        }">
+          ${getStatusText(
+            status
+          )}
         </span>
 
-
         <br>
-
 
         <button
           type="button"
@@ -766,23 +700,20 @@ function createOfferCard(
             offer.needId
           )}')"
         >
-
           👁️ Lihat Kebutuhan
-
         </button>
 
       </div>
 
     </article>
-
   `;
 
 }
 
 
-/* =====================================================
-   STATISTICS
-===================================================== */
+// ============================================================
+// STATISTICS
+// ============================================================
 
 function updateStatistics() {
 
@@ -791,12 +722,10 @@ function updateStatistics() {
     myNeeds.length
   );
 
-
   setText(
     "totalOffers",
     myOffers.length
   );
-
 
   const accepted =
     myOffers.filter(
@@ -808,7 +737,6 @@ function updateStatistics() {
             ""
           ).toLowerCase();
 
-
         return (
           status === "accepted" ||
           status === "accept" ||
@@ -818,7 +746,6 @@ function updateStatistics() {
 
       }
     ).length;
-
 
   const completed =
     myOffers.filter(
@@ -830,7 +757,6 @@ function updateStatistics() {
             ""
           ).toLowerCase();
 
-
         return (
           status === "completed" ||
           status === "complete" ||
@@ -840,12 +766,10 @@ function updateStatistics() {
       }
     ).length;
 
-
   setText(
     "acceptedOffers",
     accepted
   );
-
 
   setText(
     "completedOffers",
@@ -855,51 +779,39 @@ function updateStatistics() {
 }
 
 
-/* =====================================================
-   RATING
-===================================================== */
+// ============================================================
+// RATING
+// ============================================================
 
 function calculateRating() {
-
-  /*
-    Sistem rating belum mempunyai
-    collection rating khusus.
-
-    Jadi untuk sementara tampilkan
-    belum ada rating.
-  */
-
-  setText(
-    "ratingValue",
-    "Belum ada rating"
-  );
-
 
   setText(
     "ratingStars",
     "☆☆☆☆☆"
   );
 
+  setText(
+    "ratingValue",
+    "Belum ada rating"
+  );
+
 }
 
 
-/* =====================================================
-   LOADING
-===================================================== */
+// ============================================================
+// LOADING
+// ============================================================
 
 function showNeedsLoading() {
 
   const container =
     $("needsList");
 
-
   if (!container) {
     return;
   }
 
-
   container.innerHTML = `
-
     <div class="loading-state">
 
       <div class="spinner"></div>
@@ -907,7 +819,6 @@ function showNeedsLoading() {
       Memuat kebutuhan...
 
     </div>
-
   `;
 
 }
@@ -918,14 +829,11 @@ function showOffersLoading() {
   const container =
     $("offersList");
 
-
   if (!container) {
     return;
   }
 
-
   container.innerHTML = `
-
     <div class="loading-state">
 
       <div class="spinner"></div>
@@ -933,15 +841,14 @@ function showOffersLoading() {
       Memuat penawaran...
 
     </div>
-
   `;
 
 }
 
 
-/* =====================================================
-   ERROR
-===================================================== */
+// ============================================================
+// ERROR
+// ============================================================
 
 function showNeedsError(
   error
@@ -950,14 +857,11 @@ function showNeedsError(
   const container =
     $("needsList");
 
-
   if (!container) {
     return;
   }
 
-
   container.innerHTML = `
-
     <div class="error-state">
 
       <div class="error-icon">
@@ -983,7 +887,6 @@ function showNeedsError(
       </button>
 
     </div>
-
   `;
 
 }
@@ -996,22 +899,11 @@ function showOffersError(
   const container =
     $("offersList");
 
-
   if (!container) {
     return;
   }
 
-
-  /*
-    Jangan menyebut index sebagai
-    penyebab secara otomatis.
-
-    Versi ini memang tidak menggunakan
-    collectionGroup query.
-  */
-
   container.innerHTML = `
-
     <div class="error-state">
 
       <div class="error-icon">
@@ -1037,34 +929,30 @@ function showOffersError(
       </button>
 
     </div>
-
   `;
 
 }
 
 
-/* =====================================================
-   RETRY
-===================================================== */
+// ============================================================
+// RETRY
+// ============================================================
 
 window.reloadProfile =
   async function() {
 
-    if (
-      loading
-    ) {
+    if (loading) {
       return;
     }
-
 
     await loadProfile();
 
   };
 
 
-/* =====================================================
-   STATUS
-===================================================== */
+// ============================================================
+// STATUS
+// ============================================================
 
 function getStatusClass(
   status
@@ -1083,19 +971,16 @@ function getStatusClass(
     case "success":
       return "status-success";
 
-
     case "completed":
     case "complete":
     case "selesai":
       return "status-completed";
-
 
     case "rejected":
     case "cancelled":
     case "canceled":
     case "ditolak":
       return "status-danger";
-
 
     default:
       return "status-pending";
@@ -1122,19 +1007,16 @@ function getStatusText(
     case "success":
       return "✓ Diterima";
 
-
     case "completed":
     case "complete":
     case "selesai":
       return "✓ Selesai";
-
 
     case "rejected":
     case "cancelled":
     case "canceled":
     case "ditolak":
       return "✕ Ditolak";
-
 
     default:
       return "⏳ Menunggu";
@@ -1144,9 +1026,9 @@ function getStatusText(
 }
 
 
-/* =====================================================
-   CATEGORY
-===================================================== */
+// ============================================================
+// CATEGORY
+// ============================================================
 
 function getCategory(
   value
@@ -1180,7 +1062,6 @@ function getCategory(
 
   };
 
-
   return (
     categories[value] ||
     categories.other
@@ -1189,9 +1070,9 @@ function getCategory(
 }
 
 
-/* =====================================================
-   DATE
-===================================================== */
+// ============================================================
+// DATE
+// ============================================================
 
 function getTime(
   value
@@ -1201,57 +1082,53 @@ function getTime(
     return 0;
   }
 
+  try {
 
-  if (
-    typeof value.toMillis ===
-    "function"
-  ) {
+    if (
+      typeof value.toMillis ===
+      "function"
+    ) {
 
-    return value.toMillis();
+      return value.toMillis();
+
+    }
+
+    if (
+      typeof value.toDate ===
+      "function"
+    ) {
+
+      return value
+        .toDate()
+        .getTime();
+
+    }
+
+    if (
+      typeof value.seconds ===
+      "number"
+    ) {
+
+      return value.seconds * 1000;
+
+    }
+
+    const time =
+      new Date(
+        value
+      ).getTime();
+
+    return Number.isFinite(
+      time
+    )
+      ? time
+      : 0;
+
+  } catch {
+
+    return 0;
 
   }
-
-
-  if (
-    typeof value.toDate ===
-    "function"
-  ) {
-
-    return value
-      .toDate()
-      .getTime();
-
-  }
-
-
-  if (
-    typeof value.seconds ===
-    "number"
-  ) {
-
-    return (
-      value.seconds *
-      1000
-    );
-
-  }
-
-
-  const date =
-    new Date(
-      value
-    );
-
-
-  const time =
-    date.getTime();
-
-
-  return Number.isFinite(
-    time
-  )
-    ? time
-    : 0;
 
 }
 
@@ -1261,48 +1138,36 @@ function formatDate(
 ) {
 
   const time =
-    getTime(
-      value
-    );
-
+    getTime(value);
 
   if (!time) {
     return "Baru saja";
   }
 
-
   return new Intl.DateTimeFormat(
     "id-ID",
     {
-      day:
-        "2-digit",
-      month:
-        "short",
-      year:
-        "numeric"
+      day: "2-digit",
+      month: "short",
+      year: "numeric"
     }
   ).format(
-    new Date(
-      time
-    )
+    new Date(time)
   );
 
 }
 
 
-/* =====================================================
-   MONEY
-===================================================== */
+// ============================================================
+// MONEY
+// ============================================================
 
 function formatMoney(
   value
 ) {
 
   const number =
-    Number(
-      value
-    );
-
+    Number(value);
 
   if (
     !Number.isFinite(
@@ -1314,7 +1179,6 @@ function formatMoney(
 
   }
 
-
   return new Intl.NumberFormat(
     "id-ID"
   ).format(
@@ -1324,9 +1188,9 @@ function formatMoney(
 }
 
 
-/* =====================================================
-   TEXT
-===================================================== */
+// ============================================================
+// TEXT
+// ============================================================
 
 function truncate(
   text,
@@ -1339,61 +1203,43 @@ function truncate(
       ""
     );
 
-
-  if (
-    value.length <=
-    length
-  ) {
-
-    return value;
-
-  }
-
-
-  return (
-    value.substring(
-      0,
-      length
-    ) +
-    "..."
-  );
+  return value.length <= length
+    ? value
+    : value.substring(
+        0,
+        length
+      ) + "...";
 
 }
 
 
-/* =====================================================
-   SECURITY
-===================================================== */
+// ============================================================
+// SECURITY
+// ============================================================
 
 function escapeHTML(
   value
 ) {
 
   return String(
-    value ??
-    ""
+    value ?? ""
   )
-
     .replace(
       /&/g,
       "&amp;"
     )
-
     .replace(
       /</g,
       "&lt;"
     )
-
     .replace(
       />/g,
       "&gt;"
     )
-
     .replace(
       /"/g,
       "&quot;"
     )
-
     .replace(
       /'/g,
       "&#039;"
@@ -1407,8 +1253,7 @@ function escapeJS(
 ) {
 
   return String(
-    value ??
-    ""
+    value ?? ""
   )
     .replace(
       /\\/g,
@@ -1434,9 +1279,9 @@ function escapeJS(
 }
 
 
-/* =====================================================
-   IMAGE
-===================================================== */
+// ============================================================
+// IMAGE
+// ============================================================
 
 function setImage(
   id,
@@ -1446,11 +1291,9 @@ function setImage(
   const element =
     $(id);
 
-
   if (!element) {
     return;
   }
-
 
   element.src =
     src ||
@@ -1461,9 +1304,9 @@ function setImage(
 }
 
 
-/* =====================================================
-   TEXT
-===================================================== */
+// ============================================================
+// TEXT
+// ============================================================
 
 function setText(
   id,
@@ -1473,11 +1316,9 @@ function setText(
   const element =
     $(id);
 
-
   if (!element) {
     return;
   }
-
 
   element.textContent =
     value ??
@@ -1486,9 +1327,9 @@ function setText(
 }
 
 
-/* =====================================================
-   AVATAR
-===================================================== */
+// ============================================================
+// AVATAR
+// ============================================================
 
 function createAvatar(
   name
@@ -1503,7 +1344,6 @@ function createAvatar(
       .charAt(0)
       .toUpperCase();
 
-
   return (
     "https://ui-avatars.com/api/" +
     "?name=" +
@@ -1516,3 +1356,8 @@ function createAvatar(
   );
 
 }
+
+
+console.log(
+  "✅ BUTUH profile.js VERSI TERBARU aktif"
+);
