@@ -26,7 +26,8 @@ import {
   query,
   where,
   onSnapshot,
-  serverTimestamp
+  serverTimestamp,
+  updateDoc
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 
@@ -2208,3 +2209,177 @@ document.addEventListener(
 console.log(
   "✅ BUTUH script.js baru aktif"
 );
+
+
+// ============================================================
+// UPDATE OFFER STATUS
+// ============================================================
+
+async function updateOfferStatus(
+  need,
+  offerId,
+  status
+) {
+
+  if (
+    !currentUser ||
+    !need ||
+    !offerId
+  ) {
+    return;
+  }
+
+
+  if (
+    need.ownerId !==
+    currentUser.uid
+  ) {
+
+    alert(
+      "Anda tidak memiliki izin untuk mengubah penawaran ini."
+    );
+
+    return;
+
+  }
+
+
+  try {
+
+    const offerRef =
+      doc(
+        db,
+        "needs",
+        need.id,
+        "offers",
+        offerId
+      );
+
+
+    await updateDoc(
+      offerRef,
+      {
+
+        status,
+
+        updatedAt:
+          serverTimestamp()
+
+      }
+    );
+
+
+    showToast(
+      status === "accepted"
+        ? "✅ Penawaran berhasil diterima!"
+        : "❌ Penawaran ditolak."
+    );
+
+
+    // Muat ulang penawaran
+    const offers =
+      await loadOffersForNeed(
+        need
+      );
+
+
+    renderOffersForNeed(
+      need,
+      offers
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "Update offer status:",
+      error
+    );
+
+
+    alert(
+      "Gagal mengubah status:\n\n" +
+      error.message
+    );
+
+  }
+
+}
+
+// ============================================================
+// OFFER STATUS
+// ============================================================
+
+function getOfferStatusClass(
+  status
+) {
+
+  switch (
+    String(
+      status ||
+      ""
+    ).toLowerCase()
+  ) {
+
+    case "accepted":
+    case "accept":
+    case "diterima":
+      return "status-success";
+
+
+    case "completed":
+    case "complete":
+    case "selesai":
+      return "status-completed";
+
+
+    case "rejected":
+    case "reject":
+    case "ditolak":
+      return "status-danger";
+
+
+    default:
+      return "status-pending";
+
+  }
+
+}
+
+
+function getOfferStatusText(
+  status
+) {
+
+  switch (
+    String(
+      status ||
+      ""
+    ).toLowerCase()
+  ) {
+
+    case "accepted":
+    case "accept":
+    case "diterima":
+      return "✓ Diterima";
+
+
+    case "completed":
+    case "complete":
+    case "selesai":
+      return "✓ Selesai";
+
+
+    case "rejected":
+    case "reject":
+    case "ditolak":
+      return "✕ Ditolak";
+
+
+    default:
+      return "⏳ Menunggu";
+
+  }
+
+}
+
