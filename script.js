@@ -748,9 +748,214 @@ function showNeedDetail(need) {
                   width:100%;
                   margin-top:20px;
                 "
+
+// ============================================================
+// NEED DETAIL MODAL
+// ============================================================
+
+async function showNeedDetail(
+  need
+) {
+
+  let modal =
+    $("detailModal");
+
+
+  if (!modal) {
+
+    modal =
+      document.createElement(
+        "div"
+      );
+
+    modal.id =
+      "detailModal";
+
+    modal.className =
+      "modal hidden";
+
+    document.body.appendChild(
+      modal
+    );
+
+  }
+
+
+  const owner =
+    need.ownerId ===
+    currentUser?.uid;
+
+
+  modal.innerHTML = `
+
+    <div
+      class="modal-backdrop"
+      id="detailBackdrop"
+    ></div>
+
+
+    <div class="modal-content">
+
+      <div class="modal-header">
+
+        <div>
+
+          <span class="section-label">
+            DETAIL KEBUTUHAN
+          </span>
+
+          <h2>
+            ${escapeHTML(
+              need.title ||
+              "Kebutuhan"
+            )}
+          </h2>
+
+        </div>
+
+
+        <button
+          class="modal-close"
+          id="closeDetail"
+          type="button"
+        >
+          ×
+        </button>
+
+      </div>
+
+
+      <div style="padding:22px">
+
+        <p style="
+          line-height:1.7;
+          color:#374151;
+        ">
+          ${escapeHTML(
+            need.description ||
+            ""
+          )}
+        </p>
+
+
+        <div style="
+          background:#eff6ff;
+          padding:16px;
+          border-radius:12px;
+          margin:20px 0;
+        ">
+
+          <small>
+            Budget
+          </small>
+
+          <div style="
+            font-size:24px;
+            font-weight:800;
+            color:#2563eb;
+          ">
+            Rp ${formatMoney(
+              need.budget
+            )}
+          </div>
+
+        </div>
+
+
+        <div style="
+          color:#4b5563;
+          line-height:1.8;
+        ">
+
+          👤
+          ${escapeHTML(
+            need.ownerName ||
+            "Pengguna"
+          )}
+
+          <br>
+
+          📂
+          ${escapeHTML(
+            getCategory(
+              need.category
+            )
+          )}
+
+          <br>
+
+          📅
+          ${escapeHTML(
+            formatDate(
+              need.createdAt
+            )
+          )}
+
+          ${
+            need.deadline
+              ? `
+                <br>
+                ⏰ Deadline:
+                ${escapeHTML(
+                  need.deadline
+                )}
+              `
+              : ""
+          }
+
+        </div>
+
+
+        ${
+          owner
+            ? `
+
+              <div
+                style="
+                  margin-top:25px;
+                  padding-top:20px;
+                  border-top:1px solid #e5e7eb;
+                "
+              >
+
+                <h3 style="
+                  margin:0 0 15px;
+                ">
+                  💰 Penawaran Masuk
+                </h3>
+
+
+                <div
+                  id="offersForNeed"
+                >
+
+                  <div class="loading-state">
+
+                    <div class="spinner"></div>
+
+                    Memuat penawaran...
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            `
+            : `
+
+              <button
+                id="detailOfferButton"
+                class="btn btn-primary btn-large"
+                type="button"
+                style="
+                  width:100%;
+                  margin-top:20px;
+                "
               >
                 💰 Ajukan Penawaran
               </button>
+
             `
         }
 
@@ -761,39 +966,80 @@ function showNeedDetail(need) {
   `;
 
 
-  modal.classList.remove("hidden");
+  modal.classList.remove(
+    "hidden"
+  );
+
 
   document.body.classList.add(
     "modal-open"
   );
 
 
-  modal
-    .querySelector(".modal-backdrop")
-    ?.addEventListener(
-      "click",
-      () => closeModal("detailModal")
-    );
-
-
   $("closeDetail")
     ?.addEventListener(
       "click",
-      () => closeModal("detailModal")
+      () =>
+        closeModal(
+          "detailModal"
+        )
     );
 
 
-  $("openOfferButton")
+  $("detailBackdrop")
     ?.addEventListener(
       "click",
-      () => {
-
-        closeModal("detailModal");
-
-        openOfferModal(need);
-
-      }
+      () =>
+        closeModal(
+          "detailModal"
+        )
     );
+
+
+  // ==========================================================
+  // PEMILIK: LOAD SEMUA PENAWARAN
+  // ==========================================================
+
+  if (owner) {
+
+    const offers =
+      await loadOffersForNeed(
+        need
+      );
+
+
+    renderOffersForNeed(
+      need,
+      offers
+    );
+
+  }
+
+
+  // ==========================================================
+  // USER LAIN: AJUKAN PENAWARAN
+  // ==========================================================
+
+  if (!owner) {
+
+    $("detailOfferButton")
+      ?.addEventListener(
+        "click",
+        () => {
+
+          closeModal(
+            "detailModal"
+          );
+
+
+          openOfferForm(
+            need
+          );
+
+        }
+      );
+
+  }
 
 }
 
