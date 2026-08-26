@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <meta
+    name="theme-color"
+    content="#2563eb"
+  >
+
+  <title>
+    Proyek - BUTUH
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="style.css"
+  >
+
+
+  <style>
+
+    body {
+      background:#f8fafc;
+    }
+
+
+    .project-page {
+      max-width:1200px;
+      margin:0 auto;
+      padding:30px 20px 80px;
+    }
+
+
+    .project-layout {
+      display:grid;
+      grid-template-columns:
+        minmax(0,1.6fr)
+        minmax(300px,.8fr);
+      gap:22px;
+      align-items:start;
+    }
+
+
+    .project-card {
+      background:#fff;
+      border-radius:20px;
+      box-shadow:
+        0 8px 30px
+        rgba(15,23,42,.07);
+      overflow:hidden;
+    }
+
+
+    .project-header {
+      padding:25px;
+      border-bottom:
+        1px solid #e5e7eb;
+    }
+
+
+    .project-label {
+      color:#2563eb;
+      font-size:12px;
+      font-weight:800;
+      letter-spacing:1px;
+    }
+
+
+    .project-header h1 {
+      margin:8px 0;
+      font-size:26px;
+    }
+
+
+    .project-header p {
+      color:#64748b;
+      line-height:1.7;
+      margin-bottom:0;
+    }
+
+
+    .project-info {
+      padding:20px 25px;
+      display:grid;
+      grid-template-columns:
+        repeat(3,1fr);
+      gap:15px;
+      border-bottom:
+        1px solid #e5e7eb;
+    }
+
+
+    .info-box {
+      background:#f8fafc;
+      border-radius:14px;
+      padding:15px;
+    }
+
+
+    .info-box small {
+      display:block;
+      color:#64748b;
+      margin-bottom:5px;
+    }
+
+
+    .info-box strong {
+      font-size:16px;
+      color:#1e293b;
+    }
+
+
+    .chat-header {
+      padding:18px 25px;
+      border-bottom:
+        1px solid #e5e7eb;
+      font-weight:800;
+    }
+
+
+    .chat-messages {
+      min-height:420px;
+      max-height:600px;
+      overflow-y:auto;
+      padding:20px;
+      background:#f8fafc;
+    }
+
+
+    .message {
+      max-width:80%;
+      padding:12px 15px;
+      border-radius:16px;
+      margin-bottom:12px;
+      line-height:1.5;
+      word-break:break-word;
+    }
+
+
+    .message.mine {
+      margin-left:auto;
+      background:#2563eb;
+      color:#fff;
+      border-bottom-right-radius:4px;
+    }
+
+
+    .message.other {
+      background:#fff;
+      color:#1e293b;
+      border:
+        1px solid #e5e7eb;
+      border-bottom-left-radius:4px;
+    }
+
+
+    .message-name {
+      font-size:11px;
+      font-weight:800;
+      margin-bottom:5px;
+      opacity:.8;
+    }
+
+
+    .message-time {
+      font-size:10px;
+      margin-top:7px;
+      opacity:.7;
+    }
+
+
+    .chat-form {
+      display:flex;
+      gap:10px;
+      padding:18px;
+      border-top:
+        1px solid #e5e7eb;
+    }
+
+
+    .chat-form textarea {
+      flex:1;
+      min-height:50px;
+      max-height:120px;
+      resize:vertical;
+      padding:13px;
+      border:
+        1px solid #d1d5db;
+      border-radius:12px;
+      font:inherit;
+    }
+
+
+    .side-card {
+      background:#fff;
+      border-radius:20px;
+      padding:22px;
+      box-shadow:
+        0 8px 30px
+        rgba(15,23,42,.07);
+      margin-bottom:20px;
+    }
+
+
+    .side-card h3 {
+      margin-top:0;
+    }
+
+
+    .person-row {
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:12px 0;
+      border-bottom:
+        1px solid #f1f5f9;
+    }
+
+
+    .person-row:last-child {
+      border-bottom:none;
+    }
+
+
+    .person-avatar {
+      width:45px;
+      height:45px;
+      border-radius:50%;
+      object-fit:cover;
+    }
+
+
+    .person-info {
+      flex:1;
+    }
+
+
+    .person-info strong {
+      display:block;
+    }
+
+
+    .person-info small {
+      color:#64748b;
+    }
+
+
+    .project-status {
+      padding:8px 12px;
+      border-radius:999px;
+      display:inline-block;
+      font-size:12px;
+      font-weight:800;
+      background:#eff6ff;
+      color:#2563eb;
+    }
+
+
+    .status-active {
+      background:#eff6ff;
+      color:#2563eb;
+    }
+
+
+    .status-waiting {
+      background:#fff7ed;
+      color:#c2410c;
+    }
+
+
+    .status-completed {
+      background:#f0fdf4;
+      color:#15803d;
+    }
+
+
+    .complete-box {
+      padding:15px;
+      border-radius:14px;
+      background:#f8fafc;
+      margin-top:15px;
+    }
+
+
+    .loading-project {
+      text-align:center;
+      padding:80px 20px;
+      color:#64748b;
+    }
+
+
+    @media(max-width:800px) {
+
+      .project-layout {
+        grid-template-columns:1fr;
+      }
+
+
+      .project-info {
+        grid-template-columns:1fr;
+      }
+
+
+      .chat-messages {
+        min-height:350px;
+      }
+
+    }
+
+  </style>
+
+</head>
+
+
+<body>
+
+
+<header class="header">
+
+  <div class="header-inner">
+
+    <a
+      href="index.html"
+      class="logo"
+    >
+
+      <span class="logo-icon">
+        B
+      </span>
+
+      <span class="logo-text">
+        BUTUH
+      </span>
+
+    </a>
+
+
+    <nav class="nav">
+
+      <a
+        href="index.html"
+        class="nav-link"
+      >
+        🏠 Beranda
+      </a>
+
+
+      <a
+        href="profile.html"
+        class="btn btn-outline"
+      >
+        👤 Profil
+      </a>
+
+    </nav>
+
+  </div>
+
+</header>
+
+
+<main
+  class="project-page"
+>
+
+
+  <div
+    id="projectLoading"
+    class="loading-project"
+  >
+
+    <div class="spinner"></div>
+
+    Memuat proyek...
+
+  </div>
+
+
+  <div
+    id="projectContent"
+    style="display:none"
+  >
+
+    <div class="project-layout">
+
+
+      <!-- LEFT -->
+
+      <div
+        class="project-card"
+      >
+
+
+        <div
+          class="project-header"
+        >
+
+          <div
+            class="project-label"
+          >
+            PROYEK AKTIF
+          </div>
+
+
+          <h1
+            id="projectTitle"
+          >
+            -
+          </h1>
+
+
+          <p
+            id="projectDescription"
+          >
+            -
+          </p>
+
+
+          <br>
+
+
+          <span
+            id="projectStatus"
+            class="project-status"
+          >
+            Aktif
+          </span>
+
+        </div>
+
+
+        <div
+          class="project-info"
+        >
+
+          <div
+            class="info-box"
+          >
+
+            <small>
+              Harga Disepakati
+            </small>
+
+            <strong
+              id="projectPrice"
+            >
+              Rp 0
+            </strong>
+
+          </div>
+
+
+          <div
+            class="info-box"
+          >
+
+            <small>
+              Lama Pengerjaan
+            </small>
+
+            <strong
+              id="projectDuration"
+            >
+              -
+            </strong>
+
+          </div>
+
+
+          <div
+            class="info-box"
+          >
+
+            <small>
+              Status
+            </small>
+
+            <strong
+              id="projectStatusText"
+            >
+              Aktif
+            </strong>
+
+          </div>
+
+        </div>
+
+
+        <!-- CHAT -->
+
+        <div
+          class="chat-header"
+        >
+          💬 Diskusi Proyek
+        </div>
+
+
+        <div
+          id="chatMessages"
+          class="chat-messages"
+        >
+
+          Memuat pesan...
+
+        </div>
+
+
+        <form
+          id="chatForm"
+          class="chat-form"
+        >
+
+          <textarea
+            id="chatInput"
+            maxlength="2000"
+            placeholder="Tulis pesan..."
+            required
+          ></textarea>
+
+
+          <button
+            id="sendMessage"
+            type="submit"
+            class="btn btn-primary"
+          >
+            Kirim
+          </button>
+
+        </form>
+
+
+      </div>
+
+
+      <!-- RIGHT -->
+
+      <aside>
+
+
+        <div
+          class="side-card"
+        >
+
+          <h3>
+            👥 Anggota Proyek
+          </h3>
+
+
+          <div
+            id="projectMembers"
+          ></div>
+
+        </div>
+
+
+        <div
+          class="side-card"
+        >
+
+          <h3>
+            ✅ Penyelesaian
+          </h3>
+
+
+          <div
+            id="completionStatus"
+          ></div>
+
+
+          <div
+            class="complete-box"
+          >
+
+            <button
+              id="completeProjectBtn"
+              type="button"
+              class="btn btn-primary"
+              style="width:100%"
+            >
+              ✓ Tandai Pekerjaan Selesai
+            </button>
+
+          </div>
+
+        </div>
+
+
+      </aside>
+
+
+    </div>
+
+  </div>
+
+
+</main>
+
+
+<script
+  type="module"
+  src="project.js"
+></script>
+
+
+</body>
+
+</html>
