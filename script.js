@@ -1,19 +1,6 @@
 // ============================================================
 // BUTUH - SCRIPT.JS
-// VERSI MARKETPLACE TRANSAKSI
-//
-// ALUR:
-// Kebutuhan
-// -> Penawaran
-// -> Terima
-// -> Transaksi
-// -> Chat
-// -> Pekerjaan
-// -> Selesai
-// -> Konfirmasi
-// -> Pembayaran
-//
-// Firebase SDK 12.1.0
+// STABLE FIREBASE VERSION
 // ============================================================
 
 import {
@@ -39,10 +26,7 @@ import {
   where,
   onSnapshot,
   serverTimestamp,
-  updateDoc,
-  writeBatch,
-  orderBy,
-  limit
+  updateDoc
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 
@@ -61,19 +45,39 @@ const firebaseConfig = {
 
 
 // ============================================================
-// FIREBASE INIT
+// INIT
 // ============================================================
 
-const app =
-  getApps().length
-    ? getApp()
-    : initializeApp(firebaseConfig);
+let app;
+let auth;
+let db;
 
-const auth =
-  getAuth(app);
+try {
 
-const db =
-  getFirestore(app);
+  app =
+    getApps().length
+      ? getApp()
+      : initializeApp(firebaseConfig);
+
+  auth = getAuth(app);
+
+  db = getFirestore(app);
+
+  console.log("✅ Firebase berhasil diinisialisasi");
+
+} catch (error) {
+
+  console.error(
+    "❌ FIREBASE INIT ERROR:",
+    error
+  );
+
+  showFirebaseError(
+    "Firebase gagal diinisialisasi",
+    error
+  );
+
+}
 
 
 // ============================================================
@@ -81,83 +85,241 @@ const db =
 // ============================================================
 
 let currentUser = null;
-
-let authReady = false;
-
 let needsCache = [];
-
-let currentDetailNeed = null;
-
-let currentTransaction = null;
-
 let unsubscribeNeeds = null;
 
-let unsubscribeChat = null;
-
 let isSubmittingNeed = false;
-
 let isSubmittingOffer = false;
-
 let isUpdatingOffer = false;
-
-let isSendingMessage = false;
-
-let isUpdatingTransaction = false;
 
 
 // ============================================================
 // HELPER
 // ============================================================
 
-const $ = id =>
-  document.getElementById(id);
+function $(id) {
+  return document.getElementById(id);
+}
+
+
+function setText(id, value) {
+
+  const el = $(id);
+
+  if (el) {
+    el.textContent = String(value ?? "");
+  }
+
+}
+
+
+function escapeHTML(value) {
+
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+}
+
+
+// ============================================================
+// FIREBASE ERROR
+// ============================================================
+
+function showFirebaseError(title, error) {
+
+  console.error(title, error);
+
+  const container =
+    $("needsList");
+
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = `
+
+    <div class="error-state"
+      style="
+        padding:25px;
+        background:#fff1f2;
+        border:1px solid #fecdd3;
+        border-radius:15px;
+      ">
+
+      <div
+        style="
+          font-size:35px;
+          margin-bottom:10px;
+        "
+      >
+        ⚠️
+      </div>
+
+      <strong>
+        ${escapeHTML(title)}
+      </strong>
+
+      <p
+        style="
+          margin-top:10px;
+          color:#991b1b;
+          word-break:break-word;
+        "
+      >
+        ${escapeHTML(
+          error?.message ||
+          "Terjadi kesalahan Firebase."
+        )}
+      </p>
+
+      <button
+        id="reloadFirebase"
+        class="btn btn-primary"
+        type="button"
+        style="margin-top:10px"
+      >
+        🔄 Muat Ulang
+      </button>
+
+    </div>
+
+  `;
+
+  $("reloadFirebase")
+    ?.addEventListener(
+      "click",
+      () => window.location.reload()
+    );
+
+}
 
 
 // ============================================================
 // AUTH
 // ============================================================
 
-onAuthStateChanged(
-  auth,
-  async user => {
+if (auth) {
 
-    currentUser = user;
+  onAuthStateChanged(
 
-    authReady = true;
+    auth,
 
-    updateUserUI(user);
+    async user => {
 
-    if (user) {
+      console.log(
+        "AUTH STATE:",
+        user
+      );
+
+      currentUser = user;
+
+      if (!user) {
+
+        console.warn(
+          "⚠️ Tidak ada user login"
+        );
+
+        showLoggedOut();
+
+        return;
+
+      }
+
+      console.log(
+        "✅ Login:",
+        user.uid,
+        user.email
+      );
+
+      updateUserUI(user);
 
       loadNeeds();
 
-      openNeedFromURL();
+    },
 
-    } else {
+    error => {
 
-      if (unsubscribeNeeds) {
+      console.error(
+        "❌ AUTH ERROR:",
+        error
+      );
 
-        unsubscribeNeeds();
-
-        unsubscribeNeeds = null;
-
-      }
-
-      if (unsubscribeChat) {
-
-        unsubscribeChat();
-
-        unsubscribeChat = null;
-
-      }
-
-      needsCache = [];
-
-      showLoggedOut();
+      showFirebaseError(
+        "Firebase Authentication bermasalah",
+        error
+      );
 
     }
 
-  }
+  );
+
+}
+
+
+// ============================================================
+// AUTH TIMEOUT
+// ============================================================
+
+// Jangan biarkan halaman berputar selamanya.
+
+setTimeout(
+  () => {
+
+    const container =
+      $("needsList");
+
+    if (
+      container &&
+      container.textContent.includes(
+        "Memuat kebutuhan"
+      )
+    ) {
+
+      console.warn(
+        "⚠️ AUTH/FIREBASE TIMEOUT"
+      );
+
+      container.innerHTML = `
+
+        <div class="error-state"
+          style="
+            padding:25px;
+            text-align:center;
+          "
+        >
+
+          <div style="font-size:40px">
+            ⏳
+          </div>
+
+          <strong>
+            Firebase tidak merespons
+          </strong>
+
+          <p>
+            Koneksi Firebase/Auth belum berhasil.
+          </p>
+
+          <button
+            class="btn btn-primary"
+            type="button"
+            onclick="location.reload()"
+          >
+            🔄 Coba Lagi
+          </button>
+
+        </div>
+
+      `;
+
+    }
+
+  },
+  10000
 );
 
 
@@ -167,47 +329,17 @@ onAuthStateChanged(
 
 function updateUserUI(user) {
 
-  if (!user) {
-
-    setText(
-      "userName",
-      "Pengguna"
-    );
-
-    setText(
-      "menuUserName",
-      "Pengguna"
-    );
-
-    setText(
-      "userEmail",
-      ""
-    );
-
-    setText(
-      "menuUserEmail",
-      ""
-    );
-
-    return;
-  }
-
-
   const name =
     user.displayName ||
     user.email?.split("@")[0] ||
     "Pengguna";
 
-
   const email =
-    user.email ||
-    "";
-
+    user.email || "";
 
   const photo =
     user.photoURL ||
-    avatar(name);
-
+    createAvatar(name);
 
   setText(
     "userName",
@@ -229,16 +361,19 @@ function updateUserUI(user) {
     email
   );
 
+  const userPhoto =
+    $("userPhoto");
 
-  setImage(
-    "userPhoto",
-    photo
-  );
+  const menuPhoto =
+    $("menuUserPhoto");
 
-  setImage(
-    "menuUserPhoto",
-    photo
-  );
+  if (userPhoto) {
+    userPhoto.src = photo;
+  }
+
+  if (menuPhoto) {
+    menuPhoto.src = photo;
+  }
 
 }
 
@@ -249,14 +384,33 @@ function updateUserUI(user) {
 
 function loadNeeds() {
 
+  console.log(
+    "📡 Memuat kebutuhan..."
+  );
+
   const container =
     $("needsList");
 
-
   if (!container) {
+
+    console.error(
+      "❌ needsList tidak ditemukan"
+    );
+
     return;
+
   }
 
+  if (!db) {
+
+    showFirebaseError(
+      "Firestore tidak tersedia",
+      new Error("Database belum berhasil dibuat.")
+    );
+
+    return;
+
+  }
 
   if (unsubscribeNeeds) {
 
@@ -265,6 +419,24 @@ function loadNeeds() {
     unsubscribeNeeds = null;
 
   }
+
+  container.innerHTML = `
+
+    <div class="loading-box">
+
+      <div class="loading-spinner"></div>
+
+      <strong>
+        Memuat kebutuhan...
+      </strong>
+
+      <small>
+        Menghubungkan ke Firestore
+      </small>
+
+    </div>
+
+  `;
 
 
   const needsRef =
@@ -281,16 +453,19 @@ function loadNeeds() {
 
       snapshot => {
 
-        const needs = [];
+        console.log(
+          "✅ FIRESTORE NEEDS:",
+          snapshot.size
+        );
 
+        needsCache = [];
 
         snapshot.forEach(
           item => {
 
-            needs.push({
+            needsCache.push({
 
-              id:
-                item.id,
+              id: item.id,
 
               ...item.data()
 
@@ -300,29 +475,20 @@ function loadNeeds() {
         );
 
 
-        needs.sort(
+        needsCache.sort(
           (a, b) =>
             getTime(b.createdAt) -
             getTime(a.createdAt)
         );
 
 
-        needsCache =
-          needs;
-
-
         renderNeeds(
-          needs
+          needsCache
         );
 
 
-        updateBasicCounters(
-          needs
-        );
-
-
-        loadMyOfferCountFast(
-          needs
+        updateCounters(
+          needsCache
         );
 
       },
@@ -330,49 +496,14 @@ function loadNeeds() {
       error => {
 
         console.error(
-          "LOAD NEEDS ERROR:",
+          "❌ FIRESTORE ERROR:",
           error
         );
 
-
-        container.innerHTML = `
-
-          <div class="loading-box">
-
-            <div class="empty-icon">
-              ⚠️
-            </div>
-
-            <strong>
-              Gagal memuat kebutuhan
-            </strong>
-
-            <small>
-              ${escapeHTML(
-                error.message ||
-                "Terjadi kesalahan."
-              )}
-            </small>
-
-            <button
-              id="retryNeedsBtn"
-              class="btn btn-primary"
-              type="button"
-              style="margin-top:15px"
-            >
-              🔄 Coba Lagi
-            </button>
-
-          </div>
-
-        `;
-
-
-        $("retryNeedsBtn")
-          ?.addEventListener(
-            "click",
-            loadNeeds
-          );
+        showFirebaseError(
+          "Gagal membaca Firestore",
+          error
+        );
 
       }
 
@@ -390,7 +521,6 @@ function renderNeeds(needs) {
   const container =
     $("needsList");
 
-
   if (!container) {
     return;
   }
@@ -402,7 +532,12 @@ function renderNeeds(needs) {
 
       <div class="loading-box">
 
-        <div class="empty-icon">
+        <div
+          style="
+            font-size:40px;
+            margin-bottom:10px;
+          "
+        >
           📭
         </div>
 
@@ -419,14 +554,14 @@ function renderNeeds(needs) {
     `;
 
     return;
+
   }
 
 
   container.innerHTML =
     needs
       .map(
-        need =>
-          createNeedCard(need)
+        createNeedCard
       )
       .join("");
 
@@ -439,41 +574,9 @@ function renderNeeds(needs) {
 
 function createNeedCard(need) {
 
-  const title =
-    escapeHTML(
-      need.title ||
-      "Tanpa judul"
-    );
-
-
-  const description =
-    escapeHTML(
-      truncate(
-        need.description ||
-        "",
-        160
-      )
-    );
-
-
-  const category =
-    escapeHTML(
-      getCategory(
-        need.category
-      )
-    );
-
-
-  const budget =
-    formatMoney(
-      need.budget
-    );
-
-
   const owner =
     need.ownerId ===
     currentUser?.uid;
-
 
   const status =
     String(
@@ -500,15 +603,23 @@ function createNeedCard(need) {
         <div>
 
           <span class="need-category">
-            ${category}
+
+            ${escapeHTML(
+              getCategory(
+                need.category
+              )
+            )}
+
           </span>
 
           <h3>
-            ${title}
+            ${escapeHTML(
+              need.title ||
+              "Tanpa judul"
+            )}
           </h3>
 
         </div>
-
 
         ${
           owner
@@ -524,7 +635,15 @@ function createNeedCard(need) {
 
 
       <p class="need-description">
-        ${description}
+
+        ${escapeHTML(
+          truncate(
+            need.description ||
+            "",
+            160
+          )
+        )}
+
       </p>
 
 
@@ -533,13 +652,19 @@ function createNeedCard(need) {
         <div>
 
           <div class="need-budget">
-            Rp ${budget}
+
+            Rp ${formatMoney(
+              need.budget
+            )}
+
           </div>
 
           <div class="need-date">
+
             📅 ${formatDate(
               need.createdAt
             )}
+
           </div>
 
         </div>
@@ -555,6 +680,7 @@ function createNeedCard(need) {
           data-action="detail"
           data-id="${escapeHTML(need.id)}"
         >
+
           ${
             owner
               ? "👁️ Lihat"
@@ -562,6 +688,7 @@ function createNeedCard(need) {
                 ? "💰 Tawarkan"
                 : "👁️ Lihat"
           }
+
         </button>
 
       </div>
@@ -577,7 +704,7 @@ function createNeedCard(need) {
 // COUNTERS
 // ============================================================
 
-function updateBasicCounters(needs) {
+function updateCounters(needs) {
 
   const active =
     needs.filter(
@@ -588,7 +715,6 @@ function updateBasicCounters(needs) {
             need.status ||
             "open"
           ).toLowerCase();
-
 
         return (
           status === "open" ||
@@ -613,116 +739,10 @@ function updateBasicCounters(needs) {
     active
   );
 
-
   setText(
     "userNeedsCount",
     mine
   );
-
-}
-
-
-// ============================================================
-// COUNT OFFERS
-// ============================================================
-
-async function loadMyOfferCountFast(
-  needs
-) {
-
-  if (!currentUser) {
-
-    setText(
-      "userOffersCount",
-      "0"
-    );
-
-    return;
-  }
-
-
-  if (!needs.length) {
-
-    setText(
-      "userOffersCount",
-      "0"
-    );
-
-    return;
-  }
-
-
-  try {
-
-    const requests =
-      needs.map(
-        async need => {
-
-          try {
-
-            const offersRef =
-              collection(
-                db,
-                "needs",
-                need.id,
-                "offers"
-              );
-
-
-            const q =
-              query(
-                offersRef,
-                where(
-                  "providerId",
-                  "==",
-                  currentUser.uid
-                )
-              );
-
-
-            const snapshot =
-              await getDocs(q);
-
-
-            return snapshot.size;
-
-          } catch {
-
-            return 0;
-
-          }
-
-        }
-      );
-
-
-    const results =
-      await Promise.all(
-        requests
-      );
-
-
-    const total =
-      results.reduce(
-        (sum, value) =>
-          sum + value,
-        0
-      );
-
-
-    setText(
-      "userOffersCount",
-      total
-    );
-
-  } catch (error) {
-
-    console.warn(
-      "COUNT OFFERS ERROR:",
-      error
-    );
-
-  }
 
 }
 
@@ -735,24 +755,23 @@ async function submitNeed(event) {
 
   event.preventDefault();
 
-
   if (isSubmittingNeed) {
     return;
   }
 
-
   if (!currentUser) {
 
-    window.location.href =
-      "login.html";
+    alert(
+      "Silakan login terlebih dahulu."
+    );
 
     return;
+
   }
 
 
   const form =
     event.target;
-
 
   const title =
     String(
@@ -760,31 +779,21 @@ async function submitNeed(event) {
       ""
     ).trim();
 
-
   const description =
     String(
       form.description?.value ||
       ""
     ).trim();
 
-
   const category =
     form.category?.value ||
     "other";
 
-
-  const rawBudget =
-    String(
-      form.budget?.value ||
-      ""
-    ).trim();
-
-
   const budget =
     Number(
-      rawBudget
+      form.budget?.value ||
+      0
     );
-
 
   const deadline =
     form.deadline?.value ||
@@ -794,22 +803,22 @@ async function submitNeed(event) {
   if (!title) {
 
     alert(
-      "Judul kebutuhan wajib diisi."
+      "Judul wajib diisi."
     );
 
     return;
-  }
 
+  }
 
   if (!description) {
 
     alert(
-      "Deskripsi kebutuhan wajib diisi."
+      "Deskripsi wajib diisi."
     );
 
     return;
-  }
 
+  }
 
   if (
     !Number.isFinite(budget) ||
@@ -817,32 +826,25 @@ async function submitNeed(event) {
   ) {
 
     alert(
-      "Masukkan budget yang valid."
+      "Budget tidak valid."
     );
 
     return;
+
   }
 
 
-  isSubmittingNeed =
-    true;
+  isSubmittingNeed = true;
 
 
   const button =
     $("submitNeed");
 
-
-  const original =
-    button?.innerHTML ||
-    "🚀 Posting Kebutuhan";
-
-
   if (button) {
 
-    button.disabled =
-      true;
+    button.disabled = true;
 
-    button.innerHTML =
+    button.textContent =
       "⏳ Menyimpan...";
 
   }
@@ -851,10 +853,12 @@ async function submitNeed(event) {
   try {
 
     await addDoc(
+
       collection(
         db,
         "needs"
       ),
+
       {
 
         title,
@@ -893,16 +897,18 @@ async function submitNeed(event) {
           serverTimestamp()
 
       }
+
     );
 
 
     form.reset();
 
-    closeNeedModal();
-
+    closeModal(
+      "needModal"
+    );
 
     showToast(
-      "✅ Kebutuhan berhasil diposting!"
+      "✅ Kebutuhan berhasil diposting"
     );
 
 
@@ -913,7 +919,6 @@ async function submitNeed(event) {
       error
     );
 
-
     alert(
       "Gagal menyimpan kebutuhan:\n\n" +
       error.message
@@ -921,17 +926,14 @@ async function submitNeed(event) {
 
   } finally {
 
-    isSubmittingNeed =
-      false;
-
+    isSubmittingNeed = false;
 
     if (button) {
 
-      button.disabled =
-        false;
+      button.disabled = false;
 
-      button.innerHTML =
-        original;
+      button.textContent =
+        "🚀 Posting Kebutuhan";
 
     }
 
@@ -941,102 +943,81 @@ async function submitNeed(event) {
 
 
 // ============================================================
-// OPEN NEED DETAIL
+// OPEN DETAIL
 // ============================================================
 
 window.openNeedDetail =
-  async function(
-    needId
-  ) {
+  async function(needId) {
 
     if (!needId) {
       return;
     }
 
 
-    const cached =
+    let need =
       needsCache.find(
-        need =>
-          need.id ===
-          needId
+        item =>
+          item.id === needId
       );
 
 
-    if (cached) {
+    if (!need) {
 
-      showNeedDetail(
-        cached
-      );
+      try {
 
-      return;
-    }
+        const snap =
+          await getDoc(
+            doc(
+              db,
+              "needs",
+              needId
+            )
+          );
 
+        if (!snap.exists()) {
 
-    try {
+          alert(
+            "Kebutuhan tidak ditemukan."
+          );
 
-      const ref =
-        doc(
-          db,
-          "needs",
-          needId
-        );
+          return;
 
+        }
 
-      const snap =
-        await getDoc(
-          ref
-        );
+        need = {
 
+          id: snap.id,
 
-      if (!snap.exists()) {
+          ...snap.data()
+
+        };
+
+      } catch (error) {
 
         alert(
-          "Kebutuhan tidak ditemukan."
+          "Gagal membuka kebutuhan:\n\n" +
+          error.message
         );
 
         return;
+
       }
 
-
-      showNeedDetail({
-
-        id:
-          snap.id,
-
-        ...snap.data()
-
-      });
-
-
-    } catch (error) {
-
-      console.error(
-        "DETAIL ERROR:",
-        error
-      );
-
-
-      alert(
-        "Gagal membuka kebutuhan:\n\n" +
-        error.message
-      );
-
     }
+
+
+    showNeedDetail(
+      need
+    );
 
   };
 
 
 // ============================================================
-// SHOW NEED DETAIL
+// DETAIL
 // ============================================================
 
-async function showNeedDetail(
-  need
-) {
-
-  currentDetailNeed =
-    need;
-
+async function showNeedDetail(need) {
 
   let modal =
     $("detailModal");
@@ -1062,16 +1043,9 @@ async function showNeedDetail(
   }
 
 
-  const isOwner =
+  const owner =
     need.ownerId ===
     currentUser?.uid;
-
-
-  const status =
-    String(
-      need.status ||
-      "open"
-    ).toLowerCase();
 
 
   modal.innerHTML = `
@@ -1081,7 +1055,6 @@ async function showNeedDetail(
       id="detailBackdrop"
     ></div>
 
-
     <div class="modal-content">
 
       <div class="modal-header">
@@ -1089,7 +1062,7 @@ async function showNeedDetail(
         <div>
 
           <span class="section-label">
-            DETAIL KEBUTUHAN
+            DETAIL
           </span>
 
           <h2>
@@ -1100,7 +1073,6 @@ async function showNeedDetail(
           </h2>
 
         </div>
-
 
         <button
           id="closeDetail"
@@ -1115,10 +1087,7 @@ async function showNeedDetail(
 
       <div style="padding:22px">
 
-        <p style="
-          line-height:1.7;
-          color:#374151;
-        ">
+        <p style="line-height:1.7">
           ${escapeHTML(
             need.description ||
             ""
@@ -1126,34 +1095,37 @@ async function showNeedDetail(
         </p>
 
 
-        <div style="
-          background:#eff6ff;
-          padding:16px;
-          border-radius:12px;
-          margin:20px 0;
-        ">
+        <div
+          style="
+            padding:18px;
+            margin:20px 0;
+            background:#eff6ff;
+            border-radius:12px;
+          "
+        >
 
           <small>
             Budget
           </small>
 
-          <div style="
-            font-size:24px;
-            font-weight:800;
-            color:#2563eb;
-          ">
+          <div
+            style="
+              font-size:25px;
+              font-weight:800;
+              color:#2563eb;
+            "
+          >
+
             Rp ${formatMoney(
               need.budget
             )}
+
           </div>
 
         </div>
 
 
-        <div style="
-          line-height:1.9;
-          color:#4b5563;
-        ">
+        <div>
 
           👤 ${escapeHTML(
             need.ownerName ||
@@ -1174,37 +1146,18 @@ async function showNeedDetail(
             need.createdAt
           )}
 
-          ${
-            need.deadline
-              ? `
-                <br>
-                ⏰ Deadline:
-                ${escapeHTML(
-                  need.deadline
-                )}
-              `
-              : ""
-          }
-
-          <br>
-
-          📌 Status:
-          ${escapeHTML(
-            getNeedStatusText(
-              status
-            )
-          )}
-
         </div>
 
 
         ${
-          isOwner
+          owner
             ? `
 
-              <div style="
-                margin-top:25px
-              ">
+              <div
+                style="
+                  margin-top:25px
+                "
+              >
 
                 <h3>
                   💰 Penawaran Masuk
@@ -1213,11 +1166,7 @@ async function showNeedDetail(
                 <div id="incomingOffersList">
 
                   <div class="loading-state">
-
-                    <div class="spinner"></div>
-
                     Memuat penawaran...
-
                   </div>
 
                 </div>
@@ -1225,37 +1174,22 @@ async function showNeedDetail(
               </div>
 
             `
-            : status === "open"
-              ? `
+            : `
 
-                <button
-                  id="detailOfferButton"
-                  class="btn btn-primary btn-large"
-                  type="button"
-                  style="
-                    width:100%;
-                    margin-top:25px;
-                  "
-                >
-                  💰 Ajukan Penawaran
-                </button>
-
-              `
-              : `
-
-                <div style="
+              <button
+                id="detailOfferButton"
+                class="btn btn-primary"
+                type="button"
+                style="
+                  width:100%;
                   margin-top:25px;
-                  padding:15px;
-                  border-radius:12px;
-                  background:#f3f4f6;
-                ">
-                  🔒 Kebutuhan ini sudah tidak
-                  menerima penawaran.
-                </div>
+                "
+              >
+                💰 Ajukan Penawaran
+              </button>
 
-              `
+            `
         }
-
 
       </div>
 
@@ -1267,7 +1201,6 @@ async function showNeedDetail(
   modal.classList.remove(
     "hidden"
   );
-
 
   document.body.classList.add(
     "modal-open"
@@ -1294,7 +1227,7 @@ async function showNeedDetail(
     );
 
 
-  if (isOwner) {
+  if (owner) {
 
     loadIncomingOffers(
       need
@@ -1324,16 +1257,13 @@ async function showNeedDetail(
 
 
 // ============================================================
-// LOAD INCOMING OFFERS
+// INCOMING OFFERS
 // ============================================================
 
-async function loadIncomingOffers(
-  need
-) {
+async function loadIncomingOffers(need) {
 
   const container =
     $("incomingOffersList");
-
 
   if (!container) {
     return;
@@ -1342,18 +1272,14 @@ async function loadIncomingOffers(
 
   try {
 
-    const offersRef =
-      collection(
-        db,
-        "needs",
-        need.id,
-        "offers"
-      );
-
-
     const snapshot =
       await getDocs(
-        offersRef
+        collection(
+          db,
+          "needs",
+          need.id,
+          "offers"
+        )
       );
 
 
@@ -1365,8 +1291,7 @@ async function loadIncomingOffers(
 
         offers.push({
 
-          id:
-            item.id,
+          id: item.id,
 
           ...item.data()
 
@@ -1397,16 +1322,12 @@ async function loadIncomingOffers(
             Belum ada penawaran
           </strong>
 
-          <p>
-            Belum ada penyedia yang
-            mengajukan penawaran.
-          </p>
-
         </div>
 
       `;
 
       return;
+
     }
 
 
@@ -1414,7 +1335,7 @@ async function loadIncomingOffers(
       offers
         .map(
           offer =>
-            createIncomingOfferCard(
+            createOfferCard(
               need,
               offer
             )
@@ -1433,26 +1354,14 @@ async function loadIncomingOffers(
             "click",
             async () => {
 
-              const action =
-                button.dataset.offerAction;
-
-
-              const offerId =
-                button.dataset.offerId;
-
-
-              if (
-                !action ||
-                !offerId
-              ) {
-                return;
-              }
-
-
               await updateOfferStatus(
+
                 need,
-                offerId,
-                action
+
+                button.dataset.offerId,
+
+                button.dataset.offerAction
+
               );
 
             }
@@ -1465,29 +1374,28 @@ async function loadIncomingOffers(
   } catch (error) {
 
     console.error(
-      "LOAD INCOMING OFFERS ERROR:",
+      "LOAD OFFERS ERROR:",
       error
     );
 
-
     container.innerHTML = `
 
-      <div class="error-state">
+      <div
+        style="
+          padding:15px;
+          background:#fff1f2;
+          color:#991b1b;
+          border-radius:12px;
+        "
+      >
 
-        <div class="error-icon">
-          ⚠️
-        </div>
+        ⚠️ Gagal memuat penawaran
 
-        <strong>
-          Gagal memuat penawaran
-        </strong>
+        <br><br>
 
-        <p>
-          ${escapeHTML(
-            error.message ||
-            "Terjadi kesalahan."
-          )}
-        </p>
+        ${escapeHTML(
+          error.message
+        )}
 
       </div>
 
@@ -1502,7 +1410,7 @@ async function loadIncomingOffers(
 // OFFER CARD
 // ============================================================
 
-function createIncomingOfferCard(
+function createOfferCard(
   need,
   offer
 ) {
@@ -1513,87 +1421,12 @@ function createIncomingOfferCard(
     );
 
 
-  let actions = "";
-
-
-  if (
-    status === "pending" &&
-    need.status === "open"
-  ) {
-
-    actions = `
-
-      <div style="
-        display:flex;
-        gap:8px;
-        margin-top:12px;
-        flex-wrap:wrap;
-      ">
-
-        <button
-          type="button"
-          class="btn btn-primary"
-          data-offer-action="accepted"
-          data-offer-id="${escapeHTML(
-            offer.id
-          )}"
-        >
-          ✓ Terima
-        </button>
-
-
-        <button
-          type="button"
-          class="btn btn-outline"
-          data-offer-action="rejected"
-          data-offer-id="${escapeHTML(
-            offer.id
-          )}"
-        >
-          ✕ Tolak
-        </button>
-
-      </div>
-
-    `;
-
-  }
-
-
-  if (
-    status === "accepted"
-  ) {
-
-    actions = `
-
-      <div style="
-        margin-top:14px;
-      ">
-
-        <button
-          type="button"
-          class="btn btn-primary"
-          data-transaction-action="open"
-          data-need-id="${escapeHTML(
-            need.id
-          )}"
-          data-offer-id="${escapeHTML(
-            offer.id
-          )}"
-        >
-          💬 Buka Transaksi & Chat
-        </button>
-
-      </div>
-
-    `;
-
-  }
-
-
   return `
 
-    <div class="history-card">
+    <div
+      class="history-card"
+      style="margin-top:12px"
+    >
 
       <div class="history-main">
 
@@ -1604,21 +1437,22 @@ function createIncomingOfferCard(
           )}
         </h3>
 
-
         <div class="offer-price">
+
           Rp ${formatMoney(
             offer.price
           )}
+
         </div>
 
-
         <p>
+
           ${escapeHTML(
             offer.message ||
             ""
           )}
-        </p>
 
+        </p>
 
         <div class="history-meta">
 
@@ -1629,24 +1463,58 @@ function createIncomingOfferCard(
             )}
           </span>
 
-
-          <span>
-            📅 ${formatDate(
-              offer.createdAt
-            )}
-          </span>
-
         </div>
 
 
-        ${actions}
+        ${
+          status === "pending"
+            ? `
+
+              <div
+                style="
+                  display:flex;
+                  gap:8px;
+                  margin-top:12px;
+                  flex-wrap:wrap;
+                "
+              >
+
+                <button
+                  class="btn btn-primary"
+                  type="button"
+                  data-offer-action="accepted"
+                  data-offer-id="${escapeHTML(
+                    offer.id
+                  )}"
+                >
+                  ✓ Terima
+                </button>
+
+                <button
+                  class="btn btn-outline"
+                  type="button"
+                  data-offer-action="rejected"
+                  data-offer-id="${escapeHTML(
+                    offer.id
+                  )}"
+                >
+                  ✕ Tolak
+                </button>
+
+              </div>
+
+            `
+            : ""
+        }
 
       </div>
 
 
-      <span class="status ${
-        getStatusClass(status)
-      }">
+      <span
+        class="status ${
+          getStatusClass(status)
+        }"
+      >
 
         ${getStatusText(status)}
 
@@ -1660,7 +1528,7 @@ function createIncomingOfferCard(
 
 
 // ============================================================
-// UPDATE OFFER STATUS
+// UPDATE OFFER
 // ============================================================
 
 async function updateOfferStatus(
@@ -1677,138 +1545,55 @@ async function updateOfferStatus(
   }
 
 
-  if (
-    need.ownerId !==
-    currentUser.uid
-  ) {
-
-    alert(
-      "Anda bukan pemilik kebutuhan ini."
-    );
-
-    return;
-  }
-
-
-  isUpdatingOffer =
-    true;
+  isUpdatingOffer = true;
 
 
   try {
 
-    const user =
-      auth.currentUser;
+    console.log(
+      "Mengubah offer:",
+      need.id,
+      offerId,
+      newStatus
+    );
 
 
-    if (!user) {
+    await updateDoc(
 
-      throw new Error(
-        "Sesi login telah berakhir."
-      );
-
-    }
-
-
-    const needRef =
-      doc(
-        db,
-        "needs",
-        need.id
-      );
-
-
-    const needSnapshot =
-      await getDoc(
-        needRef
-      );
-
-
-    if (!needSnapshot.exists()) {
-
-      throw new Error(
-        "Kebutuhan tidak ditemukan."
-      );
-
-    }
-
-
-    const latestNeed =
-      needSnapshot.data();
-
-
-    if (
-      latestNeed.ownerId !==
-      user.uid
-    ) {
-
-      throw new Error(
-        "Anda bukan pemilik kebutuhan."
-      );
-
-    }
-
-
-    const offerRef =
       doc(
         db,
         "needs",
         need.id,
         "offers",
         offerId
-      );
+      ),
 
+      {
 
-    const offerSnapshot =
-      await getDoc(
-        offerRef
-      );
+        status:
+          newStatus,
 
+        updatedAt:
+          serverTimestamp()
 
-    if (!offerSnapshot.exists()) {
+      }
 
-      throw new Error(
-        "Penawaran tidak ditemukan."
-      );
+    );
 
-    }
-
-
-    const offer =
-      offerSnapshot.data();
-
-
-    // --------------------------------------------------------
-    // ACCEPT
-    // --------------------------------------------------------
 
     if (
       newStatus ===
       "accepted"
     ) {
 
-      const batch =
-        writeBatch(db);
+      await updateDoc(
 
+        doc(
+          db,
+          "needs",
+          need.id
+        ),
 
-      batch.update(
-        offerRef,
-        {
-
-          status:
-            "accepted",
-
-          acceptedAt:
-            serverTimestamp(),
-
-          updatedAt:
-            serverTimestamp()
-
-        }
-      );
-
-
-      batch.update(
-        needRef,
         {
 
           status:
@@ -1817,136 +1602,26 @@ async function updateOfferStatus(
           acceptedOfferId:
             offerId,
 
-          acceptedProviderId:
-            offer.providerId,
-
-          acceptedProviderName:
-            offer.providerName ||
-            "Penyedia",
-
-          acceptedPrice:
-            Number(
-              offer.price ||
-              0
-            ),
-
           updatedAt:
             serverTimestamp()
 
         }
+
       );
-
-
-      // Tolak otomatis penawaran lain
-      const offersSnapshot =
-        await getDocs(
-          collection(
-            db,
-            "needs",
-            need.id,
-            "offers"
-          )
-        );
-
-
-      offersSnapshot.forEach(
-        item => {
-
-          if (
-            item.id !==
-            offerId
-          ) {
-
-            const data =
-              item.data();
-
-
-            if (
-              normalizeStatus(
-                data.status
-              ) ===
-              "pending"
-            ) {
-
-              batch.update(
-                item.ref,
-                {
-
-                  status:
-                    "rejected",
-
-                  updatedAt:
-                    serverTimestamp()
-
-                }
-              );
-
-            }
-
-          }
-
-        }
-      );
-
-
-      await batch.commit();
-
-
-      showToast(
-        "🎉 Penawaran diterima! Pekerjaan dimulai."
-      );
-
-
-      await loadIncomingOffers(
-        {
-          ...need,
-          status:
-            "in_progress"
-        }
-      );
-
-
-      return;
 
     }
 
 
-    // --------------------------------------------------------
-    // REJECT
-    // --------------------------------------------------------
-
-    if (
-      newStatus ===
-      "rejected"
-    ) {
-
-      await updateDoc(
-        offerRef,
-        {
-
-          status:
-            "rejected",
-
-          updatedAt:
-            serverTimestamp()
-
-        }
-      );
+    showToast(
+      newStatus === "accepted"
+        ? "🎉 Penawaran diterima!"
+        : "✕ Penawaran ditolak."
+    );
 
 
-      showToast(
-        "✕ Penawaran ditolak."
-      );
-
-
-      await loadIncomingOffers(
-        need
-      );
-
-
-      return;
-
-    }
+    await loadIncomingOffers(
+      need
+    );
 
 
   } catch (error) {
@@ -1956,7 +1631,6 @@ async function updateOfferStatus(
       error
     );
 
-
     alert(
       "Gagal mengubah status penawaran:\n\n" +
       error.message
@@ -1964,8 +1638,7 @@ async function updateOfferStatus(
 
   } finally {
 
-    isUpdatingOffer =
-      false;
+    isUpdatingOffer = false;
 
   }
 
@@ -1973,32 +1646,19 @@ async function updateOfferStatus(
 
 
 // ============================================================
-// OPEN OFFER FORM
+// OFFER FORM
 // ============================================================
 
-function openOfferForm(
-  need
-) {
+function openOfferForm(need) {
 
   if (!currentUser) {
 
-    window.location.href =
-      "login.html";
-
-    return;
-  }
-
-
-  if (
-    need.ownerId ===
-    currentUser.uid
-  ) {
-
     alert(
-      "Anda tidak dapat menawarkan kebutuhan sendiri."
+      "Silakan login terlebih dahulu."
     );
 
     return;
+
   }
 
 
@@ -2033,16 +1693,11 @@ function openOfferForm(
       id="offerBackdrop"
     ></div>
 
-
     <div class="modal-content">
 
       <div class="modal-header">
 
         <div>
-
-          <span class="section-label">
-            PENAWARAN
-          </span>
 
           <h2>
             💰 Ajukan Penawaran
@@ -2051,12 +1706,11 @@ function openOfferForm(
           <p>
             ${escapeHTML(
               need.title ||
-              "Kebutuhan"
+              ""
             )}
           </p>
 
         </div>
-
 
         <button
           id="closeOffer"
@@ -2074,13 +1728,12 @@ function openOfferForm(
         <div class="form-group">
 
           <label>
-            Harga Penawaran (Rp)
+            Harga Penawaran
           </label>
 
           <input
             name="price"
             type="number"
-            inputmode="numeric"
             min="1"
             required
           >
@@ -2096,8 +1749,6 @@ function openOfferForm(
 
           <input
             name="duration"
-            type="text"
-            maxlength="100"
             placeholder="Contoh: 3 hari"
             required
           >
@@ -2108,13 +1759,12 @@ function openOfferForm(
         <div class="form-group">
 
           <label>
-            Pesan Penawaran
+            Pesan
           </label>
 
           <textarea
             name="message"
             rows="5"
-            maxlength="2000"
             required
           ></textarea>
 
@@ -2124,18 +1774,17 @@ function openOfferForm(
         <div class="modal-actions">
 
           <button
-            id="cancelOffer"
             type="button"
             class="btn btn-outline"
+            id="cancelOffer"
           >
             Batal
           </button>
 
-
           <button
-            id="submitOffer"
             type="submit"
             class="btn btn-primary"
+            id="submitOffer"
           >
             💰 Kirim Penawaran
           </button>
@@ -2152,7 +1801,6 @@ function openOfferForm(
   modal.classList.remove(
     "hidden"
   );
-
 
   document.body.classList.add(
     "modal-open"
@@ -2214,21 +1862,19 @@ async function submitOffer(
   event.preventDefault();
 
 
-  if (
-    isSubmittingOffer ||
-    !currentUser
-  ) {
+  if (isSubmittingOffer) {
     return;
   }
 
 
-  if (!need?.id) {
+  if (!currentUser) {
 
     alert(
-      "Kebutuhan tidak ditemukan."
+      "Login terlebih dahulu."
     );
 
     return;
+
   }
 
 
@@ -2242,13 +1888,11 @@ async function submitOffer(
       0
     );
 
-
   const duration =
     String(
       form.duration?.value ||
       ""
     ).trim();
-
 
   const message =
     String(
@@ -2258,57 +1902,31 @@ async function submitOffer(
 
 
   if (
-    !Number.isFinite(price) ||
-    price <= 0
+    price <= 0 ||
+    !duration ||
+    !message
   ) {
 
     alert(
-      "Masukkan harga yang valid."
+      "Semua data penawaran wajib diisi."
     );
 
     return;
+
   }
 
 
-  if (!duration) {
-
-    alert(
-      "Masukkan lama pengerjaan."
-    );
-
-    return;
-  }
-
-
-  if (!message) {
-
-    alert(
-      "Masukkan pesan penawaran."
-    );
-
-    return;
-  }
-
-
-  isSubmittingOffer =
-    true;
+  isSubmittingOffer = true;
 
 
   const button =
     $("submitOffer");
 
-
-  const original =
-    button?.innerHTML ||
-    "💰 Kirim Penawaran";
-
-
   if (button) {
 
-    button.disabled =
-      true;
+    button.disabled = true;
 
-    button.innerHTML =
+    button.textContent =
       "⏳ Mengirim...";
 
   }
@@ -2316,113 +1934,39 @@ async function submitOffer(
 
   try {
 
-    const user =
-      auth.currentUser;
+    await addDoc(
 
-
-    if (!user) {
-
-      throw new Error(
-        "Sesi login telah berakhir."
-      );
-
-    }
-
-
-    const needRef =
-      doc(
-        db,
-        "needs",
-        need.id
-      );
-
-
-    const needSnapshot =
-      await getDoc(
-        needRef
-      );
-
-
-    if (!needSnapshot.exists()) {
-
-      throw new Error(
-        "Kebutuhan tidak ditemukan."
-      );
-
-    }
-
-
-    const latestNeed =
-      needSnapshot.data();
-
-
-    if (
-      latestNeed.ownerId ===
-      user.uid
-    ) {
-
-      throw new Error(
-        "Anda tidak dapat menawarkan kebutuhan sendiri."
-      );
-
-    }
-
-
-    const status =
-      String(
-        latestNeed.status ||
-        "open"
-      ).toLowerCase();
-
-
-    if (
-      status !== "open" &&
-      status !== "active" &&
-      status !== "aktif"
-    ) {
-
-      throw new Error(
-        "Kebutuhan ini sudah tidak menerima penawaran."
-      );
-
-    }
-
-
-    const offersRef =
       collection(
         db,
         "needs",
         need.id,
         "offers"
-      );
+      ),
 
-
-    await addDoc(
-      offersRef,
       {
 
         providerId:
-          user.uid,
+          currentUser.uid,
 
         providerName:
-          user.displayName ||
-          user.email?.split("@")[0] ||
+          currentUser.displayName ||
+          currentUser.email?.split("@")[0] ||
           "Pengguna",
 
         providerEmail:
-          user.email ||
+          currentUser.email ||
           "",
 
         providerPhoto:
-          user.photoURL ||
+          currentUser.photoURL ||
           "",
 
         needId:
           need.id,
 
         needTitle:
-          latestNeed.title ||
-          "Kebutuhan",
+          need.title ||
+          "",
 
         price,
 
@@ -2440,10 +1984,8 @@ async function submitOffer(
           serverTimestamp()
 
       }
+
     );
-
-
-    form.reset();
 
 
     closeModal(
@@ -2463,7 +2005,6 @@ async function submitOffer(
       error
     );
 
-
     alert(
       "Gagal mengirim penawaran:\n\n" +
       error.message
@@ -2471,1931 +2012,43 @@ async function submitOffer(
 
   } finally {
 
-    isSubmittingOffer =
-      false;
-
+    isSubmittingOffer = false;
 
     if (button) {
 
-      button.disabled =
-        false;
+      button.disabled = false;
 
-      button.innerHTML =
-        original;
-
-    }
-
-  }
-
-}
-
-
-// ============================================================
-// TRANSACTION
-// ============================================================
-
-async function openTransaction(
-  needId,
-  offerId
-) {
-
-  if (!currentUser) {
-    return;
-  }
-
-
-  try {
-
-    const needRef =
-      doc(
-        db,
-        "needs",
-        needId
-      );
-
-
-    const offerRef =
-      doc(
-        db,
-        "needs",
-        needId,
-        "offers",
-        offerId
-      );
-
-
-    const [
-      needSnap,
-      offerSnap
-    ] =
-      await Promise.all([
-        getDoc(needRef),
-        getDoc(offerRef)
-      ]);
-
-
-    if (
-      !needSnap.exists() ||
-      !offerSnap.exists()
-    ) {
-
-      throw new Error(
-        "Data transaksi tidak ditemukan."
-      );
+      button.textContent =
+        "💰 Kirim Penawaran";
 
     }
 
-
-    const need =
-      needSnap.data();
-
-
-    const offer =
-      offerSnap.data();
-
-
-    if (
-      offer.status !==
-      "accepted"
-    ) {
-
-      throw new Error(
-        "Penawaran ini belum diterima."
-      );
-
-    }
-
-
-    const isOwner =
-      need.ownerId ===
-      currentUser.uid;
-
-
-    const isProvider =
-      offer.providerId ===
-      currentUser.uid;
-
-
-    if (
-      !isOwner &&
-      !isProvider
-    ) {
-
-      throw new Error(
-        "Anda tidak memiliki akses ke transaksi ini."
-      );
-
-    }
-
-
-    // --------------------------------------------------------
-    // CARI TRANSAKSI
-    // --------------------------------------------------------
-
-    const transactionRef =
-      doc(
-        db,
-        "needs",
-        needId,
-        "transactions",
-        offerId
-      );
-
-
-    const transactionSnap =
-      await getDoc(
-        transactionRef
-      );
-
-
-    if (!transactionSnap.exists()) {
-
-      await updateDoc(
-        offerRef,
-        {
-
-          transactionId:
-            offerId,
-
-          updatedAt:
-            serverTimestamp()
-
-        }
-      ).catch(
-        () => {}
-      );
-
-
-      // Tidak bisa create lewat updateDoc
-      // jika transaction belum ada.
-      // Gunakan addDoc dengan ID tetap melalui setDoc
-      // pada versi ini kita menggunakan dynamic import.
-    }
-
-
-    await createTransactionIfNeeded(
-      needId,
-      offerId,
-      need,
-      offer
-    );
-
-
-    await showTransactionModal(
-      needId,
-      offerId
-    );
-
-
-  } catch (error) {
-
-    console.error(
-      "OPEN TRANSACTION ERROR:",
-      error
-    );
-
-
-    alert(
-      "Gagal membuka transaksi:\n\n" +
-      error.message
-    );
-
   }
 
 }
 
 
 // ============================================================
-// CREATE TRANSACTION
-// ============================================================
-
-async function createTransactionIfNeeded(
-  needId,
-  offerId,
-  need,
-  offer
-) {
-
-  const transactionRef =
-    doc(
-      db,
-      "needs",
-      needId,
-      "transactions",
-      offerId
-    );
-
-
-  const snapshot =
-    await getDoc(
-      transactionRef
-    );
-
-
-  if (
-    snapshot.exists()
-  ) {
-    return;
-  }
-
-
-  // Karena setDoc belum di-import pada awal file,
-  // gunakan update melalui batch setelah membuat data
-  // tidak dapat dilakukan untuk dokumen baru.
-  //
-  // Kita tambahkan dokumen menggunakan addDoc ke
-  // transactions, kemudian ID disimpan pada offer.
-
-  const transactionsRef =
-    collection(
-      db,
-      "needs",
-      needId,
-      "transactions"
-    );
-
-
-  const existing =
-    await getDocs(
-      query(
-        transactionsRef,
-        where(
-          "offerId",
-          "==",
-          offerId
-        ),
-        limit(1)
-      )
-    );
-
-
-  if (!existing.empty) {
-    return;
-  }
-
-
-  await addDoc(
-    transactionsRef,
-    {
-
-      offerId,
-
-      needId,
-
-      ownerId:
-        need.ownerId,
-
-      providerId:
-        offer.providerId,
-
-      ownerName:
-        need.ownerName ||
-        "Pemilik",
-
-      providerName:
-        offer.providerName ||
-        "Penyedia",
-
-      title:
-        need.title ||
-        offer.needTitle ||
-        "Transaksi",
-
-      price:
-        Number(
-          offer.price ||
-          0
-        ),
-
-      duration:
-        offer.duration ||
-        "",
-
-      status:
-        "in_progress",
-
-      providerCompleted:
-        false,
-
-      ownerConfirmed:
-        false,
-
-      paymentStatus:
-        "unpaid",
-
-      createdAt:
-        serverTimestamp(),
-
-      updatedAt:
-        serverTimestamp()
-
-    }
-  );
-
-}
-
-
-// ============================================================
-// SHOW TRANSACTION
-// ============================================================
-
-async function showTransactionModal(
-  needId,
-  offerId
-) {
-
-  let modal =
-    $("transactionModal");
-
-
-  if (!modal) {
-
-    modal =
-      document.createElement(
-        "div"
-      );
-
-    modal.id =
-      "transactionModal";
-
-    modal.className =
-      "modal hidden";
-
-    document.body.appendChild(
-      modal
-    );
-
-  }
-
-
-  const transactionsRef =
-    collection(
-      db,
-      "needs",
-      needId,
-      "transactions"
-    );
-
-
-  const q =
-    query(
-      transactionsRef,
-      where(
-        "offerId",
-        "==",
-        offerId
-      ),
-      limit(1)
-    );
-
-
-  const snapshot =
-    await getDocs(q);
-
-
-  if (snapshot.empty) {
-
-    throw new Error(
-      "Transaksi belum tersedia."
-    );
-
-  }
-
-
-  const item =
-    snapshot.docs[0];
-
-
-  currentTransaction = {
-
-    id:
-      item.id,
-
-    ...item.data()
-
-  };
-
-
-  renderTransactionModal(
-    modal,
-    currentTransaction
-  );
-
-
-  modal.classList.remove(
-    "hidden"
-  );
-
-
-  document.body.classList.add(
-    "modal-open"
-  );
-
-
-  startTransactionListeners(
-    needId,
-    currentTransaction.id
-  );
-
-}
-
-
-// ============================================================
-// TRANSACTION MODAL
-// ============================================================
-
-function renderTransactionModal(
-  modal,
-  transaction
-) {
-
-  const isOwner =
-    transaction.ownerId ===
-    currentUser?.uid;
-
-
-  const isProvider =
-    transaction.providerId ===
-    currentUser?.uid;
-
-
-  modal.innerHTML = `
-
-    <div
-      class="modal-backdrop"
-      id="transactionBackdrop"
-    ></div>
-
-
-    <div class="modal-content">
-
-      <div class="modal-header">
-
-        <div>
-
-          <span class="section-label">
-            TRANSAKSI BUTUH
-          </span>
-
-          <h2>
-            🤝 ${escapeHTML(
-              transaction.title
-            )}
-          </h2>
-
-        </div>
-
-
-        <button
-          id="closeTransaction"
-          class="modal-close"
-          type="button"
-        >
-          ×
-        </button>
-
-      </div>
-
-
-      <div style="padding:18px">
-
-
-        <div style="
-          background:#eff6ff;
-          padding:16px;
-          border-radius:14px;
-          margin-bottom:15px;
-        ">
-
-          <strong>
-            💰 Nilai Transaksi
-          </strong>
-
-          <div style="
-            font-size:25px;
-            font-weight:800;
-            margin-top:5px;
-          ">
-
-            Rp ${formatMoney(
-              transaction.price
-            )}
-
-          </div>
-
-        </div>
-
-
-        <div id="transactionStatusBox">
-
-          ${renderTransactionStatus(
-            transaction
-          )}
-
-        </div>
-
-
-        <hr style="
-          margin:20px 0;
-          border:none;
-          border-top:1px solid #e5e7eb;
-        ">
-
-
-        <h3>
-          💬 Chat
-        </h3>
-
-
-        <div
-          id="transactionMessages"
-          style="
-            height:250px;
-            overflow-y:auto;
-            background:#f9fafb;
-            border-radius:12px;
-            padding:12px;
-            margin:10px 0;
-          "
-        >
-
-          <div>
-            Memuat chat...
-          </div>
-
-        </div>
-
-
-        <form
-          id="transactionChatForm"
-          style="
-            display:flex;
-            gap:8px;
-          "
-        >
-
-          <input
-            id="transactionMessageInput"
-            type="text"
-            maxlength="2000"
-            placeholder="Tulis pesan..."
-            required
-            style="
-              flex:1;
-              padding:12px;
-              border:1px solid #d1d5db;
-              border-radius:10px;
-            "
-          >
-
-
-          <button
-            type="submit"
-            class="btn btn-primary"
-          >
-            Kirim
-          </button>
-
-        </form>
-
-
-        <div
-          id="transactionActions"
-          style="
-            margin-top:18px;
-          "
-        >
-
-          ${renderTransactionActions(
-            transaction,
-            isOwner,
-            isProvider
-          )}
-
-        </div>
-
-
-      </div>
-
-    </div>
-
-  `;
-
-
-  $("closeTransaction")
-    ?.addEventListener(
-      "click",
-      closeTransaction
-    );
-
-
-  $("transactionBackdrop")
-    ?.addEventListener(
-      "click",
-      closeTransaction
-    );
-
-
-  $("transactionChatForm")
-    ?.addEventListener(
-      "submit",
-      event =>
-        sendTransactionMessage(
-          event,
-          transaction
-        )
-    );
-
-
-  document
-    .querySelectorAll(
-      "[data-transaction-action]"
-    )
-    .forEach(
-      button => {
-
-        button.addEventListener(
-          "click",
-          async () => {
-
-            await handleTransactionAction(
-              button.dataset.transactionAction,
-              transaction
-            );
-
-          }
-        );
-
-      }
-    );
-
-}
-
-
-// ============================================================
-// TRANSACTION STATUS
-// ============================================================
-
-function renderTransactionStatus(
-  transaction
-) {
-
-  const payment =
-    transaction.paymentStatus ||
-    "unpaid";
-
-
-  return `
-
-    <div style="
-      display:grid;
-      gap:8px;
-    ">
-
-      <div>
-        📌 Status:
-        <strong>
-          ${escapeHTML(
-            getTransactionStatusText(
-              transaction
-            )
-          )}
-        </strong>
-      </div>
-
-
-      <div>
-        👨‍💻 Penyedia:
-        ${escapeHTML(
-          transaction.providerName
-        )}
-      </div>
-
-
-      <div>
-        💳 Pembayaran:
-        <strong>
-          ${escapeHTML(
-            getPaymentStatusText(
-              payment
-            )
-          )}
-        </strong>
-      </div>
-
-
-      <div>
-        ${
-          transaction.providerCompleted
-            ? "✅"
-            : "⏳"
-        }
-        Penyedia menyelesaikan pekerjaan
-      </div>
-
-
-      <div>
-        ${
-          transaction.ownerConfirmed
-            ? "✅"
-            : "⏳"
-        }
-        Pemilik mengonfirmasi pekerjaan
-      </div>
-
-    </div>
-
-  `;
-
-}
-
-
-// ============================================================
-// TRANSACTION ACTIONS
-// ============================================================
-
-function renderTransactionActions(
-  transaction,
-  isOwner,
-  isProvider
-) {
-
-  let html = "";
-
-
-  if (
-    isProvider &&
-    !transaction.providerCompleted
-  ) {
-
-    html += `
-
-      <button
-        type="button"
-        class="btn btn-primary"
-        data-transaction-action="provider_complete"
-        style="
-          width:100%;
-          margin-bottom:8px;
-        "
-      >
-        ✅ Selesaikan Pekerjaan
-      </button>
-
-    `;
-
-  }
-
-
-  if (
-    isOwner &&
-    transaction.providerCompleted &&
-    !transaction.ownerConfirmed
-  ) {
-
-    html += `
-
-      <button
-        type="button"
-        class="btn btn-primary"
-        data-transaction-action="owner_confirm"
-        style="
-          width:100%;
-          margin-bottom:8px;
-        "
-      >
-        ✅ Konfirmasi Pekerjaan Selesai
-      </button>
-
-    `;
-
-  }
-
-
-  if (
-    isOwner &&
-    transaction.ownerConfirmed &&
-    transaction.paymentStatus !== "paid"
-  ) {
-
-    html += `
-
-      <button
-        type="button"
-        class="btn btn-primary"
-        data-transaction-action="create_payment"
-        style="
-          width:100%;
-          margin-bottom:8px;
-        "
-      >
-        💳 Buat Pembayaran
-      </button>
-
-    `;
-
-  }
-
-
-  if (
-    isOwner &&
-    transaction.paymentStatus === "pending"
-  ) {
-
-    html += `
-
-      <button
-        type="button"
-        class="btn btn-primary"
-        data-transaction-action="confirm_payment"
-        style="
-          width:100%;
-          margin-bottom:8px;
-        "
-      >
-        💳 Konfirmasi Pembayaran
-      </button>
-
-    `;
-
-  }
-
-
-  if (
-    transaction.paymentStatus ===
-      "paid" &&
-    transaction.providerCompleted &&
-    transaction.ownerConfirmed
-  ) {
-
-    html += `
-
-      <div style="
-        padding:14px;
-        border-radius:12px;
-        background:#dcfce7;
-        color:#166534;
-        font-weight:700;
-      ">
-
-        🎉 Transaksi selesai!
-
-      </div>
-
-    `;
-
-  }
-
-
-  if (!html) {
-
-    html = `
-
-      <div style="
-        padding:12px;
-        background:#f3f4f6;
-        border-radius:10px;
-      ">
-
-        ⏳ Menunggu proses berikutnya.
-
-      </div>
-
-    `;
-
-  }
-
-
-  return html;
-
-}
-
-
-// ============================================================
-// TRANSACTION ACTION
-// ============================================================
-
-async function handleTransactionAction(
-  action,
-  transaction
-) {
-
-  if (
-    isUpdatingTransaction ||
-    !currentUser
-  ) {
-    return;
-  }
-
-
-  isUpdatingTransaction =
-    true;
-
-
-  try {
-
-    const ref =
-      doc(
-        db,
-        "needs",
-        transaction.needId,
-        "transactions",
-        transaction.id
-      );
-
-
-    const snap =
-      await getDoc(ref);
-
-
-    if (!snap.exists()) {
-
-      throw new Error(
-        "Transaksi tidak ditemukan."
-      );
-
-    }
-
-
-    const latest =
-      snap.data();
-
-
-    // --------------------------------------------------------
-    // PROVIDER COMPLETE
-    // --------------------------------------------------------
-
-    if (
-      action ===
-      "provider_complete"
-    ) {
-
-      if (
-        latest.providerId !==
-        currentUser.uid
-      ) {
-
-        throw new Error(
-          "Hanya penyedia yang dapat menyelesaikan pekerjaan."
-        );
-
-      }
-
-
-      await updateDoc(
-        ref,
-        {
-
-          providerCompleted:
-            true,
-
-          status:
-            "waiting_confirmation",
-
-          providerCompletedAt:
-            serverTimestamp(),
-
-          updatedAt:
-            serverTimestamp()
-
-        }
-      );
-
-
-      showToast(
-        "✅ Pekerjaan ditandai selesai."
-      );
-
-    }
-
-
-    // --------------------------------------------------------
-    // OWNER CONFIRM
-    // --------------------------------------------------------
-
-    else if (
-      action ===
-      "owner_confirm"
-    ) {
-
-      if (
-        latest.ownerId !==
-        currentUser.uid
-      ) {
-
-        throw new Error(
-          "Hanya pemilik yang dapat mengonfirmasi."
-        );
-
-      }
-
-
-      await updateDoc(
-        ref,
-        {
-
-          ownerConfirmed:
-            true,
-
-          status:
-            "awaiting_payment",
-
-          ownerConfirmedAt:
-            serverTimestamp(),
-
-          updatedAt:
-            serverTimestamp()
-
-        }
-      );
-
-
-      showToast(
-        "✅ Pekerjaan dikonfirmasi selesai."
-      );
-
-    }
-
-
-    // --------------------------------------------------------
-    // CREATE PAYMENT
-    // --------------------------------------------------------
-
-    else if (
-      action ===
-      "create_payment"
-    ) {
-
-      if (
-        latest.ownerId !==
-        currentUser.uid
-      ) {
-
-        throw new Error(
-          "Hanya pemilik yang dapat membuat pembayaran."
-        );
-
-      }
-
-
-      await createPayment(
-        latest
-      );
-
-
-      showToast(
-        "💳 Pembayaran dibuat."
-      );
-
-    }
-
-
-    // --------------------------------------------------------
-    // CONFIRM PAYMENT
-    // --------------------------------------------------------
-
-    else if (
-      action ===
-      "confirm_payment"
-    ) {
-
-      if (
-        latest.ownerId !==
-        currentUser.uid
-      ) {
-
-        throw new Error(
-          "Hanya pemilik yang dapat mengonfirmasi pembayaran."
-        );
-
-      }
-
-
-      const paymentRef =
-        collection(
-          db,
-          "needs",
-          latest.needId,
-          "transactions",
-          latest.id,
-          "payments"
-        );
-
-
-      const paymentSnapshot =
-        await getDocs(
-          query(
-            paymentRef,
-            where(
-              "status",
-              "==",
-              "pending"
-            ),
-            limit(1)
-          )
-        );
-
-
-      if (
-        paymentSnapshot.empty
-      ) {
-
-        throw new Error(
-          "Pembayaran pending tidak ditemukan."
-        );
-
-      }
-
-
-      const paymentDoc =
-        paymentSnapshot.docs[0];
-
-
-      await updateDoc(
-        paymentDoc.ref,
-        {
-
-          status:
-            "paid",
-
-          paidAt:
-            serverTimestamp(),
-
-          updatedAt:
-            serverTimestamp()
-
-        }
-      );
-
-
-      await updateDoc(
-        ref,
-        {
-
-          paymentStatus:
-            "paid",
-
-          status:
-            "completed",
-
-          paidAt:
-            serverTimestamp(),
-
-          completedAt:
-            serverTimestamp(),
-
-          updatedAt:
-            serverTimestamp()
-
-        }
-      );
-
-
-      const needRef =
-        doc(
-          db,
-          "needs",
-          latest.needId
-        );
-
-
-      await updateDoc(
-        needRef,
-        {
-
-          status:
-            "completed",
-
-          completedAt:
-            serverTimestamp(),
-
-          updatedAt:
-            serverTimestamp()
-
-        }
-      );
-
-
-      showToast(
-        "🎉 Pembayaran dikonfirmasi. Transaksi selesai!"
-      );
-
-    }
-
-
-    await refreshTransaction(
-      transaction
-    );
-
-
-  } catch (error) {
-
-    console.error(
-      "TRANSACTION ACTION ERROR:",
-      error
-    );
-
-
-    alert(
-      "Gagal memproses transaksi:\n\n" +
-      error.message
-    );
-
-  } finally {
-
-    isUpdatingTransaction =
-      false;
-
-  }
-
-}
-
-
-// ============================================================
-// CREATE PAYMENT
-// ============================================================
-
-async function createPayment(
-  transaction
-) {
-
-  const paymentsRef =
-    collection(
-      db,
-      "needs",
-      transaction.needId,
-      "transactions",
-      transaction.id,
-      "payments"
-    );
-
-
-  const pending =
-    await getDocs(
-      query(
-        paymentsRef,
-        where(
-          "status",
-          "==",
-          "pending"
-        ),
-        limit(1)
-      )
-    );
-
-
-  if (!pending.empty) {
-
-    return;
-
-  }
-
-
-  await addDoc(
-    paymentsRef,
-    {
-
-      transactionId:
-        transaction.id,
-
-      needId:
-        transaction.needId,
-
-      ownerId:
-        transaction.ownerId,
-
-      providerId:
-        transaction.providerId,
-
-      amount:
-        Number(
-          transaction.price ||
-          0
-        ),
-
-      currency:
-        "IDR",
-
-      method:
-        "manual",
-
-      status:
-        "pending",
-
-      createdAt:
-        serverTimestamp(),
-
-      updatedAt:
-        serverTimestamp()
-
-    }
-  );
-
-
-  const transactionRef =
-    doc(
-      db,
-      "needs",
-      transaction.needId,
-      "transactions",
-      transaction.id
-    );
-
-
-  await updateDoc(
-    transactionRef,
-    {
-
-      paymentStatus:
-        "pending",
-
-      updatedAt:
-        serverTimestamp()
-
-    }
-  );
-
-}
-
-
-// ============================================================
-// REFRESH TRANSACTION
-// ============================================================
-
-async function refreshTransaction(
-  transaction
-) {
-
-  const ref =
-    doc(
-      db,
-      "needs",
-      transaction.needId,
-      "transactions",
-      transaction.id
-    );
-
-
-  const snap =
-    await getDoc(ref);
-
-
-  if (!snap.exists()) {
-    return;
-  }
-
-
-  currentTransaction = {
-
-    id:
-      snap.id,
-
-    ...snap.data()
-
-  };
-
-
-  const modal =
-    $("transactionModal");
-
-
-  if (!modal) {
-    return;
-  }
-
-
-  const statusBox =
-    $("transactionStatusBox");
-
-
-  if (statusBox) {
-
-    statusBox.innerHTML =
-      renderTransactionStatus(
-        currentTransaction
-      );
-
-  }
-
-
-  const actions =
-    $("transactionActions");
-
-
-  if (actions) {
-
-    actions.innerHTML =
-      renderTransactionActions(
-        currentTransaction,
-        currentTransaction.ownerId ===
-          currentUser?.uid,
-        currentTransaction.providerId ===
-          currentUser?.uid
-      );
-
-
-    actions
-      .querySelectorAll(
-        "[data-transaction-action]"
-      )
-      .forEach(
-        button => {
-
-          button.addEventListener(
-            "click",
-            async () => {
-
-              await handleTransactionAction(
-                button.dataset.transactionAction,
-                currentTransaction
-              );
-
-            }
-          );
-
-        }
-      );
-
-  }
-
-}
-
-
-// ============================================================
-// CHAT LISTENER
-// ============================================================
-
-function startTransactionListeners(
-  needId,
-  transactionId
-) {
-
-  if (unsubscribeChat) {
-
-    unsubscribeChat();
-
-    unsubscribeChat = null;
-
-  }
-
-
-  const messagesRef =
-    collection(
-      db,
-      "needs",
-      needId,
-      "transactions",
-      transactionId,
-      "messages"
-    );
-
-
-  const q =
-    query(
-      messagesRef,
-      orderBy(
-        "createdAt",
-        "asc"
-      ),
-      limit(100)
-    );
-
-
-  unsubscribeChat =
-    onSnapshot(
-      q,
-      snapshot => {
-
-        const messages = [];
-
-
-        snapshot.forEach(
-          item => {
-
-            messages.push({
-
-              id:
-                item.id,
-
-              ...item.data()
-
-            });
-
-          }
-        );
-
-
-        renderMessages(
-          messages
-        );
-
-      },
-      error => {
-
-        console.error(
-          "CHAT ERROR:",
-          error
-        );
-
-
-        const box =
-          $("transactionMessages");
-
-
-        if (box) {
-
-          box.innerHTML = `
-
-            <div style="
-              color:#b91c1c;
-              padding:10px;
-            ">
-
-              ⚠️ Gagal memuat chat.
-
-            </div>
-
-          `;
-
-        }
-
-      }
-    );
-
-}
-
-
-// ============================================================
-// RENDER MESSAGES
-// ============================================================
-
-function renderMessages(
-  messages
-) {
-
-  const box =
-    $("transactionMessages");
-
-
-  if (!box) {
-    return;
-  }
-
-
-  if (!messages.length) {
-
-    box.innerHTML = `
-
-      <div style="
-        text-align:center;
-        padding:30px 10px;
-        color:#6b7280;
-      ">
-
-        💬 Belum ada pesan.
-        Mulai percakapan.
-
-      </div>
-
-    `;
-
-    return;
-  }
-
-
-  box.innerHTML =
-    messages
-      .map(
-        message => {
-
-          const mine =
-            message.senderId ===
-            currentUser?.uid;
-
-
-          return `
-
-            <div style="
-              display:flex;
-              justify-content:${
-                mine
-                  ? "flex-end"
-                  : "flex-start"
-              };
-              margin-bottom:8px;
-            ">
-
-              <div style="
-                max-width:80%;
-                padding:10px 13px;
-                border-radius:12px;
-                background:${
-                  mine
-                    ? "#2563eb"
-                    : "#ffffff"
-                };
-                color:${
-                  mine
-                    ? "#ffffff"
-                    : "#111827"
-                };
-                box-shadow:
-                  0 1px 3px rgba(0,0,0,.08);
-              ">
-
-                <div style="
-                  font-size:11px;
-                  opacity:.7;
-                  margin-bottom:4px;
-                ">
-                  ${escapeHTML(
-                    message.senderName ||
-                    "Pengguna"
-                  )}
-                </div>
-
-
-                <div>
-                  ${escapeHTML(
-                    message.text ||
-                    ""
-                  )}
-                </div>
-
-
-                <div style="
-                  font-size:10px;
-                  opacity:.6;
-                  margin-top:4px;
-                ">
-                  ${formatDateTime(
-                    message.createdAt
-                  )}
-                </div>
-
-              </div>
-
-            </div>
-
-          `;
-
-        }
-      )
-      .join("");
-
-
-  box.scrollTop =
-    box.scrollHeight;
-
-}
-
-
-// ============================================================
-// SEND MESSAGE
-// ============================================================
-
-async function sendTransactionMessage(
-  event,
-  transaction
-) {
-
-  event.preventDefault();
-
-
-  if (
-    isSendingMessage ||
-    !currentUser
-  ) {
-    return;
-  }
-
-
-  const input =
-    $("transactionMessageInput");
-
-
-  const text =
-    String(
-      input?.value ||
-      ""
-    ).trim();
-
-
-  if (!text) {
-    return;
-  }
-
-
-  isSendingMessage =
-    true;
-
-
-  try {
-
-    const messagesRef =
-      collection(
-        db,
-        "needs",
-        transaction.needId,
-        "transactions",
-        transaction.id,
-        "messages"
-      );
-
-
-    await addDoc(
-      messagesRef,
-      {
-
-        senderId:
-          currentUser.uid,
-
-        senderName:
-          currentUser.displayName ||
-          currentUser.email?.split("@")[0] ||
-          "Pengguna",
-
-        text,
-
-        createdAt:
-          serverTimestamp()
-
-      }
-    );
-
-
-    input.value = "";
-
-
-  } catch (error) {
-
-    console.error(
-      "SEND MESSAGE ERROR:",
-      error
-    );
-
-
-    alert(
-      "Gagal mengirim pesan:\n\n" +
-      error.message
-    );
-
-  } finally {
-
-    isSendingMessage =
-      false;
-
-  }
-
-}
-
-
-// ============================================================
-// CLOSE TRANSACTION
-// ============================================================
-
-function closeTransaction() {
-
-  if (unsubscribeChat) {
-
-    unsubscribeChat();
-
-    unsubscribeChat = null;
-
-  }
-
-
-  closeModal(
-    "transactionModal"
-  );
-
-}
-
-
-// ============================================================
-// TRANSACTION STATUS TEXT
-// ============================================================
-
-function getTransactionStatusText(
-  transaction
-) {
-
-  if (
-    transaction.paymentStatus ===
-      "paid" &&
-    transaction.providerCompleted &&
-    transaction.ownerConfirmed
-  ) {
-
-    return "Selesai";
-
-  }
-
-
-  if (
-    transaction.ownerConfirmed
-  ) {
-
-    return "Menunggu Pembayaran";
-
-  }
-
-
-  if (
-    transaction.providerCompleted
-  ) {
-
-    return "Menunggu Konfirmasi Pemilik";
-
-  }
-
-
-  return "Dalam Pengerjaan";
-
-}
-
-
-// ============================================================
-// PAYMENT STATUS
-// ============================================================
-
-function getPaymentStatusText(
-  status
-) {
-
-  switch (status) {
-
-    case "paid":
-      return "✓ Sudah Dibayar";
-
-    case "pending":
-      return "⏳ Menunggu Pembayaran";
-
-    default:
-      return "Belum Dibayar";
-
-  }
-
-}
-
-
-// ============================================================
-// TRANSACTION ACTION CLICK
-// ============================================================
-
-document.addEventListener(
-  "click",
-  event => {
-
-    const button =
-      event.target.closest(
-        "[data-transaction-action='open']"
-      );
-
-
-    if (!button) {
-      return;
-    }
-
-
-    openTransaction(
-      button.dataset.needId,
-      button.dataset.offerId
-    );
-
-  }
-);
-
-
-// ============================================================
-// NEED MODAL
+// MODAL
 // ============================================================
 
 function openNeedModal() {
 
   if (!currentUser) {
 
-    window.location.href =
-      "login.html";
+    alert(
+      "Silakan login terlebih dahulu."
+    );
 
     return;
 
   }
 
 
-  const modal =
-    $("needModal");
-
-
-  if (!modal) {
-    return;
-  }
-
-
-  modal.classList.remove(
-    "hidden"
-  );
-
+  $("needModal")
+    ?.classList.remove(
+      "hidden"
+    );
 
   document.body.classList.add(
     "modal-open"
@@ -4404,36 +2057,18 @@ function openNeedModal() {
 }
 
 
-function closeNeedModal() {
-
-  closeModal(
-    "needModal"
-  );
-
-}
-
-
-// ============================================================
-// CLOSE MODAL
-// ============================================================
-
-function closeModal(
-  id
-) {
+function closeModal(id) {
 
   const modal =
     $(id);
 
+  if (modal) {
 
-  if (!modal) {
-    return;
+    modal.classList.add(
+      "hidden"
+    );
+
   }
-
-
-  modal.classList.add(
-    "hidden"
-  );
-
 
   document.body.classList.remove(
     "modal-open"
@@ -4454,15 +2089,12 @@ async function logout() {
       auth
     );
 
-
     window.location.href =
       "login.html";
-
 
   } catch (error) {
 
     alert(
-      "Gagal logout:\n" +
       error.message
     );
 
@@ -4484,54 +2116,10 @@ function openProfile() {
 
 
 // ============================================================
-// URL
-// ============================================================
-
-function openNeedFromURL() {
-
-  if (!authReady) {
-    return;
-  }
-
-
-  const params =
-    new URLSearchParams(
-      window.location.search
-    );
-
-
-  const needId =
-    params.get(
-      "need"
-    );
-
-
-  if (!needId) {
-    return;
-  }
-
-
-  window.openNeedDetail(
-    needId
-  );
-
-
-  window.history.replaceState(
-    {},
-    document.title,
-    "index.html"
-  );
-
-}
-
-
-// ============================================================
 // STATUS
 // ============================================================
 
-function normalizeStatus(
-  status
-) {
+function normalizeStatus(status) {
 
   const value =
     String(
@@ -4552,17 +2140,6 @@ function normalizeStatus(
 
 
   if (
-    value === "completed" ||
-    value === "complete" ||
-    value === "selesai"
-  ) {
-
-    return "completed";
-
-  }
-
-
-  if (
     value === "rejected" ||
     value === "ditolak"
   ) {
@@ -4572,23 +2149,25 @@ function normalizeStatus(
   }
 
 
+  if (
+    value === "completed" ||
+    value === "selesai"
+  ) {
+
+    return "completed";
+
+  }
+
+
   return "pending";
 
 }
 
 
-// ============================================================
-// STATUS CLASS
-// ============================================================
-
-function getStatusClass(
-  status
-) {
+function getStatusClass(status) {
 
   switch (
-    normalizeStatus(
-      status
-    )
+    normalizeStatus(status)
   ) {
 
     case "accepted":
@@ -4608,18 +2187,10 @@ function getStatusClass(
 }
 
 
-// ============================================================
-// STATUS TEXT
-// ============================================================
-
-function getStatusText(
-  status
-) {
+function getStatusText(status) {
 
   switch (
-    normalizeStatus(
-      status
-    )
+    normalizeStatus(status)
   ) {
 
     case "accepted":
@@ -4640,96 +2211,10 @@ function getStatusText(
 
 
 // ============================================================
-// NEED STATUS
+// FORMAT
 // ============================================================
 
-function getNeedStatusText(
-  status
-) {
-
-  switch (
-    String(
-      status ||
-      ""
-    ).toLowerCase()
-  ) {
-
-    case "in_progress":
-      return "🔨 Dalam Pengerjaan";
-
-    case "completed":
-      return "✓ Selesai";
-
-    case "cancelled":
-    case "canceled":
-      return "✕ Dibatalkan";
-
-    default:
-      return "🟢 Dibuka";
-
-  }
-
-}
-
-
-// ============================================================
-// TEXT
-// ============================================================
-
-function setText(
-  id,
-  value
-) {
-
-  const element =
-    $(id);
-
-
-  if (element) {
-
-    element.textContent =
-      String(
-        value ?? ""
-      );
-
-  }
-
-}
-
-
-// ============================================================
-// IMAGE
-// ============================================================
-
-function setImage(
-  id,
-  src
-) {
-
-  const element =
-    $(id);
-
-
-  if (
-    element &&
-    src
-  ) {
-
-    element.src =
-      src;
-
-  }
-
-}
-
-
-// ============================================================
-// TIME
-// ============================================================
-
-function getTime(
-  value
-) {
+function getTime(value) {
 
   if (!value) {
     return 0;
@@ -4753,9 +2238,7 @@ function getTime(
       "function"
     ) {
 
-      return value
-        .toDate()
-        .getTime();
+      return value.toDate().getTime();
 
     }
 
@@ -4765,23 +2248,16 @@ function getTime(
       "number"
     ) {
 
-      return (
-        value.seconds *
-        1000
-      );
+      return value.seconds * 1000;
 
     }
 
 
     const time =
-      new Date(
-        value
-      ).getTime();
+      new Date(value).getTime();
 
 
-    return Number.isFinite(
-      time
-    )
+    return Number.isFinite(time)
       ? time
       : 0;
 
@@ -4794,19 +2270,10 @@ function getTime(
 }
 
 
-// ============================================================
-// DATE
-// ============================================================
-
-function formatDate(
-  value
-) {
+function formatDate(value) {
 
   const time =
-    getTime(
-      value
-    );
-
+    getTime(value);
 
   if (!time) {
     return "Baru saja";
@@ -4816,80 +2283,24 @@ function formatDate(
   return new Intl.DateTimeFormat(
     "id-ID",
     {
-      day:
-        "2-digit",
-      month:
-        "short",
-      year:
-        "numeric"
+      day: "2-digit",
+      month: "short",
+      year: "numeric"
     }
   ).format(
-    new Date(
-      time
-    )
+    new Date(time)
   );
 
 }
 
 
-// ============================================================
-// DATE TIME
-// ============================================================
-
-function formatDateTime(
-  value
-) {
-
-  const time =
-    getTime(
-      value
-    );
-
-
-  if (!time) {
-    return "Baru saja";
-  }
-
-
-  return new Intl.DateTimeFormat(
-    "id-ID",
-    {
-      day:
-        "2-digit",
-      month:
-        "short",
-      hour:
-        "2-digit",
-      minute:
-        "2-digit"
-    }
-  ).format(
-    new Date(
-      time
-    )
-  );
-
-}
-
-
-// ============================================================
-// MONEY
-// ============================================================
-
-function formatMoney(
-  value
-) {
+function formatMoney(value) {
 
   const number =
-    Number(
-      value
-    );
-
+    Number(value);
 
   if (
-    !Number.isFinite(
-      number
-    )
+    !Number.isFinite(number)
   ) {
 
     return "0";
@@ -4899,46 +2310,30 @@ function formatMoney(
 
   return new Intl.NumberFormat(
     "id-ID"
-  ).format(
-    number
-  );
+  ).format(number);
 
 }
 
 
-// ============================================================
-// CATEGORY
-// ============================================================
-
-function getCategory(
-  value
-) {
+function getCategory(value) {
 
   const categories = {
 
-    design:
-      "🎨 Desain",
+    design: "🎨 Desain",
 
-    website:
-      "🌐 Website",
+    website: "🌐 Website",
 
-    programming:
-      "💻 Programming",
+    programming: "💻 Programming",
 
-    marketing:
-      "📢 Marketing",
+    marketing: "📢 Marketing",
 
-    writing:
-      "✍️ Penulisan",
+    writing: "✍️ Penulisan",
 
-    video:
-      "🎬 Video",
+    video: "🎬 Video",
 
-    translation:
-      "🌍 Terjemahan",
+    translation: "🌍 Terjemahan",
 
-    other:
-      "📦 Lainnya"
+    other: "📦 Lainnya"
 
   };
 
@@ -4951,45 +2346,392 @@ function getCategory(
 }
 
 
-// ============================================================
-// TRUNCATE
-// ============================================================
-
 function truncate(
   text,
   length
 ) {
 
   const value =
-    String(
-      text ||
-      ""
-    );
+    String(text || "");
 
-
-  return value.length >
-    length
-
+  return value.length > length
     ? value.substring(
         0,
         length
       ) + "..."
-
     : value;
 
 }
 
 
 // ============================================================
-// ESCAPE HTML
+// AVATAR
 // ============================================================
 
-function escapeHTML(
-  value
-) {
+function createAvatar(name) {
 
-  return String(
-    value ?? ""
-  )
+  const letter =
+    String(
+      name ||
+      "U"
+    )
+      .trim()
+      .charAt(0)
+      .toUpperCase();
 
-    .replace
+
+  return (
+    "https://ui-avatars.com/api/" +
+    "?name=" +
+    encodeURIComponent(letter) +
+    "&background=2563eb" +
+    "&color=ffffff" +
+    "&size=256"
+  );
+
+}
+
+
+// ============================================================
+// TOAST
+// ============================================================
+
+function showToast(message) {
+
+  let toast =
+    $("butuhToast");
+
+
+  if (!toast) {
+
+    toast =
+      document.createElement(
+        "div"
+      );
+
+    toast.id =
+      "butuhToast";
+
+    Object.assign(
+      toast.style,
+      {
+
+        position: "fixed",
+        left: "50%",
+        bottom: "25px",
+        transform:
+          "translateX(-50%)",
+        zIndex: "999999",
+        padding:
+          "13px 20px",
+        borderRadius:
+          "999px",
+        background:
+          "#111827",
+        color:
+          "#ffffff",
+        fontWeight:
+          "700"
+
+      }
+    );
+
+    document.body.appendChild(
+      toast
+    );
+
+  }
+
+
+  toast.textContent =
+    message;
+
+  toast.style.display =
+    "block";
+
+
+  clearTimeout(
+    toast._timer
+  );
+
+
+  toast._timer =
+    setTimeout(
+      () => {
+
+        toast.style.display =
+          "none";
+
+      },
+      3000
+    );
+
+}
+
+
+// ============================================================
+// LOGGED OUT
+// ============================================================
+
+function showLoggedOut() {
+
+  const container =
+    $("needsList");
+
+  if (container) {
+
+    container.innerHTML = `
+
+      <div class="loading-box">
+
+        <div style="font-size:40px">
+          🔐
+        </div>
+
+        <strong>
+          Silakan login
+        </strong>
+
+        <small>
+          Login untuk melihat kebutuhan.
+        </small>
+
+      </div>
+
+    `;
+
+  }
+
+
+  setText(
+    "activeNeedsCount",
+    "0"
+  );
+
+  setText(
+    "userNeedsCount",
+    "0"
+  );
+
+  setText(
+    "userOffersCount",
+    "0"
+  );
+
+}
+
+
+// ============================================================
+// EVENTS
+// ============================================================
+
+document.addEventListener(
+  "DOMContentLoaded",
+  () => {
+
+    $("needForm")
+      ?.addEventListener(
+        "submit",
+        submitNeed
+      );
+
+
+    $("openNeedModal")
+      ?.addEventListener(
+        "click",
+        openNeedModal
+      );
+
+
+    $("heroPostButton")
+      ?.addEventListener(
+        "click",
+        openNeedModal
+      );
+
+
+    $("desktopPostButton")
+      ?.addEventListener(
+        "click",
+        openNeedModal
+      );
+
+
+    $("mobilePostButton")
+      ?.addEventListener(
+        "click",
+        openNeedModal
+      );
+
+
+    $("closeNeedModal")
+      ?.addEventListener(
+        "click",
+        () =>
+          closeModal(
+            "needModal"
+          )
+      );
+
+
+    $("cancelNeed")
+      ?.addEventListener(
+        "click",
+        () =>
+          closeModal(
+            "needModal"
+          )
+      );
+
+
+    $("needBackdrop")
+      ?.addEventListener(
+        "click",
+        () =>
+          closeModal(
+            "needModal"
+          )
+      );
+
+
+    $("profileButton")
+      ?.addEventListener(
+        "click",
+        event => {
+
+          event.stopPropagation();
+
+          $("profileMenu")
+            ?.classList.toggle(
+              "hidden"
+            );
+
+        }
+      );
+
+
+    $("profilePageBtn")
+      ?.addEventListener(
+        "click",
+        openProfile
+      );
+
+
+    $("logoutBtn")
+      ?.addEventListener(
+        "click",
+        logout
+      );
+
+
+    $("needsList")
+      ?.addEventListener(
+        "click",
+        event => {
+
+          const button =
+            event.target.closest(
+              "[data-action='detail']"
+            );
+
+          if (!button) {
+            return;
+          }
+
+
+          const needId =
+            button.dataset.id;
+
+
+          window.openNeedDetail(
+            needId
+          );
+
+        }
+      );
+
+
+    document.addEventListener(
+      "click",
+      event => {
+
+        const menu =
+          $("profileMenu");
+
+        const button =
+          $("profileButton");
+
+
+        if (
+          menu &&
+          button &&
+          !menu.contains(
+            event.target
+          ) &&
+          !button.contains(
+            event.target
+          )
+        ) {
+
+          menu.classList.add(
+            "hidden"
+          );
+
+        }
+
+      }
+    );
+
+
+    document.addEventListener(
+      "keydown",
+      event => {
+
+        if (
+          event.key ===
+          "Escape"
+        ) {
+
+          closeModal("needModal");
+          closeModal("detailModal");
+          closeModal("offerModal");
+
+        }
+
+      }
+    );
+
+  }
+);
+
+
+// ============================================================
+// DEBUG
+// ============================================================
+
+window.butuhApp = {
+
+  getUser() {
+
+    return currentUser;
+
+  },
+
+  getNeeds() {
+
+    return needsCache;
+
+  },
+
+  reload() {
+
+    loadNeeds();
+
+  }
+
+};
+
+
+console.log(
+  "🚀 BUTUH script.js STABLE aktif"
+);
