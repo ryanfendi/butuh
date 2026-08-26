@@ -1603,76 +1603,69 @@ function openOfferForm(need) {
 
 
 // ============================================================
-// SUBMIT OFFER
+// SUBMIT OFFER - FIXED
 // ============================================================
 
-async function submitOffer(
-  event,
-  need
-) {
+async function submitOffer(event, need) {
 
   event.preventDefault();
 
-  if (isSubmittingOffer) return;
+  if (isSubmittingOffer) {
+    return;
+  }
 
   if (!currentUser) {
 
-    window.location.href =
-      "login.html";
+    window.location.href = "login.html";
 
     return;
   }
 
-  if (!need?.id) {
+  if (!need || !need.id) {
+
+    alert("Kebutuhan tidak ditemukan.");
+
+    return;
+  }
+
+  if (need.ownerId === currentUser.uid) {
 
     alert(
-      "Kebutuhan tidak ditemukan."
+      "Anda tidak dapat mengirim penawaran ke kebutuhan sendiri."
     );
 
     return;
   }
 
-  if (
-    need.ownerId ===
-    currentUser.uid
-  ) {
+
+  const form = event.target;
+
+  const price = Number(
+    form.price?.value || 0
+  );
+
+  const duration = String(
+    form.duration?.value || ""
+  ).trim();
+
+  const message = String(
+    form.message?.value || ""
+  ).trim();
+
+
+  // ----------------------------------------------------------
+  // VALIDASI
+  // ----------------------------------------------------------
+
+  if (!Number.isFinite(price) || price <= 0) {
 
     alert(
-      "Anda tidak dapat menawarkan kebutuhan sendiri."
+      "Masukkan harga penawaran yang valid."
     );
 
     return;
   }
 
-  const form =
-    event.target;
-
-  const price =
-    Number(
-      form.price?.value || 0
-    );
-
-  const duration =
-    String(
-      form.duration?.value || ""
-    ).trim();
-
-  const message =
-    String(
-      form.message?.value || ""
-    ).trim();
-
-  if (
-    !Number.isFinite(price) ||
-    price <= 0
-  ) {
-
-    alert(
-      "Masukkan harga yang valid."
-    );
-
-    return;
-  }
 
   if (!duration) {
 
@@ -1683,6 +1676,7 @@ async function submitOffer(
     return;
   }
 
+
   if (!message) {
 
     alert(
@@ -1692,14 +1686,17 @@ async function submitOffer(
     return;
   }
 
+
   isSubmittingOffer = true;
+
 
   const button =
     $("submitOffer");
 
-  const original =
+  const originalText =
     button?.innerHTML ||
     "💰 Kirim Penawaran";
+
 
   if (button) {
 
@@ -1709,65 +1706,223 @@ async function submitOffer(
       "⏳ Mengirim...";
   }
 
+
   try {
 
-    await addDoc(
+    // --------------------------------------------------------
+    // PASTIKAN USER MASIH LOGIN
+    // --------------------------------------------------------
+
+    const user = auth.currentUser;
+
+    if (!user) {
+
+      throw new Error(
+        "Sesi login sudah berakhir. Silakan login kembali."
+      );
+    }
+
+
+    // --------------------------------------------------------
+    // PASTIKAN NEED MASIH ADA
+    // --------------------------------------------------------
+
+    const needRef =
+      doc(
+        db,
+        "needs",
+        need.id
+      );
+
+
+    const needSnapshot =
+      await getDoc(
+        needRef
+      );
+
+
+    if (!needSnapshot.exists()) {
+
+      throw new Error(
+        "Kebutuhan sudah tidak ditemukan."
+      );
+    }
+
+
+    const latestNeed =
+      needSnapshot.data();
+
+
+    // --------------------------------------------------------
+    // CEK PEMILIK
+    // --------------------------------------------------------
+
+    if (
+      latestNeed.ownerId ===
+      user.uid
+    ) {
+
+      throw new Error(
+        "Anda tidak dapat mengirim penawaran ke kebutuhan sendiri."
+      );
+    }
+
+
+    // --------------------------------------------------------
+    // CEK STATUS
+    // --------------------------------------------------------
+
+    const needStatus =
+      String(
+        latestNeed.status ||
+        "open"
+      ).toLowerCase();
+
+
+    if (
+      needStatus !== "open" &&
+      needStatus !== "active" &&
+      needStatus !== "aktif"
+    ) {
+
+      throw new Error(
+        "Kebutuhan ini sudah tidak menerima penawaran."
+      );
+    }
+
+
+    // --------------------------------------------------------
+    // DATA OFFER
+    // --------------------------------------------------------
+
+    const offerData = {
+
+      providerId:
+        user.uid,
+
+      providerName:
+        user.displayName ||
+        user.email?.split("@")[0] ||
+        "Pengguna",
+
+      providerEmail:
+        user.email ||
+        "",
+
+      providerPhoto:
+        user.photoURL ||
+        "",
+
+      needId:
+        need.id,
+
+      needTitle:
+        latestNeed.title ||
+        need.title ||
+        "Kebutuhan",
+
+      price:
+        price,
+
+      duration:
+        duration,
+
+      message:
+        message,
+
+      status:
+        "pending",
+
+      createdAt:
+        serverTimestamp(),
+
+      updatedAt:
+        serverTimestamp()
+    };
+
+
+    console.log(
+      "SUBMIT OFFER:",
+      {
+        needId: need.id,
+        providerId: user.uid,
+        ownerId: latestNeed.ownerId
+      }
+    );
+
+
+    // --------------------------------------------------------
+    // CREATE OFFER
+    // --------------------------------------------------------
+
+    const offersRef =
       collection(
         db,
         "needs",
         need.id,
         "offers"
-      ),
-      {
+      );
 
-        providerId:
-          currentUser.uid,
 
-        providerName:
-          currentUser.displayName ||
-          currentUser.email?.split("@")[0] ||
-          "Pengguna",
+    const offerRef =
+      await addDoc(
+        offersRef,
+        offerData
+      );
 
-        providerEmail:
-          currentUser.email || "",
 
-        providerPhoto:
-          currentUser.photoURL || "",
-
-        needId:
-          need.id,
-
-        needTitle:
-          need.title ||
-          "Kebutuhan",
-
-        price,
-
-        duration,
-
-        message,
-
-        status:
-          "pending",
-
-        createdAt:
-          serverTimestamp(),
-
-        updatedAt:
-          serverTimestamp()
-
-      }
+    console.log(
+      "OFFER BERHASIL:",
+      offerRef.id
     );
 
+
+    // --------------------------------------------------------
+    // RESET
+    // --------------------------------------------------------
+
     form.reset();
+
 
     closeModal(
       "offerModal"
     );
 
+
     showToast(
       "🤝 Penawaran berhasil dikirim!"
     );
+
+
+    // --------------------------------------------------------
+    // UPDATE COUNTER
+    // --------------------------------------------------------
+
+    const counter =
+      $("userOffersCount");
+
+
+    if (counter) {
+
+      const old =
+        Number(
+          counter.textContent
+        );
+
+
+      if (
+        Number.isFinite(old)
+      ) {
+
+        setText(
+          "userOffersCount",
+          old + 1
+        );
+
+      }
+
+    }
+
 
   } catch (error) {
 
@@ -1776,26 +1931,60 @@ async function submitOffer(
       error
     );
 
+
+    console.error(
+      "ERROR CODE:",
+      error?.code
+    );
+
+
+    console.error(
+      "ERROR MESSAGE:",
+      error?.message
+    );
+
+
+    let message =
+      error?.message ||
+      "Terjadi kesalahan."
+
+
+    if (
+      error?.code ===
+      "permission-denied"
+    ) {
+
+      message =
+        "Firestore menolak penawaran.\n\n" +
+        "Pastikan Firestore Rules terbaru sudah di-PUBLISH " +
+        "dan user sudah login.";
+
+    }
+
+
     alert(
       "Gagal mengirim penawaran:\n\n" +
-      error.message
+      message
     );
+
 
   } finally {
 
     isSubmittingOffer = false;
+
 
     if (button) {
 
       button.disabled = false;
 
       button.innerHTML =
-        original;
+        originalText;
+
     }
 
   }
-}
 
+}
 
 // ============================================================
 // NEED MODAL
