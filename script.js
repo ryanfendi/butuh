@@ -486,6 +486,84 @@ async function submitNeed(event) {
 
 }
 
+// ============================================================
+// LOAD OFFERS FOR NEED
+// ============================================================
+
+async function loadOffersForNeed(need) {
+
+  if (!currentUser || !need?.id) {
+    return [];
+  }
+
+
+  // Hanya pemilik kebutuhan yang dapat melihat
+  // seluruh penawaran untuk kebutuhannya.
+  if (need.ownerId !== currentUser.uid) {
+    return [];
+  }
+
+
+  try {
+
+    const offersRef =
+      collection(
+        db,
+        "needs",
+        need.id,
+        "offers"
+      );
+
+
+    const snapshot =
+      await getDocs(
+        offersRef
+      );
+
+
+    const offers = [];
+
+
+    snapshot.forEach(
+      item => {
+
+        offers.push({
+
+          id:
+            item.id,
+
+          ...item.data()
+
+        });
+
+      }
+    );
+
+
+    // Urutkan terbaru
+    offers.sort(
+      (a, b) =>
+        getTime(b.createdAt) -
+        getTime(a.createdAt)
+    );
+
+
+    return offers;
+
+  } catch (error) {
+
+    console.error(
+      "Gagal memuat penawaran:",
+      error
+    );
+
+
+    return [];
+
+  }
+
+}
+
 
 // ============================================================
 // OPEN DETAIL
