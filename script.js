@@ -1,6 +1,34 @@
 // ============================================================
-// BUTUH - SCRIPT.JS V2
-// Marketplace Kebutuhan + Penawaran + Transaksi + Chat
+// BUTUH - SCRIPT.JS
+// VERSI TERBARU
+//
+// ALUR:
+// Kebutuhan
+//   ↓
+// Penawaran
+//   ↓
+// Terima / Tolak
+//   ↓
+// Transaksi otomatis
+//   ↓
+// Chat
+//   ↓
+// Pembayaran
+//   ↓
+// Pengerjaan
+//   ↓
+// Penyedia menyelesaikan
+//   ↓
+// Konfirmasi Pemilik
+//   ↓
+// Konfirmasi Penyedia
+//   ↓
+// TRANSAKSI SELESAI
+// ============================================================
+
+
+// ============================================================
+// FIREBASE APP
 // ============================================================
 
 import {
@@ -9,11 +37,21 @@ import {
   getApp
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 
+
+// ============================================================
+// FIREBASE AUTH
+// ============================================================
+
 import {
   getAuth,
   onAuthStateChanged,
   signOut
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+
+
+// ============================================================
+// FIRESTORE
+// ============================================================
 
 import {
   getFirestore,
@@ -27,99 +65,162 @@ import {
   onSnapshot,
   serverTimestamp,
   updateDoc,
-  setDoc,
+  writeBatch,
   orderBy,
   limit
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
+
 // ============================================================
-// FIREBASE
+// FIREBASE CONFIG
 // ============================================================
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCUFHkwOfNo-JCGHWG3dWcnISoYLg7vGnY",
-  authDomain: "butuhin.firebaseapp.com",
-  projectId: "butuhin",
-  storageBucket: "butuhin.firebasestorage.app",
-  messagingSenderId: "331896660506",
-  appId: "1:331896660506:web:7a03f433101b81dd74e7a3"
+
+  apiKey:
+    "AIzaSyCUFHkwOfNo-JCGHWG3dWcnISoYLg7vGnY",
+
+  authDomain:
+    "butuhin.firebaseapp.com",
+
+  projectId:
+    "butuhin",
+
+  storageBucket:
+    "butuhin.firebasestorage.app",
+
+  messagingSenderId:
+    "331896660506",
+
+  appId:
+    "1:331896660506:web:7a03f433101b81dd74e7a3"
+
 };
+
+
+// ============================================================
+// FIREBASE INIT
+// ============================================================
 
 const app =
   getApps().length
     ? getApp()
     : initializeApp(firebaseConfig);
 
-const auth = getAuth(app);
-const db = getFirestore(app);
+
+const auth =
+  getAuth(app);
+
+
+const db =
+  getFirestore(app);
+
 
 // ============================================================
 // STATE
 // ============================================================
 
 let currentUser = null;
+
 let authReady = false;
 
 let needsCache = [];
+
 let unsubscribeNeeds = null;
 
 let currentDetailNeed = null;
 
+let currentTransaction = null;
+
+let unsubscribeTransaction = null;
+
+let unsubscribeMessages = null;
+
 let isSubmittingNeed = false;
+
 let isSubmittingOffer = false;
+
 let isUpdatingOffer = false;
 
-let currentTransaction = null;
-let unsubscribeChat = null;
+let isCreatingTransaction = false;
+
+let isSendingMessage = false;
+
+let isUpdatingTransaction = false;
+
 
 // ============================================================
-// HELPERS
+// HELPER
 // ============================================================
 
-const $ = id => document.getElementById(id);
+const $ = id =>
+  document.getElementById(id);
 
-function setText(id, value) {
-  const el = $(id);
-  if (el) el.textContent = String(value ?? "");
-}
-
-function setImage(id, src) {
-  const el = $(id);
-  if (el && src) el.src = src;
-}
 
 // ============================================================
 // AUTH
 // ============================================================
 
-onAuthStateChanged(auth, async user => {
+onAuthStateChanged(
+  auth,
+  async user => {
 
-  currentUser = user;
-  authReady = true;
+    currentUser =
+      user;
 
-  updateUserUI(user);
+    authReady =
+      true;
 
-  if (!user) {
 
-    if (unsubscribeNeeds) {
-      unsubscribeNeeds();
-      unsubscribeNeeds = null;
+    updateUserUI(
+      user
+    );
+
+
+    if (user) {
+
+      loadNeeds();
+
+      openNeedFromURL();
+
+    } else {
+
+      if (unsubscribeNeeds) {
+
+        unsubscribeNeeds();
+
+        unsubscribeNeeds = null;
+
+      }
+
+
+      if (unsubscribeTransaction) {
+
+        unsubscribeTransaction();
+
+        unsubscribeTransaction = null;
+
+      }
+
+
+      if (unsubscribeMessages) {
+
+        unsubscribeMessages();
+
+        unsubscribeMessages = null;
+
+      }
+
+
+      needsCache = [];
+
+      showLoggedOut();
+
     }
 
-    if (unsubscribeChat) {
-      unsubscribeChat();
-      unsubscribeChat = null;
-    }
-
-    needsCache = [];
-
-    showLoggedOut();
-    return;
   }
+);
 
-  loadNeeds();
-  openNeedFromURL();
-});
 
 // ============================================================
 // USER UI
@@ -129,32 +230,80 @@ function updateUserUI(user) {
 
   if (!user) {
 
-    setText("userName", "Pengguna");
-    setText("menuUserName", "Pengguna");
-    setText("userEmail", "");
-    setText("menuUserEmail", "");
+    setText(
+      "userName",
+      "Pengguna"
+    );
+
+    setText(
+      "menuUserName",
+      "Pengguna"
+    );
+
+    setText(
+      "userEmail",
+      ""
+    );
+
+    setText(
+      "menuUserEmail",
+      ""
+    );
 
     return;
+
   }
+
 
   const name =
     user.displayName ||
     user.email?.split("@")[0] ||
     "Pengguna";
 
+
+  const email =
+    user.email ||
+    "";
+
+
   const photo =
     user.photoURL ||
     avatar(name);
 
-  setText("userName", name);
-  setText("menuUserName", name);
 
-  setText("userEmail", user.email || "");
-  setText("menuUserEmail", user.email || "");
+  setText(
+    "userName",
+    name
+  );
 
-  setImage("userPhoto", photo);
-  setImage("menuUserPhoto", photo);
+  setText(
+    "menuUserName",
+    name
+  );
+
+  setText(
+    "userEmail",
+    email
+  );
+
+  setText(
+    "menuUserEmail",
+    email
+  );
+
+
+  setImage(
+    "userPhoto",
+    photo
+  );
+
+  setImage(
+    "menuUserPhoto",
+    photo
+  );
+
 }
+
 
 // ============================================================
 // LOAD NEEDS
@@ -162,126 +311,273 @@ function updateUserUI(user) {
 
 function loadNeeds() {
 
-  const container = $("needsList");
+  const container =
+    $("needsList");
 
-  if (!container) return;
 
-  if (unsubscribeNeeds) {
-    unsubscribeNeeds();
-    unsubscribeNeeds = null;
+  if (!container) {
+    return;
   }
 
+
+  if (unsubscribeNeeds) {
+
+    unsubscribeNeeds();
+
+    unsubscribeNeeds = null;
+
+  }
+
+
   container.innerHTML = `
+
     <div class="loading-box">
+
       <div class="loading-spinner"></div>
-      <strong>Memuat kebutuhan...</strong>
-      <small>Menghubungkan ke Firestore</small>
+
+      <strong>
+        Memuat kebutuhan...
+      </strong>
+
+      <small>
+        Menghubungkan ke Firestore
+      </small>
+
     </div>
+
   `;
 
-  const needsRef = collection(db, "needs");
 
-  unsubscribeNeeds = onSnapshot(
-    needsRef,
-    snapshot => {
+  const needsRef =
+    collection(
+      db,
+      "needs"
+    );
 
-      const needs = [];
 
-      snapshot.forEach(item => {
-        needs.push({
-          id: item.id,
-          ...item.data()
-        });
-      });
+  unsubscribeNeeds =
+    onSnapshot(
 
-      needs.sort(
-        (a, b) =>
-          getTime(b.createdAt) -
-          getTime(a.createdAt)
-      );
+      needsRef,
 
-      needsCache = needs;
+      snapshot => {
 
-      renderNeeds(needs);
-      updateBasicCounters(needs);
-      loadMyOfferCountFast(needs);
-    },
-    error => {
+        const needs = [];
 
-      console.error(error);
 
-      container.innerHTML = `
-        <div class="loading-box">
-          <div class="empty-icon">⚠️</div>
-          <strong>Gagal memuat kebutuhan</strong>
-          <small>${escapeHTML(error.message)}</small>
+        snapshot.forEach(
+          item => {
 
-          <button
-            id="retryNeedsBtn"
-            class="btn btn-primary"
-            type="button"
-            style="margin-top:15px"
-          >
-            🔄 Coba Lagi
-          </button>
-        </div>
-      `;
+            needs.push({
 
-      $("retryNeedsBtn")
-        ?.addEventListener("click", loadNeeds);
-    }
-  );
+              id:
+                item.id,
+
+              ...item.data()
+
+            });
+
+          }
+        );
+
+
+        needs.sort(
+          (a, b) =>
+            getTime(
+              b.createdAt
+            ) -
+            getTime(
+              a.createdAt
+            )
+        );
+
+
+        needsCache =
+          needs;
+
+
+        renderNeeds(
+          needs
+        );
+
+
+        updateBasicCounters(
+          needs
+        );
+
+
+        loadMyOfferCountFast(
+          needs
+        );
+
+      },
+
+      error => {
+
+        console.error(
+          "LOAD NEEDS ERROR:",
+          error
+        );
+
+
+        container.innerHTML = `
+
+          <div class="error-state">
+
+            <div class="error-icon">
+              ⚠️
+            </div>
+
+            <strong>
+              Gagal memuat kebutuhan
+            </strong>
+
+            <p>
+              ${escapeHTML(
+                error.message ||
+                "Terjadi kesalahan."
+              )}
+            </p>
+
+            <button
+              id="retryNeedsBtn"
+              class="btn btn-primary"
+              type="button"
+            >
+              🔄 Coba Lagi
+            </button>
+
+          </div>
+
+        `;
+
+
+        $("retryNeedsBtn")
+          ?.addEventListener(
+            "click",
+            loadNeeds
+          );
+
+      }
+
+    );
+
 }
+
 
 // ============================================================
 // RENDER NEEDS
 // ============================================================
 
-function renderNeeds(needs) {
+function renderNeeds(
+  needs
+) {
 
-  const container = $("needsList");
+  const container =
+    $("needsList");
 
-  if (!container) return;
+
+  if (!container) {
+    return;
+  }
+
 
   if (!needs.length) {
 
     container.innerHTML = `
+
       <div class="loading-box">
-        <div class="empty-icon">📭</div>
-        <strong>Belum ada kebutuhan</strong>
-        <small>Jadilah yang pertama memposting kebutuhan.</small>
+
+        <div class="empty-icon">
+          📭
+        </div>
+
+        <strong>
+          Belum ada kebutuhan
+        </strong>
+
+        <small>
+          Jadilah yang pertama memposting kebutuhan.
+        </small>
+
       </div>
+
     `;
 
     return;
+
   }
 
+
   container.innerHTML =
-    needs.map(createNeedCard).join("");
+    needs
+      .map(
+        need =>
+          createNeedCard(
+            need
+          )
+      )
+      .join("");
+
 }
 
+
 // ============================================================
-// NEED CARD
+// CREATE NEED CARD
 // ============================================================
 
-function createNeedCard(need) {
+function createNeedCard(
+  need
+) {
+
+  const title =
+    escapeHTML(
+      need.title ||
+      "Tanpa judul"
+    );
+
+
+  const description =
+    escapeHTML(
+      truncate(
+        need.description ||
+        "",
+        160
+      )
+    );
+
+
+  const category =
+    escapeHTML(
+      getCategory(
+        need.category
+      )
+    );
+
+
+  const budget =
+    formatMoney(
+      need.budget
+    );
+
 
   const owner =
-    need.ownerId === currentUser?.uid;
+    need.ownerId ===
+    currentUser?.uid;
+
 
   const status =
-    normalizeNeedStatus(need.status);
+    normalizeNeedStatus(
+      need.status
+    );
+
 
   const isOpen =
     status === "open";
 
-  let buttonText = "👁️ Lihat";
-
-  if (!owner && isOpen) {
-    buttonText = "💰 Tawarkan";
-  }
 
   return `
+
     <article
       class="need-card"
       data-id="${escapeHTML(need.id)}"
@@ -292,14 +588,15 @@ function createNeedCard(need) {
         <div>
 
           <span class="need-category">
-            ${escapeHTML(getCategory(need.category))}
+            ${category}
           </span>
 
           <h3>
-            ${escapeHTML(need.title || "Tanpa judul")}
+            ${title}
           </h3>
 
         </div>
+
 
         ${
           owner
@@ -313,207 +610,361 @@ function createNeedCard(need) {
 
       </div>
 
+
       <p class="need-description">
-        ${escapeHTML(
-          truncate(need.description || "", 160)
-        )}
+        ${description}
       </p>
+
 
       <div class="need-footer">
 
         <div>
 
           <div class="need-budget">
-            Rp ${formatMoney(need.budget)}
+            Rp ${budget}
           </div>
 
           <div class="need-date">
-            📅 ${formatDate(need.createdAt)}
+            📅 ${formatDate(
+              need.createdAt
+            )}
           </div>
 
-          ${
-            status !== "open"
-              ? `
-                <div style="margin-top:5px">
-                  ${getNeedStatusText(status)}
-                </div>
-              `
-              : ""
-          }
-
         </div>
+
 
         <button
           class="btn ${
             owner
               ? "btn-outline"
-              : "btn-primary"
+              : isOpen
+                ? "btn-primary"
+                : "btn-outline"
           }"
           type="button"
           data-action="detail"
           data-id="${escapeHTML(need.id)}"
         >
-          ${buttonText}
+
+          ${
+            owner
+              ? "👁️ Lihat"
+              : isOpen
+                ? "💰 Tawarkan"
+                : "👁️ Lihat"
+          }
+
         </button>
 
       </div>
 
     </article>
+
   `;
+
 }
+
 
 // ============================================================
 // COUNTERS
 // ============================================================
 
-function updateBasicCounters(needs) {
+function updateBasicCounters(
+  needs
+) {
 
   const active =
     needs.filter(
-      n => normalizeNeedStatus(n.status) === "open"
+      need =>
+        normalizeNeedStatus(
+          need.status
+        ) === "open"
     ).length;
+
 
   const mine =
     needs.filter(
-      n => n.ownerId === currentUser?.uid
+      need =>
+        need.ownerId ===
+        currentUser?.uid
     ).length;
 
-  setText("activeNeedsCount", active);
-  setText("userNeedsCount", mine);
+
+  setText(
+    "activeNeedsCount",
+    active
+  );
+
+
+  setText(
+    "userNeedsCount",
+    mine
+  );
+
 }
 
+
 // ============================================================
-// COUNT OFFERS
+// COUNT MY OFFERS
 // ============================================================
 
-async function loadMyOfferCountFast(needs) {
+async function loadMyOfferCountFast(
+  needs
+) {
 
-  if (!currentUser || !needs.length) {
-    setText("userOffersCount", "0");
+  if (!currentUser) {
+
+    setText(
+      "userOffersCount",
+      "0"
+    );
+
     return;
+
   }
+
+
+  if (!needs.length) {
+
+    setText(
+      "userOffersCount",
+      "0"
+    );
+
+    return;
+
+  }
+
 
   try {
 
-    let total = 0;
+    const requests =
+      needs.map(
+        async need => {
 
-    for (const need of needs) {
+          try {
 
-      try {
+            const offersRef =
+              collection(
+                db,
+                "needs",
+                need.id,
+                "offers"
+              );
 
-        const q = query(
-          collection(
-            db,
-            "needs",
-            need.id,
-            "offers"
-          ),
-          where(
-            "providerId",
-            "==",
-            currentUser.uid
-          )
-        );
 
-        const snap = await getDocs(q);
+            const offerQuery =
+              query(
+                offersRef,
+                where(
+                  "providerId",
+                  "==",
+                  currentUser.uid
+                )
+              );
 
-        total += snap.size;
 
-      } catch (err) {
+            const snapshot =
+              await getDocs(
+                offerQuery
+              );
 
-        console.warn(
-          "Offer count error:",
-          err.message
-        );
 
-      }
-    }
+            return snapshot.size;
 
-    setText("userOffersCount", total);
+          } catch {
+
+            return 0;
+
+          }
+
+        }
+      );
+
+
+    const results =
+      await Promise.all(
+        requests
+      );
+
+
+    const total =
+      results.reduce(
+        (sum, value) =>
+          sum + value,
+        0
+      );
+
+
+    setText(
+      "userOffersCount",
+      total
+    );
 
   } catch (error) {
 
-    console.warn(error);
+    console.warn(
+      "COUNT OFFERS ERROR:",
+      error
+    );
 
   }
+
 }
+
 
 // ============================================================
 // SUBMIT NEED
 // ============================================================
 
-async function submitNeed(event) {
+async function submitNeed(
+  event
+) {
 
   event.preventDefault();
 
-  if (isSubmittingNeed) return;
+
+  if (isSubmittingNeed) {
+    return;
+  }
+
 
   if (!currentUser) {
-    window.location.href = "login.html";
+
+    window.location.href =
+      "login.html";
+
     return;
+
   }
 
-  const form = event.target;
+
+  const form =
+    event.target;
+
 
   const title =
-    String(form.title?.value || "").trim();
+    String(
+      form.title?.value ||
+      ""
+    ).trim();
+
 
   const description =
-    String(form.description?.value || "").trim();
+    String(
+      form.description?.value ||
+      ""
+    ).trim();
+
 
   const category =
-    form.category?.value || "other";
+    form.category?.value ||
+    "other";
+
 
   const rawBudget =
-    String(form.budget?.value || "").trim();
+    String(
+      form.budget?.value ||
+      ""
+    ).trim();
 
-  const budget = Number(rawBudget);
+
+  const budget =
+    Number(
+      rawBudget
+    );
+
 
   const deadline =
-    form.deadline?.value || "";
+    form.deadline?.value ||
+    "";
+
 
   if (!title) {
-    alert("Judul kebutuhan wajib diisi.");
+
+    alert(
+      "Judul kebutuhan wajib diisi."
+    );
+
     return;
+
   }
+
 
   if (!description) {
-    alert("Deskripsi kebutuhan wajib diisi.");
+
+    alert(
+      "Deskripsi kebutuhan wajib diisi."
+    );
+
     return;
+
   }
+
 
   if (
-    rawBudget === "" ||
-    !Number.isFinite(budget) ||
+    !Number.isFinite(
+      budget
+    ) ||
     budget <= 0
   ) {
-    alert("Masukkan budget yang valid.");
+
+    alert(
+      "Masukkan budget yang valid."
+    );
+
     return;
+
   }
 
-  isSubmittingNeed = true;
 
-  const button = $("submitNeed");
+  isSubmittingNeed =
+    true;
+
+
+  const button =
+    $("submitNeed");
+
+
   const original =
-    button?.innerHTML || "🚀 Posting Kebutuhan";
+    button?.innerHTML ||
+    "🚀 Posting Kebutuhan";
+
 
   if (button) {
-    button.disabled = true;
-    button.innerHTML = "⏳ Menyimpan...";
+
+    button.disabled =
+      true;
+
+    button.innerHTML =
+      "⏳ Menyimpan...";
+
   }
+
 
   try {
 
     await addDoc(
-      collection(db, "needs"),
+
+      collection(
+        db,
+        "needs"
+      ),
+
       {
+
         title,
+
         description,
+
         category,
+
         budget,
+
         deadline,
 
-        ownerId: currentUser.uid,
+        ownerId:
+          currentUser.uid,
 
         ownerName:
           currentUser.displayName ||
@@ -521,25 +972,36 @@ async function submitNeed(event) {
           "Pengguna",
 
         ownerEmail:
-          currentUser.email || "",
+          currentUser.email ||
+          "",
 
         ownerPhoto:
-          currentUser.photoURL || "",
+          currentUser.photoURL ||
+          "",
 
-        status: "open",
+        status:
+          "open",
 
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        createdAt:
+          serverTimestamp(),
+
+        updatedAt:
+          serverTimestamp()
+
       }
+
     );
+
 
     form.reset();
 
     closeNeedModal();
 
+
     showToast(
       "✅ Kebutuhan berhasil diposting!"
     );
+
 
   } catch (error) {
 
@@ -548,6 +1010,7 @@ async function submitNeed(event) {
       error
     );
 
+
     alert(
       "Gagal menyimpan kebutuhan:\n\n" +
       error.message
@@ -555,87 +1018,159 @@ async function submitNeed(event) {
 
   } finally {
 
-    isSubmittingNeed = false;
+    isSubmittingNeed =
+      false;
+
 
     if (button) {
-      button.disabled = false;
-      button.innerHTML = original;
+
+      button.disabled =
+        false;
+
+      button.innerHTML =
+        original;
+
     }
+
   }
+
 }
 
+
 // ============================================================
-// DETAIL
+// OPEN NEED DETAIL
 // ============================================================
 
-window.openNeedDetail = async function(needId) {
+window.openNeedDetail =
+  async function(
+    needId
+  ) {
 
-  if (!needId) return;
-
-  const cached =
-    needsCache.find(
-      n => n.id === needId
-    );
-
-  if (cached) {
-    showNeedDetail(cached);
-    return;
-  }
-
-  try {
-
-    const snap =
-      await getDoc(
-        doc(db, "needs", needId)
-      );
-
-    if (!snap.exists()) {
-      alert("Kebutuhan tidak ditemukan.");
+    if (!needId) {
       return;
     }
 
-    showNeedDetail({
-      id: snap.id,
-      ...snap.data()
-    });
 
-  } catch (error) {
+    const cachedNeed =
+      needsCache.find(
+        need =>
+          need.id ===
+          needId
+      );
 
-    console.error(error);
 
-    alert(
-      "Gagal membuka kebutuhan:\n" +
-      error.message
-    );
-  }
-};
+    if (cachedNeed) {
+
+      showNeedDetail(
+        cachedNeed
+      );
+
+      return;
+
+    }
+
+
+    try {
+
+      const needRef =
+        doc(
+          db,
+          "needs",
+          needId
+        );
+
+
+      const snapshot =
+        await getDoc(
+          needRef
+        );
+
+
+      if (!snapshot.exists()) {
+
+        alert(
+          "Kebutuhan tidak ditemukan."
+        );
+
+        return;
+
+      }
+
+
+      showNeedDetail({
+
+        id:
+          snapshot.id,
+
+        ...snapshot.data()
+
+      });
+
+
+    } catch (error) {
+
+      console.error(
+        "DETAIL ERROR:",
+        error
+      );
+
+
+      alert(
+        "Gagal membuka kebutuhan:\n\n" +
+        error.message
+      );
+
+    }
+
+  };
+
 
 // ============================================================
-// SHOW DETAIL
+// SHOW NEED DETAIL
 // ============================================================
 
-async function showNeedDetail(need) {
+async function showNeedDetail(
+  need
+) {
 
-  currentDetailNeed = need;
+  currentDetailNeed =
+    need;
 
-  let modal = $("detailModal");
+
+  let modal =
+    $("detailModal");
+
 
   if (!modal) {
 
     modal =
-      document.createElement("div");
+      document.createElement(
+        "div"
+      );
 
-    modal.id = "detailModal";
-    modal.className = "modal hidden";
+    modal.id =
+      "detailModal";
 
-    document.body.appendChild(modal);
+    modal.className =
+      "modal hidden";
+
+    document.body.appendChild(
+      modal
+    );
+
   }
 
-  const isOwner =
-    need.ownerId === currentUser?.uid;
 
-  const status =
-    normalizeNeedStatus(need.status);
+  const isOwner =
+    need.ownerId ===
+    currentUser?.uid;
+
+
+  const needStatus =
+    normalizeNeedStatus(
+      need.status
+    );
+
 
   modal.innerHTML = `
 
@@ -643,6 +1178,7 @@ async function showNeedDetail(need) {
       class="modal-backdrop"
       id="detailBackdrop"
     ></div>
+
 
     <div class="modal-content">
 
@@ -655,10 +1191,14 @@ async function showNeedDetail(need) {
           </span>
 
           <h2>
-            ${escapeHTML(need.title || "Kebutuhan")}
+            ${escapeHTML(
+              need.title ||
+              "Kebutuhan"
+            )}
           </h2>
 
         </div>
+
 
         <button
           id="closeDetail"
@@ -670,14 +1210,19 @@ async function showNeedDetail(need) {
 
       </div>
 
+
       <div style="padding:22px">
 
         <p style="
           line-height:1.7;
           color:#374151;
         ">
-          ${escapeHTML(need.description || "")}
+          ${escapeHTML(
+            need.description ||
+            ""
+          )}
         </p>
+
 
         <div style="
           background:#eff6ff;
@@ -686,17 +1231,22 @@ async function showNeedDetail(need) {
           margin:20px 0;
         ">
 
-          <small>Budget</small>
+          <small>
+            Budget
+          </small>
 
           <div style="
             font-size:24px;
             font-weight:800;
             color:#2563eb;
           ">
-            Rp ${formatMoney(need.budget)}
+            Rp ${formatMoney(
+              need.budget
+            )}
           </div>
 
         </div>
+
 
         <div style="
           line-height:1.9;
@@ -704,25 +1254,32 @@ async function showNeedDetail(need) {
         ">
 
           👤 ${escapeHTML(
-            need.ownerName || "Pengguna"
+            need.ownerName ||
+            "Pengguna"
           )}
 
           <br>
 
           📂 ${escapeHTML(
-            getCategory(need.category)
+            getCategory(
+              need.category
+            )
           )}
 
           <br>
 
-          📅 ${formatDate(need.createdAt)}
+          📅 ${formatDate(
+            need.createdAt
+          )}
 
           ${
             need.deadline
               ? `
                 <br>
                 ⏰ Deadline:
-                ${escapeHTML(need.deadline)}
+                ${escapeHTML(
+                  need.deadline
+                )}
               `
               : ""
           }
@@ -730,30 +1287,37 @@ async function showNeedDetail(need) {
           <br>
 
           📌 Status:
-          ${getNeedStatusText(status)}
+          ${getNeedStatusText(
+            needStatus
+          )}
 
         </div>
+
 
         ${
           isOwner
             ? `
+
               <div style="margin-top:25px">
 
-                <h3>💰 Penawaran Masuk</h3>
+                <h3>
+                  💰 Penawaran Masuk
+                </h3>
 
                 <div id="incomingOffersList">
 
                   <div class="loading-state">
-                    <div class="spinner"></div>
                     Memuat penawaran...
                   </div>
 
                 </div>
 
               </div>
+
             `
-            : status === "open"
+            : needStatus === "open"
               ? `
+
                 <button
                   id="detailOfferButton"
                   class="btn btn-primary btn-large"
@@ -765,103 +1329,162 @@ async function showNeedDetail(need) {
                 >
                   💰 Ajukan Penawaran
                 </button>
+
               `
               : `
+
                 <div style="
                   margin-top:25px;
-                  padding:15px;
-                  background:#f3f4f6;
+                  padding:16px;
                   border-radius:12px;
+                  background:#f3f4f6;
                 ">
-                  🔒 Kebutuhan ini sudah tidak menerima
+
+                  🔒 Kebutuhan sudah tidak menerima
                   penawaran baru.
+
                 </div>
+
               `
         }
 
       </div>
 
     </div>
+
   `;
 
-  modal.classList.remove("hidden");
 
-  document.body.classList.add("modal-open");
+  modal.classList.remove(
+    "hidden"
+  );
+
+
+  document.body.classList.add(
+    "modal-open"
+  );
+
 
   $("closeDetail")
     ?.addEventListener(
       "click",
-      () => closeModal("detailModal")
+      () =>
+        closeModal(
+          "detailModal"
+        )
     );
+
 
   $("detailBackdrop")
     ?.addEventListener(
       "click",
-      () => closeModal("detailModal")
+      () =>
+        closeModal(
+          "detailModal"
+        )
     );
+
 
   if (isOwner) {
 
-    loadIncomingOffers(need);
+    loadIncomingOffers(
+      need
+    );
 
-  } else {
+  } else if (
+    needStatus === "open"
+  ) {
 
     $("detailOfferButton")
       ?.addEventListener(
         "click",
         () => {
 
-          closeModal("detailModal");
+          closeModal(
+            "detailModal"
+          );
 
-          openOfferForm(need);
+
+          openOfferForm(
+            need
+          );
+
         }
       );
+
   }
+
 }
 
+
 // ============================================================
-// LOAD OFFERS
+// LOAD INCOMING OFFERS
 // ============================================================
 
-async function loadIncomingOffers(need) {
+async function loadIncomingOffers(
+  need
+) {
 
   const container =
     $("incomingOffersList");
 
-  if (!container) return;
+
+  if (!container) {
+    return;
+  }
+
 
   try {
 
+    const offersRef =
+      collection(
+        db,
+        "needs",
+        need.id,
+        "offers"
+      );
+
+
     const snapshot =
       await getDocs(
-        collection(
-          db,
-          "needs",
-          need.id,
-          "offers"
-        )
+        offersRef
       );
+
 
     const offers = [];
 
-    snapshot.forEach(item => {
 
-      offers.push({
-        id: item.id,
-        ...item.data()
-      });
+    snapshot.forEach(
+      item => {
 
-    });
+        offers.push({
+
+          id:
+            item.id,
+
+          ...item.data()
+
+        });
+
+      }
+    );
+
 
     offers.sort(
       (a, b) =>
-        getTime(b.createdAt) -
-        getTime(a.createdAt)
+        getTime(
+          b.createdAt
+        ) -
+        getTime(
+          a.createdAt
+        )
     );
+
 
     if (!offers.length) {
 
       container.innerHTML = `
+
         <div class="empty-state">
 
           <div class="empty-icon">
@@ -873,14 +1496,17 @@ async function loadIncomingOffers(need) {
           </strong>
 
           <p>
-            Belum ada penyedia yang mengajukan.
+            Belum ada penyedia yang mengajukan penawaran.
           </p>
 
         </div>
+
       `;
 
       return;
+
     }
+
 
     container.innerHTML =
       offers
@@ -893,44 +1519,85 @@ async function loadIncomingOffers(need) {
         )
         .join("");
 
+
     container
       .querySelectorAll(
         "[data-offer-action]"
       )
-      .forEach(button => {
+      .forEach(
+        button => {
 
-        button.addEventListener(
-          "click",
-          async () => {
+          button.addEventListener(
+            "click",
+            async () => {
 
-            await updateOfferStatus(
-              need,
-              button.dataset.offerId,
-              button.dataset.offerAction
-            );
+              const action =
+                button.dataset.offerAction;
 
-          }
-        );
 
-      });
+              const offerId =
+                button.dataset.offerId;
+
+
+              if (
+                !action ||
+                !offerId
+              ) {
+                return;
+              }
+
+
+              await updateOfferStatus(
+                need,
+                offerId,
+                action
+              );
+
+            }
+          );
+
+        }
+      );
+
 
   } catch (error) {
 
-    console.error(error);
+    console.error(
+      "LOAD INCOMING OFFERS ERROR:",
+      error
+    );
+
 
     container.innerHTML = `
+
       <div class="error-state">
-        ⚠️ Gagal memuat penawaran
+
+        <div class="error-icon">
+          ⚠️
+        </div>
+
+        <strong>
+          Gagal memuat penawaran
+        </strong>
+
         <p>
-          ${escapeHTML(error.message)}
+          ${escapeHTML(
+            error.message ||
+            "Terjadi kesalahan."
+          )}
         </p>
+
       </div>
+
     `;
+
   }
+
 }
 
+
 // ============================================================
-// OFFER CARD
+// CREATE INCOMING OFFER CARD
 // ============================================================
 
 function createIncomingOfferCard(
@@ -943,11 +1610,19 @@ function createIncomingOfferCard(
       offer.status
     );
 
+
   let actions = "";
 
-  if (status === "pending") {
+
+  if (
+    status === "pending" &&
+    normalizeNeedStatus(
+      need.status
+    ) === "open"
+  ) {
 
     actions = `
+
       <div style="
         display:flex;
         gap:8px;
@@ -959,75 +1634,137 @@ function createIncomingOfferCard(
           type="button"
           class="btn btn-primary"
           data-offer-action="accepted"
-          data-offer-id="${escapeHTML(offer.id)}"
+          data-offer-id="${escapeHTML(
+            offer.id
+          )}"
         >
           ✓ Terima
         </button>
+
 
         <button
           type="button"
           class="btn btn-outline"
           data-offer-action="rejected"
-          data-offer-id="${escapeHTML(offer.id)}"
+          data-offer-id="${escapeHTML(
+            offer.id
+          )}"
         >
           ✕ Tolak
         </button>
 
       </div>
+
     `;
+
   }
 
+
+  if (
+    status === "accepted"
+  ) {
+
+    actions = `
+
+      <button
+        type="button"
+        class="btn btn-primary"
+        style="margin-top:12px"
+        data-open-transaction="${escapeHTML(
+          need.id
+        )}"
+        data-offer-id="${escapeHTML(
+          offer.id
+        )}"
+      >
+        🤝 Buka Transaksi
+      </button>
+
+    `;
+
+  }
+
+
   return `
+
     <div class="history-card">
 
       <div class="history-main">
 
         <h3>
           👤 ${escapeHTML(
-            offer.providerName || "Penyedia"
+            offer.providerName ||
+            "Penyedia"
           )}
         </h3>
 
+
         <div class="offer-price">
-          Rp ${formatMoney(offer.price)}
+          Rp ${formatMoney(
+            offer.price
+          )}
         </div>
 
+
         <p>
-          ${escapeHTML(offer.message || "")}
+          ${escapeHTML(
+            offer.message ||
+            ""
+          )}
         </p>
+
 
         <div class="history-meta">
 
           <span>
             ⏱️ ${escapeHTML(
-              offer.duration || "-"
+              offer.duration ||
+              "-"
             )}
           </span>
 
           <span>
-            📅 ${formatDate(offer.createdAt)}
+            📅 ${formatDate(
+              offer.createdAt
+            )}
           </span>
 
         </div>
+
 
         ${actions}
 
       </div>
 
+
       <span class="status ${
-        getStatusClass(status)
+        getOfferStatusClass(
+          status
+        )
       }">
 
-        ${getStatusText(status)}
+        ${getOfferStatusText(
+          status
+        )}
 
       </span>
 
     </div>
+
   `;
+
 }
 
+
 // ============================================================
-// ACCEPT / REJECT OFFER
+// UPDATE OFFER STATUS
+//
+// PENTING:
+// Menggunakan writeBatch agar:
+// offers/{offerId}
+// dan
+// needs/{needId}
+// berhasil dalam SATU operasi.
 // ============================================================
 
 async function updateOfferStatus(
@@ -1043,20 +1780,52 @@ async function updateOfferStatus(
     return;
   }
 
+
   if (
-    need.ownerId !== currentUser.uid
+    need.ownerId !==
+    currentUser.uid
   ) {
 
     alert(
-      "Anda tidak memiliki izin."
+      "Anda tidak memiliki izin untuk mengubah penawaran ini."
     );
 
     return;
+
   }
 
-  isUpdatingOffer = true;
+
+  if (
+    !need?.id ||
+    !offerId
+  ) {
+
+    alert(
+      "Data kebutuhan atau penawaran tidak ditemukan."
+    );
+
+    return;
+
+  }
+
+
+  isUpdatingOffer =
+    true;
+
 
   try {
+
+    // --------------------------------------------------------
+    // REF
+    // --------------------------------------------------------
+
+    const needRef =
+      doc(
+        db,
+        "needs",
+        need.id
+      );
+
 
     const offerRef =
       doc(
@@ -1067,191 +1836,321 @@ async function updateOfferStatus(
         offerId
       );
 
-    const offerSnap =
-      await getDoc(offerRef);
 
-    if (!offerSnap.exists()) {
+    // --------------------------------------------------------
+    // AMBIL OFFER TERBARU
+    // --------------------------------------------------------
+
+    const offerSnapshot =
+      await getDoc(
+        offerRef
+      );
+
+
+    if (
+      !offerSnapshot.exists()
+    ) {
+
       throw new Error(
         "Penawaran tidak ditemukan."
       );
+
     }
 
+
     const offer =
-      offerSnap.data();
+      offerSnapshot.data();
 
-    if (newStatus === "accepted") {
 
-      // ------------------------------------------------------
-      // UPDATE OFFER
-      // ------------------------------------------------------
+    // --------------------------------------------------------
+    // BATCH
+    // --------------------------------------------------------
 
-      await updateDoc(
+    const batch =
+      writeBatch(
+        db
+      );
+
+
+    // ========================================================
+    // ACCEPTED
+    // ========================================================
+
+    if (
+      newStatus === "accepted"
+    ) {
+
+      // Offer
+      batch.update(
         offerRef,
         {
-          status: "accepted",
-          updatedAt: serverTimestamp()
+
+          status:
+            "accepted",
+
+          updatedAt:
+            serverTimestamp()
+
         }
       );
 
-      // ------------------------------------------------------
-      // TOLAK PENAWARAN LAIN
-      // ------------------------------------------------------
 
-      try {
-
-        const allOffers =
-          await getDocs(
-            collection(
-              db,
-              "needs",
-              need.id,
-              "offers"
-            )
-          );
-
-        const updates = [];
-
-        allOffers.forEach(item => {
-
-          if (
-            item.id !== offerId &&
-            normalizeOfferStatus(
-              item.data().status
-            ) === "pending"
-          ) {
-
-            updates.push(
-              updateDoc(
-                doc(
-                  db,
-                  "needs",
-                  need.id,
-                  "offers",
-                  item.id
-                ),
-                {
-                  status: "rejected",
-                  updatedAt: serverTimestamp()
-                }
-              )
-            );
-
-          }
-
-        });
-
-        await Promise.all(updates);
-
-      } catch (err) {
-
-        console.warn(
-          "Tidak dapat menolak offer lain:",
-          err
-        );
-      }
-
-      // ------------------------------------------------------
-      // UPDATE NEED
-      // ------------------------------------------------------
-
-      await updateDoc(
-        doc(db, "needs", need.id),
+      // Need
+      batch.update(
+        needRef,
         {
-          status: "in_progress",
-          acceptedOfferId: offerId,
+
+          status:
+            "in_progress",
+
+          acceptedOfferId:
+            offerId,
+
           acceptedProviderId:
-            offer.providerId,
-          acceptedProviderName:
-            offer.providerName || "Penyedia",
-          updatedAt: serverTimestamp()
+            offer.providerId ||
+            "",
+
+          acceptedPrice:
+            Number(
+              offer.price ||
+              0
+            ),
+
+          updatedAt:
+            serverTimestamp()
+
         }
       );
 
+
       // ------------------------------------------------------
-      // CREATE TRANSACTION
+      // TRANSACTION
       // ------------------------------------------------------
+
+      const transactionId =
+        createTransactionId(
+          need.id,
+          offerId
+        );
+
 
       const transactionRef =
         doc(
           db,
-          "needs",
-          need.id,
           "transactions",
-          offerId
+          transactionId
         );
 
-      const transactionSnap =
-        await getDoc(transactionRef);
 
-      if (!transactionSnap.exists()) {
+      batch.set(
+        transactionRef,
+        {
 
-        await setDoc(
-          transactionRef,
-          {
-            needId: need.id,
-            needTitle:
-              need.title || "Kebutuhan",
+          transactionId,
 
-            offerId,
+          needId:
+            need.id,
 
-            ownerId:
-              need.ownerId,
+          offerId,
 
-            ownerName:
-              need.ownerName || "Pemilik",
+          needTitle:
+            need.title ||
+            "Kebutuhan",
 
-            providerId:
-              offer.providerId,
+          ownerId:
+            need.ownerId,
 
-            providerName:
-              offer.providerName || "Penyedia",
+          providerId:
+            offer.providerId ||
+            "",
 
-            amount:
-              Number(offer.price || 0),
+          ownerName:
+            need.ownerName ||
+            "Pemilik",
 
-            currency: "IDR",
+          providerName:
+            offer.providerName ||
+            "Penyedia",
 
-            status: "in_progress",
+          ownerEmail:
+            need.ownerEmail ||
+            "",
 
-            workStatus: "in_progress",
+          providerEmail:
+            offer.providerEmail ||
+            "",
 
-            paymentStatus: "unpaid",
+          price:
+            Number(
+              offer.price ||
+              0
+            ),
 
-            providerCompleted: false,
+          duration:
+            offer.duration ||
+            "",
 
-            ownerConfirmed: false,
+          status:
+            "active",
 
-            providerConfirmed: false,
+          paymentStatus:
+            "unpaid",
 
-            createdAt:
-              serverTimestamp(),
+          workStatus:
+            "waiting_payment",
 
-            updatedAt:
-              serverTimestamp()
-          }
-        );
-      }
+          workCompleted:
+            false,
 
-      showToast(
-        "🎉 Penawaran diterima. Transaksi dibuat!"
+          ownerConfirmed:
+            false,
+
+          providerConfirmed:
+            false,
+
+          createdAt:
+            serverTimestamp(),
+
+          updatedAt:
+            serverTimestamp()
+
+        },
+
+        {
+          merge: true
+        }
+
       );
 
-    } else {
+    }
 
-      await updateDoc(
+
+    // ========================================================
+    // REJECTED
+    // ========================================================
+
+    else if (
+      newStatus === "rejected"
+    ) {
+
+      batch.update(
         offerRef,
         {
-          status: "rejected",
-          updatedAt: serverTimestamp()
+
+          status:
+            "rejected",
+
+          updatedAt:
+            serverTimestamp()
+
         }
       );
+
+    }
+
+
+    // ========================================================
+    // STATUS LAIN
+    // ========================================================
+
+    else {
+
+      batch.update(
+        offerRef,
+        {
+
+          status:
+            newStatus,
+
+          updatedAt:
+            serverTimestamp()
+
+        }
+      );
+
+    }
+
+
+    // ========================================================
+    // COMMIT
+    // ========================================================
+
+    await batch.commit();
+
+
+    // ========================================================
+    // SUCCESS
+    // ========================================================
+
+    if (
+      newStatus === "accepted"
+    ) {
+
+      showToast(
+        "🎉 Penawaran diterima dan transaksi dibuat!"
+      );
+
+    } else if (
+      newStatus === "rejected"
+    ) {
 
       showToast(
         "✕ Penawaran ditolak."
       );
+
+    } else {
+
+      showToast(
+        "✅ Status penawaran diperbarui."
+      );
+
     }
 
-    await loadIncomingOffers(need);
+
+    // Refresh
+    await loadIncomingOffers(
+      need
+    );
+
+
+    // Update local cache
+    const index =
+      needsCache.findIndex(
+        item =>
+          item.id ===
+          need.id
+      );
+
+
+    if (
+      index !== -1 &&
+      newStatus === "accepted"
+    ) {
+
+      needsCache[index] = {
+
+        ...needsCache[index],
+
+        status:
+          "in_progress",
+
+        acceptedOfferId:
+          offerId,
+
+        acceptedProviderId:
+          offer.providerId ||
+          "",
+
+        acceptedPrice:
+          Number(
+            offer.price ||
+            0
+          )
+
+      };
+
+    }
+
 
   } catch (error) {
 
@@ -1260,6 +2159,7 @@ async function updateOfferStatus(
       error
     );
 
+
     alert(
       "Gagal mengubah status penawaran:\n\n" +
       error.message
@@ -1267,15 +2167,21 @@ async function updateOfferStatus(
 
   } finally {
 
-    isUpdatingOffer = false;
+    isUpdatingOffer =
+      false;
+
   }
+
 }
 
+
 // ============================================================
-// OFFER FORM
+// OPEN OFFER FORM
 // ============================================================
 
-function openOfferForm(need) {
+function openOfferForm(
+  need
+) {
 
   if (!currentUser) {
 
@@ -1283,7 +2189,9 @@ function openOfferForm(need) {
       "login.html";
 
     return;
+
   }
+
 
   if (
     need.ownerId ===
@@ -1291,24 +2199,37 @@ function openOfferForm(need) {
   ) {
 
     alert(
-      "Anda tidak dapat menawarkan kebutuhan sendiri."
+      "Anda tidak dapat mengirim penawaran ke kebutuhan sendiri."
     );
 
     return;
+
   }
 
-  let modal = $("offerModal");
+
+  let modal =
+    $("offerModal");
+
 
   if (!modal) {
 
     modal =
-      document.createElement("div");
+      document.createElement(
+        "div"
+      );
 
-    modal.id = "offerModal";
-    modal.className = "modal hidden";
+    modal.id =
+      "offerModal";
 
-    document.body.appendChild(modal);
+    modal.className =
+      "modal hidden";
+
+    document.body.appendChild(
+      modal
+    );
+
   }
+
 
   modal.innerHTML = `
 
@@ -1316,6 +2237,7 @@ function openOfferForm(need) {
       class="modal-backdrop"
       id="offerBackdrop"
     ></div>
+
 
     <div class="modal-content">
 
@@ -1333,11 +2255,13 @@ function openOfferForm(need) {
 
           <p>
             ${escapeHTML(
-              need.title || "Kebutuhan"
+              need.title ||
+              "Kebutuhan"
             )}
           </p>
 
         </div>
+
 
         <button
           id="closeOffer"
@@ -1348,6 +2272,7 @@ function openOfferForm(need) {
         </button>
 
       </div>
+
 
       <form id="offerForm">
 
@@ -1360,12 +2285,14 @@ function openOfferForm(need) {
           <input
             name="price"
             type="number"
+            inputmode="numeric"
             min="1"
             step="1"
             required
           >
 
         </div>
+
 
         <div class="form-group">
 
@@ -1383,6 +2310,7 @@ function openOfferForm(need) {
 
         </div>
 
+
         <div class="form-group">
 
           <label>
@@ -1393,10 +2321,12 @@ function openOfferForm(need) {
             name="message"
             rows="5"
             maxlength="2000"
+            placeholder="Jelaskan penawaran Anda..."
             required
           ></textarea>
 
         </div>
+
 
         <div class="modal-actions">
 
@@ -1407,6 +2337,7 @@ function openOfferForm(need) {
           >
             Batal
           </button>
+
 
           <button
             id="submitOffer"
@@ -1421,36 +2352,62 @@ function openOfferForm(need) {
       </form>
 
     </div>
+
   `;
 
-  modal.classList.remove("hidden");
 
-  document.body.classList.add("modal-open");
+  modal.classList.remove(
+    "hidden"
+  );
+
+
+  document.body.classList.add(
+    "modal-open"
+  );
+
 
   $("closeOffer")
     ?.addEventListener(
       "click",
-      () => closeModal("offerModal")
+      () =>
+        closeModal(
+          "offerModal"
+        )
     );
+
 
   $("cancelOffer")
     ?.addEventListener(
       "click",
-      () => closeModal("offerModal")
+      () =>
+        closeModal(
+          "offerModal"
+        )
     );
+
 
   $("offerBackdrop")
     ?.addEventListener(
       "click",
-      () => closeModal("offerModal")
+      () =>
+        closeModal(
+          "offerModal"
+        )
     );
+
 
   $("offerForm")
     ?.addEventListener(
       "submit",
-      e => submitOffer(e, need)
+      event =>
+        submitOffer(
+          event,
+          need
+        )
     );
+
 }
+
 
 // ============================================================
 // SUBMIT OFFER
@@ -1463,24 +2420,34 @@ async function submitOffer(
 
   event.preventDefault();
 
-  if (isSubmittingOffer) return;
 
-  if (!currentUser) {
-    window.location.href = "login.html";
+  if (
+    isSubmittingOffer
+  ) {
     return;
   }
 
-  if (
-    !need ||
-    !need.id
-  ) {
+
+  if (!currentUser) {
+
+    window.location.href =
+      "login.html";
+
+    return;
+
+  }
+
+
+  if (!need?.id) {
 
     alert(
       "Kebutuhan tidak ditemukan."
     );
 
     return;
+
   }
+
 
   if (
     need.ownerId ===
@@ -1492,38 +2459,39 @@ async function submitOffer(
     );
 
     return;
+
   }
 
-  if (
-    normalizeNeedStatus(
-      need.status
-    ) !== "open"
-  ) {
 
-    alert(
-      "Kebutuhan ini sudah tidak menerima penawaran."
-    );
+  const form =
+    event.target;
 
-    return;
-  }
-
-  const form = event.target;
 
   const price =
-    Number(form.price?.value || 0);
+    Number(
+      form.price?.value ||
+      0
+    );
+
 
   const duration =
     String(
-      form.duration?.value || ""
+      form.duration?.value ||
+      ""
     ).trim();
+
 
   const message =
     String(
-      form.message?.value || ""
+      form.message?.value ||
+      ""
     ).trim();
 
+
   if (
-    !Number.isFinite(price) ||
+    !Number.isFinite(
+      price
+    ) ||
     price <= 0
   ) {
 
@@ -1532,43 +2500,69 @@ async function submitOffer(
     );
 
     return;
+
   }
+
 
   if (!duration) {
-    alert("Masukkan lama pengerjaan.");
+
+    alert(
+      "Masukkan lama pengerjaan."
+    );
+
     return;
+
   }
+
 
   if (!message) {
-    alert("Masukkan pesan penawaran.");
+
+    alert(
+      "Masukkan pesan penawaran."
+    );
+
     return;
+
   }
 
-  isSubmittingOffer = true;
+
+  isSubmittingOffer =
+    true;
+
 
   const button =
     $("submitOffer");
+
 
   const original =
     button?.innerHTML ||
     "💰 Kirim Penawaran";
 
+
   if (button) {
 
-    button.disabled = true;
-    button.innerHTML = "⏳ Mengirim...";
+    button.disabled =
+      true;
+
+    button.innerHTML =
+      "⏳ Mengirim...";
+
   }
+
 
   try {
 
     await addDoc(
+
       collection(
         db,
         "needs",
         need.id,
         "offers"
       ),
+
       {
+
         providerId:
           currentUser.uid,
 
@@ -1578,54 +2572,80 @@ async function submitOffer(
           "Pengguna",
 
         providerEmail:
-          currentUser.email || "",
+          currentUser.email ||
+          "",
 
         providerPhoto:
-          currentUser.photoURL || "",
+          currentUser.photoURL ||
+          "",
 
         needId:
           need.id,
 
         needTitle:
-          need.title || "Kebutuhan",
+          need.title ||
+          "Kebutuhan",
 
         price,
+
         duration,
+
         message,
 
-        status: "pending",
+        status:
+          "pending",
 
         createdAt:
           serverTimestamp(),
 
         updatedAt:
           serverTimestamp()
+
       }
+
     );
+
 
     form.reset();
 
-    closeModal("offerModal");
+
+    closeModal(
+      "offerModal"
+    );
+
 
     showToast(
       "🤝 Penawaran berhasil dikirim!"
     );
 
+
     const counter =
       $("userOffersCount");
+
 
     if (counter) {
 
       const old =
-        Number(counter.textContent);
+        Number(
+          counter.textContent
+        );
 
-      if (Number.isFinite(old)) {
+
+      if (
+        Number.isFinite(
+          old
+        )
+      ) {
+
         setText(
           "userOffersCount",
           old + 1
         );
+
       }
+
     }
+
 
   } catch (error) {
 
@@ -1634,6 +2654,7 @@ async function submitOffer(
       error
     );
 
+
     alert(
       "Gagal mengirim penawaran:\n\n" +
       error.message
@@ -1641,46 +2662,46 @@ async function submitOffer(
 
   } finally {
 
-    isSubmittingOffer = false;
+    isSubmittingOffer =
+      false;
+
 
     if (button) {
 
-      button.disabled = false;
-      button.innerHTML = original;
+      button.disabled =
+        false;
+
+      button.innerHTML =
+        original;
+
     }
+
   }
+
 }
 
+
 // ============================================================
-// TRANSACTION
+// TRANSACTION ID
 // ============================================================
 
-async function getTransaction(
+function createTransactionId(
   needId,
-  transactionId
+  offerId
 ) {
 
-  const ref =
-    doc(
-      db,
-      "needs",
-      needId,
-      "transactions",
-      transactionId
-    );
+  return (
+    String(
+      needId
+    ) +
+    "_" +
+    String(
+      offerId
+    )
+  );
 
-  const snap =
-    await getDoc(ref);
-
-  if (!snap.exists()) {
-    return null;
-  }
-
-  return {
-    id: snap.id,
-    ...snap.data()
-  };
 }
+
 
 // ============================================================
 // OPEN TRANSACTION
@@ -1688,67 +2709,145 @@ async function getTransaction(
 
 window.openTransaction =
   async function(
-    needId,
     transactionId
   ) {
 
-    if (!currentUser) return;
+    if (!currentUser) {
+
+      window.location.href =
+        "login.html";
+
+      return;
+
+    }
+
+
+    if (!transactionId) {
+      return;
+    }
+
 
     try {
 
-      const transaction =
-        await getTransaction(
-          needId,
+      const transactionRef =
+        doc(
+          db,
+          "transactions",
           transactionId
         );
 
-      if (!transaction) {
-        alert("Transaksi tidak ditemukan.");
+
+      const snapshot =
+        await getDoc(
+          transactionRef
+        );
+
+
+      if (!snapshot.exists()) {
+
+        alert(
+          "Transaksi belum ditemukan."
+        );
+
         return;
+
       }
 
-      const allowed =
-        transaction.ownerId === currentUser.uid ||
-        transaction.providerId === currentUser.uid;
 
-      if (!allowed) {
-        alert("Anda bukan pihak transaksi ini.");
+      const transaction = {
+
+        id:
+          snapshot.id,
+
+        ...snapshot.data()
+
+      };
+
+
+      if (
+        transaction.ownerId !==
+        currentUser.uid &&
+        transaction.providerId !==
+        currentUser.uid
+      ) {
+
+        alert(
+          "Anda tidak memiliki akses ke transaksi ini."
+        );
+
         return;
+
       }
 
-      currentTransaction =
-        transaction;
 
-      showTransactionModal(
+      showTransaction(
         transaction
       );
 
+
     } catch (error) {
 
-      console.error(error);
+      console.error(
+        "OPEN TRANSACTION ERROR:",
+        error
+      );
+
 
       alert(
-        "Gagal membuka transaksi:\n" +
+        "Gagal membuka transaksi:\n\n" +
         error.message
       );
+
     }
+
   };
 
+
 // ============================================================
-// TRANSACTION MODAL
+// OPEN TRANSACTION FROM NEED + OFFER
 // ============================================================
 
-function showTransactionModal(
+async function openTransactionFromOffer(
+  needId,
+  offerId
+) {
+
+  const transactionId =
+    createTransactionId(
+      needId,
+      offerId
+    );
+
+
+  await window.openTransaction(
+    transactionId
+  );
+
+}
+
+
+// ============================================================
+// SHOW TRANSACTION
+// ============================================================
+
+function showTransaction(
   transaction
 ) {
+
+  currentTransaction =
+    transaction;
+
 
   let modal =
     $("transactionModal");
 
+
   if (!modal) {
 
     modal =
-      document.createElement("div");
+      document.createElement(
+        "div"
+      );
 
     modal.id =
       "transactionModal";
@@ -1756,20 +2855,40 @@ function showTransactionModal(
     modal.className =
       "modal hidden";
 
-    document.body.appendChild(modal);
+    document.body.appendChild(
+      modal
+    );
+
   }
+
 
   const isOwner =
     transaction.ownerId ===
     currentUser.uid;
 
+
   const isProvider =
     transaction.providerId ===
     currentUser.uid;
 
-  const completed =
-    transaction.status ===
-    "completed";
+
+  const paymentStatus =
+    normalizePaymentStatus(
+      transaction.paymentStatus
+    );
+
+
+  const workStatus =
+    normalizeWorkStatus(
+      transaction.workStatus
+    );
+
+
+  const transactionStatus =
+    normalizeTransactionStatus(
+      transaction.status
+    );
+
 
   modal.innerHTML = `
 
@@ -1778,7 +2897,11 @@ function showTransactionModal(
       id="transactionBackdrop"
     ></div>
 
-    <div class="modal-content">
+
+    <div
+      class="modal-content"
+      style="max-width:900px"
+    >
 
       <div class="modal-header">
 
@@ -1797,6 +2920,7 @@ function showTransactionModal(
 
         </div>
 
+
         <button
           id="closeTransaction"
           class="modal-close"
@@ -1807,316 +2931,841 @@ function showTransactionModal(
 
       </div>
 
-      <div style="padding:20px">
+
+      <div style="padding:22px">
+
+        <!-- ============================================= -->
+        <!-- TRANSACTION SUMMARY -->
+        <!-- ============================================= -->
 
         <div style="
-          padding:16px;
           background:#eff6ff;
           border-radius:14px;
-          margin-bottom:16px;
+          padding:18px;
+          margin-bottom:18px;
         ">
 
-          <div>
-            💰 Nilai pekerjaan
+          <div style="
+            display:grid;
+            grid-template-columns:
+              repeat(auto-fit,minmax(150px,1fr));
+            gap:15px;
+          ">
+
+            <div>
+
+              <small>
+                Nilai Transaksi
+              </small>
+
+              <strong style="
+                display:block;
+                font-size:22px;
+                margin-top:4px;
+              ">
+                Rp ${formatMoney(
+                  transaction.price
+                )}
+              </strong>
+
+            </div>
+
+
+            <div>
+
+              <small>
+                Pembayaran
+              </small>
+
+              <strong style="
+                display:block;
+                margin-top:4px;
+              ">
+                ${getPaymentStatusText(
+                  paymentStatus
+                )}
+              </strong>
+
+            </div>
+
+
+            <div>
+
+              <small>
+                Pengerjaan
+              </small>
+
+              <strong style="
+                display:block;
+                margin-top:4px;
+              ">
+                ${getWorkStatusText(
+                  workStatus
+                )}
+              </strong>
+
+            </div>
+
+
+            <div>
+
+              <small>
+                Transaksi
+              </small>
+
+              <strong style="
+                display:block;
+                margin-top:4px;
+              ">
+                ${getTransactionStatusText(
+                  transactionStatus
+                )}
+              </strong>
+
+            </div>
+
           </div>
 
-          <strong style="
-            display:block;
-            font-size:24px;
-            margin-top:5px;
-          ">
-            Rp ${formatMoney(
-              transaction.amount
-            )}
-          </strong>
-
         </div>
+
+
+        <!-- ============================================= -->
+        <!-- PARTIES -->
+        <!-- ============================================= -->
 
         <div style="
-          display:grid;
-          gap:8px;
-          margin-bottom:20px;
+          background:#f9fafb;
+          border-radius:14px;
+          padding:18px;
+          margin-bottom:18px;
         ">
 
-          <div>
+          <h3>
+            👥 Pihak Transaksi
+          </h3>
+
+          <p>
             👤 Pemilik:
-            ${escapeHTML(
-              transaction.ownerName || "-"
-            )}
-          </div>
+            <strong>
+              ${escapeHTML(
+                transaction.ownerName ||
+                "Pemilik"
+              )}
+            </strong>
+          </p>
 
-          <div>
+          <p>
             🛠️ Penyedia:
-            ${escapeHTML(
-              transaction.providerName || "-"
-            )}
-          </div>
-
-          <div>
-            📌 Status:
-            ${escapeHTML(
-              transaction.status || "-"
-            )}
-          </div>
-
-          <div>
-            💳 Pembayaran:
-            ${escapeHTML(
-              transaction.paymentStatus || "unpaid"
-            )}
-          </div>
+            <strong>
+              ${escapeHTML(
+                transaction.providerName ||
+                "Penyedia"
+              )}
+            </strong>
+          </p>
 
         </div>
 
-        <div id="transactionActions">
 
-          ${renderTransactionActions(
-            transaction,
-            isOwner,
-            isProvider
-          )}
+        <!-- ============================================= -->
+        <!-- PAYMENT -->
+        <!-- ============================================= -->
 
-        </div>
+        <div style="
+          border:1px solid #e5e7eb;
+          border-radius:14px;
+          padding:18px;
+          margin-bottom:18px;
+        ">
 
-        ${
-          !completed
-            ? `
-              <div style="margin-top:25px">
+          <h3>
+            💳 Pembayaran
+          </h3>
 
-                <h3>
-                  💬 Chat
-                </h3>
+          <p>
+            Status:
+            <strong>
+              ${getPaymentStatusText(
+                paymentStatus
+              )}
+            </strong>
+          </p>
 
-                <div
-                  id="chatMessages"
-                  style="
-                    height:280px;
-                    overflow-y:auto;
-                    border:1px solid #e5e7eb;
-                    border-radius:12px;
-                    padding:12px;
-                    background:#f9fafb;
-                    margin:10px 0;
-                  "
+
+          ${
+            isOwner &&
+            paymentStatus === "unpaid"
+              ? `
+                <button
+                  id="payTransactionButton"
+                  type="button"
+                  class="btn btn-primary"
                 >
-                  Memuat chat...
+                  💳 Bayar Sekarang
+                </button>
+              `
+              : ""
+          }
+
+
+          ${
+            isOwner &&
+            paymentStatus === "pending"
+              ? `
+                <button
+                  id="confirmPaymentButton"
+                  type="button"
+                  class="btn btn-primary"
+                >
+                  ✓ Konfirmasi Pembayaran
+                </button>
+              `
+              : ""
+          }
+
+
+          ${
+            paymentStatus === "paid"
+              ? `
+                <div style="
+                  padding:12px;
+                  border-radius:10px;
+                  background:#ecfdf5;
+                  color:#047857;
+                  font-weight:700;
+                ">
+                  ✓ Pembayaran telah dikonfirmasi.
                 </div>
+              `
+              : ""
+          }
 
-                <form id="chatForm"
-                  style="
-                    display:flex;
-                    gap:8px;
-                  "
+        </div>
+
+
+        <!-- ============================================= -->
+        <!-- WORK -->
+        <!-- ============================================= -->
+
+        <div style="
+          border:1px solid #e5e7eb;
+          border-radius:14px;
+          padding:18px;
+          margin-bottom:18px;
+        ">
+
+          <h3>
+            🔨 Pekerjaan
+          </h3>
+
+          <p>
+            Status:
+            <strong>
+              ${getWorkStatusText(
+                workStatus
+              )}
+            </strong>
+          </p>
+
+
+          ${
+            isProvider &&
+            paymentStatus === "paid" &&
+            !transaction.workCompleted
+              ? `
+                <button
+                  id="completeWorkButton"
+                  type="button"
+                  class="btn btn-primary"
                 >
+                  ✓ Selesaikan Pekerjaan
+                </button>
+              `
+              : ""
+          }
 
-                  <input
-                    id="chatInput"
-                    type="text"
-                    maxlength="2000"
-                    placeholder="Tulis pesan..."
-                    required
-                    style="
-                      flex:1;
-                      min-width:0;
-                    "
-                  >
 
-                  <button
-                    type="submit"
-                    class="btn btn-primary"
-                  >
-                    Kirim
-                  </button>
+          ${
+            transaction.workCompleted
+              ? `
+                <div style="
+                  padding:12px;
+                  border-radius:10px;
+                  background:#ecfdf5;
+                  color:#047857;
+                  font-weight:700;
+                ">
+                  ✓ Penyedia menyatakan pekerjaan selesai.
+                </div>
+              `
+              : ""
+          }
 
-                </form>
+        </div>
 
-              </div>
-            `
-            : ""
-        }
+
+        <!-- ============================================= -->
+        <!-- CONFIRMATION -->
+        <!-- ============================================= -->
+
+        <div style="
+          border:1px solid #e5e7eb;
+          border-radius:14px;
+          padding:18px;
+          margin-bottom:18px;
+        ">
+
+          <h3>
+            ✅ Konfirmasi Penyelesaian
+          </h3>
+
+
+          <div style="
+            line-height:2;
+          ">
+
+            <div>
+              ${
+                transaction.ownerConfirmed
+                  ? "✅"
+                  : "⬜"
+              }
+              Pemilik
+            </div>
+
+            <div>
+              ${
+                transaction.providerConfirmed
+                  ? "✅"
+                  : "⬜"
+              }
+              Penyedia
+            </div>
+
+          </div>
+
+
+          ${
+            isOwner &&
+            transaction.workCompleted &&
+            !transaction.ownerConfirmed
+              ? `
+                <button
+                  id="ownerConfirmButton"
+                  type="button"
+                  class="btn btn-primary"
+                  style="margin-top:12px"
+                >
+                  ✓ Saya Konfirmasi Selesai
+                </button>
+              `
+              : ""
+          }
+
+
+          ${
+            isProvider &&
+            transaction.workCompleted &&
+            !transaction.providerConfirmed
+              ? `
+                <button
+                  id="providerConfirmButton"
+                  type="button"
+                  class="btn btn-primary"
+                  style="margin-top:12px"
+                >
+                  ✓ Saya Konfirmasi Selesai
+                </button>
+              `
+              : ""
+          }
+
+
+          ${
+            transaction.ownerConfirmed &&
+            transaction.providerConfirmed
+              ? `
+                <div style="
+                  margin-top:15px;
+                  padding:14px;
+                  border-radius:10px;
+                  background:#ecfdf5;
+                  color:#047857;
+                  font-weight:800;
+                ">
+                  🎉 TRANSAKSI SELESAI
+                </div>
+              `
+              : ""
+          }
+
+        </div>
+
+
+        <!-- ============================================= -->
+        <!-- CHAT -->
+        <!-- ============================================= -->
+
+        <div style="
+          border:1px solid #e5e7eb;
+          border-radius:14px;
+          overflow:hidden;
+        ">
+
+          <div style="
+            padding:15px 18px;
+            border-bottom:1px solid #e5e7eb;
+          ">
+
+            <h3 style="margin:0">
+              💬 Chat Transaksi
+            </h3>
+
+          </div>
+
+
+          <div
+            id="transactionMessages"
+            style="
+              height:300px;
+              overflow-y:auto;
+              padding:15px;
+              background:#f9fafb;
+            "
+          >
+
+            Memuat chat...
+
+          </div>
+
+
+          <form
+            id="transactionChatForm"
+            style="
+              display:flex;
+              gap:8px;
+              padding:12px;
+              border-top:1px solid #e5e7eb;
+            "
+          >
+
+            <input
+              id="transactionMessageInput"
+              type="text"
+              maxlength="2000"
+              placeholder="Tulis pesan..."
+              autocomplete="off"
+              style="
+                flex:1;
+                min-width:0;
+              "
+              required
+            >
+
+
+            <button
+              id="sendTransactionMessage"
+              type="submit"
+              class="btn btn-primary"
+            >
+              Kirim
+            </button>
+
+          </form>
+
+        </div>
 
       </div>
 
     </div>
+
   `;
 
-  modal.classList.remove("hidden");
 
-  document.body.classList.add("modal-open");
+  modal.classList.remove(
+    "hidden"
+  );
+
+
+  document.body.classList.add(
+    "modal-open"
+  );
+
 
   $("closeTransaction")
     ?.addEventListener(
       "click",
-      closeTransaction
+      closeTransactionModal
     );
+
 
   $("transactionBackdrop")
     ?.addEventListener(
       "click",
-      closeTransaction
+      closeTransactionModal
     );
 
-  $("chatForm")
+
+  $("payTransactionButton")
+    ?.addEventListener(
+      "click",
+      () =>
+        updatePaymentStatus(
+          transaction,
+          "pending"
+        )
+    );
+
+
+  $("confirmPaymentButton")
+    ?.addEventListener(
+      "click",
+      () =>
+        updatePaymentStatus(
+          transaction,
+          "paid"
+        )
+    );
+
+
+  $("completeWorkButton")
+    ?.addEventListener(
+      "click",
+      () =>
+        completeWork(
+          transaction
+        )
+    );
+
+
+  $("ownerConfirmButton")
+    ?.addEventListener(
+      "click",
+      () =>
+        confirmTransaction(
+          transaction,
+          "owner"
+        )
+    );
+
+
+  $("providerConfirmButton")
+    ?.addEventListener(
+      "click",
+      () =>
+        confirmTransaction(
+          transaction,
+          "provider"
+        )
+    );
+
+
+  $("transactionChatForm")
     ?.addEventListener(
       "submit",
-      sendChatMessage
+      event =>
+        sendTransactionMessage(
+          event,
+          transaction
+        )
     );
 
-  if (!completed) {
-    startChatListener(transaction);
-  }
+
+  listenTransaction(
+    transaction.id
+  );
+
+
+  listenMessages(
+    transaction.id
+  );
+
 }
 
-// ============================================================
-// TRANSACTION ACTIONS
-// ============================================================
-
-function renderTransactionActions(
-  transaction,
-  isOwner,
-  isProvider
-) {
-
-  if (
-    transaction.status ===
-    "completed"
-  ) {
-
-    return `
-      <div style="
-        padding:15px;
-        background:#ecfdf5;
-        border-radius:12px;
-        color:#065f46;
-        font-weight:700;
-      ">
-        ✅ Transaksi telah selesai.
-      </div>
-    `;
-  }
-
-  let html = "";
-
-  if (isProvider) {
-
-    if (
-      !transaction.providerCompleted
-    ) {
-
-      html += `
-        <button
-          id="completeWorkBtn"
-          type="button"
-          class="btn btn-primary"
-          style="width:100%;margin-bottom:10px"
-        >
-          ✅ Selesaikan Pekerjaan
-        </button>
-      `;
-
-    } else {
-
-      html += `
-        <div style="
-          padding:12px;
-          background:#eff6ff;
-          border-radius:10px;
-          margin-bottom:10px;
-        ">
-          ⏳ Anda sudah menyatakan pekerjaan selesai.
-          Menunggu konfirmasi pemilik.
-        </div>
-      `;
-    }
-  }
-
-  if (isOwner) {
-
-    if (
-      transaction.providerCompleted &&
-      !transaction.ownerConfirmed
-    ) {
-
-      html += `
-        <button
-          id="confirmWorkBtn"
-          type="button"
-          class="btn btn-primary"
-          style="width:100%;margin-bottom:10px"
-        >
-          ✅ Konfirmasi Pekerjaan Selesai
-        </button>
-      `;
-
-    } else if (
-      !transaction.providerCompleted
-    ) {
-
-      html += `
-        <div style="
-          padding:12px;
-          background:#f9fafb;
-          border-radius:10px;
-          margin-bottom:10px;
-        ">
-          ⏳ Menunggu penyedia menyelesaikan pekerjaan.
-        </div>
-      `;
-
-    } else {
-
-      html += `
-        <div style="
-          padding:12px;
-          background:#ecfdf5;
-          border-radius:10px;
-        ">
-          ✓ Anda sudah mengonfirmasi.
-        </div>
-      `;
-    }
-  }
-
-  return html || `
-    <div style="
-      padding:12px;
-      background:#f9fafb;
-      border-radius:10px;
-    ">
-      Transaksi sedang berjalan.
-    </div>
-  `;
-}
 
 // ============================================================
 // CLOSE TRANSACTION
 // ============================================================
 
-function closeTransaction() {
+function closeTransactionModal() {
 
-  if (unsubscribeChat) {
-    unsubscribeChat();
-    unsubscribeChat = null;
+  if (unsubscribeTransaction) {
+
+    unsubscribeTransaction();
+
+    unsubscribeTransaction = null;
+
   }
 
-  closeModal("transactionModal");
 
-  currentTransaction = null;
+  if (unsubscribeMessages) {
+
+    unsubscribeMessages();
+
+    unsubscribeMessages = null;
+
+  }
+
+
+  closeModal(
+    "transactionModal"
+  );
+
 }
+
+
+// ============================================================
+// LISTEN TRANSACTION
+// ============================================================
+
+function listenTransaction(
+  transactionId
+) {
+
+  if (unsubscribeTransaction) {
+
+    unsubscribeTransaction();
+
+  }
+
+
+  const transactionRef =
+    doc(
+      db,
+      "transactions",
+      transactionId
+    );
+
+
+  unsubscribeTransaction =
+    onSnapshot(
+
+      transactionRef,
+
+      snapshot => {
+
+        if (
+          !snapshot.exists()
+        ) {
+          return;
+        }
+
+
+        currentTransaction = {
+
+          id:
+            snapshot.id,
+
+          ...snapshot.data()
+
+        };
+
+
+        renderTransactionLive(
+          currentTransaction
+        );
+
+      },
+
+      error => {
+
+        console.error(
+          "TRANSACTION LISTENER ERROR:",
+          error
+        );
+
+      }
+
+    );
+
+}
+
+
+// ============================================================
+// RENDER LIVE TRANSACTION
+// ============================================================
+
+function renderTransactionLive(
+  transaction
+) {
+
+  const modal =
+    $("transactionModal");
+
+
+  if (
+    !modal ||
+    modal.classList.contains(
+      "hidden"
+    )
+  ) {
+    return;
+  }
+
+
+  const paymentStatus =
+    normalizePaymentStatus(
+      transaction.paymentStatus
+    );
+
+
+  const workStatus =
+    normalizeWorkStatus(
+      transaction.workStatus
+    );
+
+
+  const status =
+    normalizeTransactionStatus(
+      transaction.status
+    );
+
+
+  const paymentBox =
+    modal.querySelector(
+      ".payment-status-live"
+    );
+
+
+  if (paymentBox) {
+
+    paymentBox.textContent =
+      getPaymentStatusText(
+        paymentStatus
+      );
+
+  }
+
+
+  // Tombol dapat berubah setelah
+  // listener menerima update.
+  //
+  // Agar sederhana dan stabil,
+  // pengguna bisa menutup dan membuka
+  // transaksi kembali untuk mendapatkan
+  // UI tombol terbaru.
+
+}
+
+
+// ============================================================
+// PAYMENT
+// ============================================================
+
+async function updatePaymentStatus(
+  transaction,
+  newStatus
+) {
+
+  if (
+    isUpdatingTransaction ||
+    !currentUser
+  ) {
+    return;
+  }
+
+
+  if (
+    transaction.ownerId !==
+    currentUser.uid
+  ) {
+
+    alert(
+      "Hanya pemilik kebutuhan yang dapat mengatur pembayaran."
+    );
+
+    return;
+
+  }
+
+
+  isUpdatingTransaction =
+    true;
+
+
+  try {
+
+    const transactionRef =
+      doc(
+        db,
+        "transactions",
+        transaction.id
+      );
+
+
+    await updateDoc(
+      transactionRef,
+      {
+
+        paymentStatus:
+          newStatus,
+
+        workStatus:
+          newStatus === "paid"
+            ? "in_progress"
+            : "waiting_payment",
+
+        updatedAt:
+          serverTimestamp()
+
+      }
+    );
+
+
+    showToast(
+      newStatus === "paid"
+        ? "✅ Pembayaran dikonfirmasi!"
+        : "💳 Pembayaran dibuat."
+    );
+
+
+    // Refresh transaksi
+    await window.openTransaction(
+      transaction.id
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "PAYMENT ERROR:",
+      error
+    );
+
+
+    alert(
+      "Gagal mengubah status pembayaran:\n\n" +
+      error.message
+    );
+
+  } finally {
+
+    isUpdatingTransaction =
+      false;
+
+  }
+
+}
+
 
 // ============================================================
 // COMPLETE WORK
 // ============================================================
 
-async function completeWork() {
+async function completeWork(
+  transaction
+) {
 
   if (
-    !currentTransaction ||
+    isUpdatingTransaction ||
     !currentUser
-  ) return;
+  ) {
+    return;
+  }
+
 
   if (
-    currentTransaction.providerId !==
+    transaction.providerId !==
     currentUser.uid
   ) {
 
@@ -2125,247 +3774,338 @@ async function completeWork() {
     );
 
     return;
+
   }
+
+
+  if (
+    normalizePaymentStatus(
+      transaction.paymentStatus
+    ) !== "paid"
+  ) {
+
+    alert(
+      "Pekerjaan belum dapat diselesaikan sebelum pembayaran dikonfirmasi."
+    );
+
+    return;
+
+  }
+
+
+  if (
+    transaction.workCompleted
+  ) {
+
+    return;
+
+  }
+
+
+  if (
+    !confirm(
+      "Apakah pekerjaan benar-benar sudah selesai?"
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  isUpdatingTransaction =
+    true;
+
 
   try {
 
-    const ref =
+    const transactionRef =
       doc(
         db,
-        "needs",
-        currentTransaction.needId,
         "transactions",
-        currentTransaction.id
+        transaction.id
       );
 
+
     await updateDoc(
-      ref,
+      transactionRef,
       {
-        providerCompleted: true,
-        workStatus: "waiting_confirmation",
-        updatedAt: serverTimestamp()
+
+        workCompleted:
+          true,
+
+        workStatus:
+          "completed",
+
+        updatedAt:
+          serverTimestamp()
+
       }
     );
 
-    currentTransaction =
-      await getTransaction(
-        currentTransaction.needId,
-        currentTransaction.id
-      );
-
-    showTransactionModal(
-      currentTransaction
-    );
 
     showToast(
-      "✅ Pekerjaan ditandai selesai."
+      "✓ Pekerjaan ditandai selesai."
     );
+
+
+    await window.openTransaction(
+      transaction.id
+    );
+
 
   } catch (error) {
 
-    console.error(error);
+    console.error(
+      "COMPLETE WORK ERROR:",
+      error
+    );
+
 
     alert(
       "Gagal menyelesaikan pekerjaan:\n\n" +
       error.message
     );
+
+  } finally {
+
+    isUpdatingTransaction =
+      false;
+
   }
+
 }
 
+
 // ============================================================
-// OWNER CONFIRM
+// CONFIRM TRANSACTION
 // ============================================================
 
-async function confirmWork() {
+async function confirmTransaction(
+  transaction,
+  role
+) {
 
   if (
-    !currentTransaction ||
+    isUpdatingTransaction ||
     !currentUser
-  ) return;
+  ) {
+    return;
+  }
+
+
+  const isOwner =
+    role === "owner";
+
+
+  const isProvider =
+    role === "provider";
+
 
   if (
-    currentTransaction.ownerId !==
+    isOwner &&
+    transaction.ownerId !==
     currentUser.uid
   ) {
 
     alert(
-      "Hanya pemilik yang dapat mengonfirmasi."
+      "Anda bukan pemilik transaksi."
     );
 
     return;
+
   }
 
+
   if (
-    !currentTransaction.providerCompleted
+    isProvider &&
+    transaction.providerId !==
+    currentUser.uid
   ) {
 
     alert(
-      "Penyedia belum menyelesaikan pekerjaan."
+      "Anda bukan penyedia transaksi."
     );
 
     return;
+
   }
+
+
+  if (
+    !transaction.workCompleted
+  ) {
+
+    alert(
+      "Pekerjaan belum ditandai selesai oleh penyedia."
+    );
+
+    return;
+
+  }
+
+
+  const field =
+    isOwner
+      ? "ownerConfirmed"
+      : "providerConfirmed";
+
+
+  isUpdatingTransaction =
+    true;
+
 
   try {
 
-    const ref =
+    const transactionRef =
       doc(
         db,
-        "needs",
-        currentTransaction.needId,
         "transactions",
-        currentTransaction.id
+        transaction.id
       );
+
+
+    const updateData = {
+
+      [field]:
+        true,
+
+      updatedAt:
+        serverTimestamp()
+
+    };
+
+
+    // Jika pihak lain sudah konfirmasi,
+    // transaksi otomatis selesai.
+
+    const otherConfirmed =
+      isOwner
+        ? transaction.providerConfirmed
+        : transaction.ownerConfirmed;
+
+
+    if (
+      otherConfirmed
+    ) {
+
+      updateData.status =
+        "completed";
+
+      updateData.workStatus =
+        "completed";
+
+    }
+
 
     await updateDoc(
-      ref,
-      {
-        ownerConfirmed: true,
-        updatedAt: serverTimestamp()
-      }
+      transactionRef,
+      updateData
     );
 
-    await finalizeTransactionIfReady();
-
-    currentTransaction =
-      await getTransaction(
-        currentTransaction.needId,
-        currentTransaction.id
-      );
-
-    showTransactionModal(
-      currentTransaction
-    );
 
     showToast(
-      "✅ Pekerjaan berhasil dikonfirmasi."
+      otherConfirmed
+        ? "🎉 Transaksi selesai!"
+        : "✅ Konfirmasi berhasil."
     );
+
+
+    await window.openTransaction(
+      transaction.id
+    );
+
 
   } catch (error) {
 
-    console.error(error);
+    console.error(
+      "CONFIRM TRANSACTION ERROR:",
+      error
+    );
+
 
     alert(
-      "Gagal mengonfirmasi pekerjaan:\n\n" +
+      "Gagal melakukan konfirmasi:\n\n" +
       error.message
     );
+
+  } finally {
+
+    isUpdatingTransaction =
+      false;
+
   }
+
 }
 
-// ============================================================
-// FINALIZE TRANSACTION
-// ============================================================
-
-async function finalizeTransactionIfReady() {
-
-  if (!currentTransaction) return;
-
-  const ref =
-    doc(
-      db,
-      "needs",
-      currentTransaction.needId,
-      "transactions",
-      currentTransaction.id
-    );
-
-  const snap =
-    await getDoc(ref);
-
-  if (!snap.exists()) return;
-
-  const transaction =
-    snap.data();
-
-  if (
-    transaction.providerCompleted &&
-    transaction.ownerConfirmed
-  ) {
-
-    await updateDoc(
-      ref,
-      {
-        providerConfirmed: true,
-        status: "completed",
-        workStatus: "completed",
-        paymentStatus:
-          transaction.paymentStatus === "paid"
-            ? "released"
-            : transaction.paymentStatus,
-        completedAt:
-          serverTimestamp(),
-        updatedAt:
-          serverTimestamp()
-      }
-    );
-
-    await updateDoc(
-      doc(
-        db,
-        "needs",
-        currentTransaction.needId
-      ),
-      {
-        status: "completed",
-        updatedAt: serverTimestamp()
-      }
-    );
-
-    return;
-  }
-}
 
 // ============================================================
 // CHAT LISTENER
 // ============================================================
 
-function startChatListener(transaction) {
+function listenMessages(
+  transactionId
+) {
 
-  const container =
-    $("chatMessages");
+  if (unsubscribeMessages) {
 
-  if (!container) return;
+    unsubscribeMessages();
 
-  if (unsubscribeChat) {
-    unsubscribeChat();
-    unsubscribeChat = null;
   }
+
 
   const messagesRef =
     collection(
       db,
-      "needs",
-      transaction.needId,
       "transactions",
-      transaction.id,
+      transactionId,
       "messages"
     );
 
-  const q =
+
+  const messagesQuery =
     query(
       messagesRef,
-      orderBy("createdAt", "asc"),
-      limit(200)
+      orderBy(
+        "createdAt",
+        "asc"
+      ),
+      limit(100)
     );
 
-  unsubscribeChat =
+
+  unsubscribeMessages =
     onSnapshot(
-      q,
+
+      messagesQuery,
+
       snapshot => {
 
         const messages = [];
 
-        snapshot.forEach(item => {
 
-          messages.push({
-            id: item.id,
-            ...item.data()
-          });
+        snapshot.forEach(
+          item => {
 
-        });
+            messages.push({
 
-        renderChatMessages(messages);
+              id:
+                item.id,
+
+              ...item.data()
+
+            });
+
+          }
+        );
+
+
+        renderMessages(
+          messages
+        );
+
       },
+
       error => {
 
         console.error(
@@ -2373,149 +4113,254 @@ function startChatListener(transaction) {
           error
         );
 
-        container.innerHTML = `
-          <div style="padding:15px">
-            ⚠️ Gagal memuat chat.
-            <br>
-            <small>
-              ${escapeHTML(error.message)}
-            </small>
-          </div>
-        `;
+
+        const container =
+          $("transactionMessages");
+
+
+        if (container) {
+
+          container.innerHTML = `
+
+            <div style="
+              padding:15px;
+              color:#dc2626;
+            ">
+              ⚠️ Gagal memuat chat.
+              <br>
+              ${escapeHTML(
+                error.message
+              )}
+            </div>
+
+          `;
+
+        }
+
       }
+
     );
+
 }
+
 
 // ============================================================
 // RENDER CHAT
 // ============================================================
 
-function renderChatMessages(messages) {
+function renderMessages(
+  messages
+) {
 
   const container =
-    $("chatMessages");
+    $("transactionMessages");
 
-  if (!container) return;
+
+  if (!container) {
+    return;
+  }
+
 
   if (!messages.length) {
 
     container.innerHTML = `
+
       <div style="
         text-align:center;
-        padding:50px 10px;
+        padding:40px 15px;
         color:#6b7280;
       ">
+
         💬 Belum ada pesan.
+
         <br>
-        Mulai percakapan.
+
+        Mulai percakapan dengan pihak transaksi.
+
       </div>
+
     `;
 
     return;
+
   }
+
 
   container.innerHTML =
     messages
-      .map(message => {
+      .map(
+        message => {
 
-        const mine =
-          message.senderId ===
-          currentUser?.uid;
+          const mine =
+            message.senderId ===
+            currentUser?.uid;
 
-        return `
-          <div style="
-            display:flex;
-            justify-content:${mine ? "flex-end" : "flex-start"};
-            margin-bottom:10px;
-          ">
+
+          return `
 
             <div style="
-              max-width:80%;
-              padding:9px 12px;
-              border-radius:12px;
-              background:${mine ? "#2563eb" : "#ffffff"};
-              color:${mine ? "#ffffff" : "#111827"};
-              border:1px solid #e5e7eb;
+              display:flex;
+              justify-content:${
+                mine
+                  ? "flex-end"
+                  : "flex-start"
+              };
+              margin-bottom:10px;
             ">
 
               <div style="
-                font-size:11px;
-                opacity:.7;
-                margin-bottom:3px;
+                max-width:80%;
+                padding:10px 13px;
+                border-radius:14px;
+                background:${
+                  mine
+                    ? "#2563eb"
+                    : "#ffffff"
+                };
+                color:${
+                  mine
+                    ? "#ffffff"
+                    : "#111827"
+                };
+                box-shadow:
+                  0 1px 3px
+                  rgba(0,0,0,.08);
               ">
-                ${escapeHTML(
-                  message.senderName || "Pengguna"
-                )}
-              </div>
 
-              <div>
-                ${escapeHTML(
-                  message.text || ""
-                )}
+                <div style="
+                  font-size:11px;
+                  opacity:.7;
+                  margin-bottom:4px;
+                ">
+                  ${escapeHTML(
+                    message.senderName ||
+                    "Pengguna"
+                  )}
+                </div>
+
+
+                <div style="
+                  white-space:pre-wrap;
+                  word-break:break-word;
+                ">
+                  ${escapeHTML(
+                    message.text ||
+                    ""
+                  )}
+                </div>
+
+
+                <div style="
+                  font-size:10px;
+                  opacity:.6;
+                  margin-top:5px;
+                ">
+                  ${formatTime(
+                    message.createdAt
+                  )}
+                </div>
+
               </div>
 
             </div>
 
-          </div>
-        `;
-      })
+          `;
+
+        }
+      )
       .join("");
+
 
   container.scrollTop =
     container.scrollHeight;
+
 }
 
+
 // ============================================================
-// SEND CHAT
+// SEND CHAT MESSAGE
 // ============================================================
 
-async function sendChatMessage(event) {
+async function sendTransactionMessage(
+  event,
+  transaction
+) {
 
   event.preventDefault();
 
-  if (
-    !currentUser ||
-    !currentTransaction
-  ) return;
-
-  const input =
-    $("chatInput");
-
-  if (!input) return;
-
-  const text =
-    String(input.value || "").trim();
-
-  if (!text) return;
 
   if (
-    currentTransaction.ownerId !==
-      currentUser.uid &&
-    currentTransaction.providerId !==
-      currentUser.uid
+    isSendingMessage ||
+    !currentUser
   ) {
-
-    alert(
-      "Anda bukan pihak transaksi."
-    );
-
     return;
   }
 
-  input.disabled = true;
+
+  if (
+    transaction.ownerId !==
+    currentUser.uid &&
+    transaction.providerId !==
+    currentUser.uid
+  ) {
+
+    alert(
+      "Anda tidak memiliki akses ke chat ini."
+    );
+
+    return;
+
+  }
+
+
+  const input =
+    $("transactionMessageInput");
+
+
+  const button =
+    $("sendTransactionMessage");
+
+
+  const text =
+    String(
+      input?.value ||
+      ""
+    ).trim();
+
+
+  if (!text) {
+    return;
+  }
+
+
+  isSendingMessage =
+    true;
+
+
+  if (button) {
+
+    button.disabled =
+      true;
+
+    button.textContent =
+      "Mengirim...";
+
+  }
+
 
   try {
 
     await addDoc(
+
       collection(
         db,
-        "needs",
-        currentTransaction.needId,
         "transactions",
-        currentTransaction.id,
+        transaction.id,
         "messages"
       ),
+
       {
+
         senderId:
           currentUser.uid,
 
@@ -2524,18 +4369,36 @@ async function sendChatMessage(event) {
           currentUser.email?.split("@")[0] ||
           "Pengguna",
 
+        senderEmail:
+          currentUser.email ||
+          "",
+
         text,
 
         createdAt:
           serverTimestamp()
+
       }
+
     );
 
-    input.value = "";
+
+    if (input) {
+
+      input.value =
+        "";
+
+      input.focus();
+
+    }
 
   } catch (error) {
 
-    console.error(error);
+    console.error(
+      "SEND MESSAGE ERROR:",
+      error
+    );
+
 
     alert(
       "Gagal mengirim pesan:\n\n" +
@@ -2544,65 +4407,24 @@ async function sendChatMessage(event) {
 
   } finally {
 
-    input.disabled = false;
-    input.focus();
+    isSendingMessage =
+      false;
+
+
+    if (button) {
+
+      button.disabled =
+        false;
+
+      button.textContent =
+        "Kirim";
+
+    }
+
   }
+
 }
 
-// ============================================================
-// EVENT FOR TRANSACTION BUTTONS
-// ============================================================
-
-document.addEventListener(
-  "click",
-  event => {
-
-    const complete =
-      event.target.closest(
-        "#completeWorkBtn"
-      );
-
-    if (complete) {
-      completeWork();
-      return;
-    }
-
-    const confirm =
-      event.target.closest(
-        "#confirmWorkBtn"
-      );
-
-    if (confirm) {
-      confirmWork();
-      return;
-    }
-
-    const transaction =
-      event.target.closest(
-        "[data-transaction-id]"
-      );
-
-    if (transaction) {
-
-      const needId =
-        transaction.dataset.needId;
-
-      const transactionId =
-        transaction.dataset.transactionId;
-
-      if (
-        needId &&
-        transactionId
-      ) {
-
-        window.openTransaction(
-          needId,
-          transactionId
-        );
-      }
-    }
-  }
-);
 
 // ============================================================
 // NEED MODAL
@@ -2616,36 +4438,68 @@ function openNeedModal() {
       "login.html";
 
     return;
+
   }
+
 
   const modal =
     $("needModal");
 
-  if (!modal) return;
 
-  modal.classList.remove("hidden");
+  if (!modal) {
+    return;
+  }
 
-  document.body.classList.add("modal-open");
+
+  modal.classList.remove(
+    "hidden"
+  );
+
+
+  document.body.classList.add(
+    "modal-open"
+  );
+
 }
+
 
 function closeNeedModal() {
-  closeModal("needModal");
+
+  closeModal(
+    "needModal"
+  );
+
 }
+
 
 // ============================================================
 // CLOSE MODAL
 // ============================================================
 
-function closeModal(id) {
+function closeModal(
+  id
+) {
 
-  const modal = $(id);
+  const modal =
+    $(id);
 
-  if (!modal) return;
 
-  modal.classList.add("hidden");
+  if (!modal) {
+    return;
+  }
 
-  document.body.classList.remove("modal-open");
+
+  modal.classList.add(
+    "hidden"
+  );
+
+
+  document.body.classList.remove(
+    "modal-open"
+  );
+
 }
+
 
 // ============================================================
 // LOGOUT
@@ -2655,10 +4509,14 @@ async function logout() {
 
   try {
 
-    await signOut(auth);
+    await signOut(
+      auth
+    );
+
 
     window.location.href =
       "login.html";
+
 
   } catch (error) {
 
@@ -2666,65 +4524,80 @@ async function logout() {
       "Gagal logout:\n" +
       error.message
     );
+
   }
+
 }
+
 
 // ============================================================
 // PROFILE
 // ============================================================
 
 function openProfile() {
+
   window.location.href =
     "profile.html";
+
 }
 
+
 // ============================================================
-// URL
+// OPEN NEED FROM URL
 // ============================================================
 
 function openNeedFromURL() {
 
-  if (!authReady) return;
+  if (!authReady) {
+    return;
+  }
+
 
   const params =
     new URLSearchParams(
       window.location.search
     );
 
-  const needId =
-    params.get("need");
 
-  if (!needId) return;
+  const needId =
+    params.get(
+      "need"
+    );
+
+
+  if (!needId) {
+    return;
+  }
+
 
   window.openNeedDetail(
     needId
   );
+
 
   window.history.replaceState(
     {},
     document.title,
     "index.html"
   );
+
 }
 
+
 // ============================================================
-// STATUS HELPERS
+// NEED STATUS
 // ============================================================
 
-function normalizeNeedStatus(status) {
+function normalizeNeedStatus(
+  status
+) {
 
   const value =
     String(
-      status || "open"
+      status ||
+      "open"
     ).toLowerCase();
 
-  if (
-    value === "completed" ||
-    value === "complete" ||
-    value === "selesai"
-  ) {
-    return "completed";
-  }
 
   if (
     value === "in_progress" ||
@@ -2732,25 +4605,80 @@ function normalizeNeedStatus(status) {
     value === "progress" ||
     value === "dikerjakan"
   ) {
+
     return "in_progress";
+
   }
+
+
+  if (
+    value === "completed" ||
+    value === "complete" ||
+    value === "selesai"
+  ) {
+
+    return "completed";
+
+  }
+
 
   if (
     value === "cancelled" ||
-    value === "canceled"
+    value === "canceled" ||
+    value === "dibatalkan"
   ) {
+
     return "cancelled";
+
   }
 
+
   return "open";
+
 }
 
-function normalizeOfferStatus(status) {
+
+function getNeedStatusText(
+  status
+) {
+
+  switch (
+    normalizeNeedStatus(
+      status
+    )
+  ) {
+
+    case "in_progress":
+      return "🔨 Dalam Pengerjaan";
+
+    case "completed":
+      return "✓ Selesai";
+
+    case "cancelled":
+      return "✕ Dibatalkan";
+
+    default:
+      return "🟢 Dibuka";
+
+  }
+
+}
+
+
+// ============================================================
+// OFFER STATUS
+// ============================================================
+
+function normalizeOfferStatus(
+  status
+) {
 
   const value =
     String(
-      status || "pending"
+      status ||
+      "pending"
     ).toLowerCase();
+
 
   if (
     value === "accepted" ||
@@ -2758,51 +4686,46 @@ function normalizeOfferStatus(status) {
     value === "diterima" ||
     value === "success"
   ) {
+
     return "accepted";
+
   }
 
-  if (
-    value === "rejected" ||
-    value === "ditolak"
-  ) {
-    return "rejected";
-  }
 
   if (
     value === "completed" ||
     value === "complete" ||
     value === "selesai"
   ) {
+
     return "completed";
+
   }
 
-  return "pending";
-}
 
-function getNeedStatusText(status) {
-
-  switch (
-    normalizeNeedStatus(status)
+  if (
+    value === "rejected" ||
+    value === "ditolak"
   ) {
 
-    case "completed":
-      return "✅ Selesai";
+    return "rejected";
 
-    case "in_progress":
-      return "🔨 Dalam Pengerjaan";
-
-    case "cancelled":
-      return "❌ Dibatalkan";
-
-    default:
-      return "🟢 Dibuka";
   }
+
+
+  return "pending";
+
 }
 
-function getStatusClass(status) {
+
+function getOfferStatusClass(
+  status
+) {
 
   switch (
-    normalizeOfferStatus(status)
+    normalizeOfferStatus(
+      status
+    )
   ) {
 
     case "accepted":
@@ -2816,13 +4739,20 @@ function getStatusClass(status) {
 
     default:
       return "status-pending";
+
   }
+
 }
 
-function getStatusText(status) {
+
+function getOfferStatusText(
+  status
+) {
 
   switch (
-    normalizeOfferStatus(status)
+    normalizeOfferStatus(
+      status
+    )
   ) {
 
     case "accepted":
@@ -2836,394 +4766,79 @@ function getStatusText(status) {
 
     default:
       return "⏳ Menunggu";
+
   }
+
 }
+
 
 // ============================================================
-// UTILITIES
+// TRANSACTION STATUS
 // ============================================================
 
-function getTime(value) {
-
-  if (!value) return 0;
-
-  try {
-
-    if (
-      typeof value.toMillis ===
-      "function"
-    ) {
-      return value.toMillis();
-    }
-
-    if (
-      typeof value.toDate ===
-      "function"
-    ) {
-      return value.toDate().getTime();
-    }
-
-    if (
-      typeof value.seconds ===
-      "number"
-    ) {
-      return value.seconds * 1000;
-    }
-
-    const time =
-      new Date(value).getTime();
-
-    return Number.isFinite(time)
-      ? time
-      : 0;
-
-  } catch {
-    return 0;
-  }
-}
-
-function formatDate(value) {
-
-  const time =
-    getTime(value);
-
-  if (!time) return "Baru saja";
-
-  return new Intl.DateTimeFormat(
-    "id-ID",
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric"
-    }
-  ).format(
-    new Date(time)
-  );
-}
-
-function formatMoney(value) {
-
-  const number =
-    Number(value);
-
-  if (!Number.isFinite(number)) {
-    return "0";
-  }
-
-  return new Intl.NumberFormat(
-    "id-ID"
-  ).format(number);
-}
-
-function getCategory(value) {
-
-  const categories = {
-
-    design: "🎨 Desain",
-    website: "🌐 Website",
-    programming: "💻 Programming",
-    marketing: "📢 Marketing",
-    writing: "✍️ Penulisan",
-    video: "🎬 Video",
-    translation: "🌍 Terjemahan",
-    other: "📦 Lainnya"
-  };
-
-  return (
-    categories[value] ||
-    categories.other
-  );
-}
-
-function truncate(
-  text,
-  length
+function normalizeTransactionStatus(
+  status
 ) {
 
   const value =
-    String(text || "");
-
-  return value.length > length
-    ? value.substring(0, length) + "..."
-    : value;
-}
-
-function escapeHTML(value) {
-
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-function avatar(name) {
-
-  const letter =
     String(
-      name || "U"
+      status ||
+      "active"
+    ).toLowerCase();
+
+
+  if (
+    value === "completed" ||
+    value === "complete" ||
+    value === "selesai"
+  ) {
+
+    return "completed";
+
+  }
+
+
+  if (
+    value === "cancelled" ||
+    value === "canceled"
+  ) {
+
+    return "cancelled";
+
+  }
+
+
+  return "active";
+
+}
+
+
+function getTransactionStatusText(
+  status
+) {
+
+  switch (
+    normalizeTransactionStatus(
+      status
     )
-      .trim()
-      .charAt(0)
-      .toUpperCase();
+  ) {
 
-  return (
-    "https://ui-avatars.com/api/" +
-    "?name=" +
-    encodeURIComponent(letter) +
-    "&background=2563eb" +
-    "&color=ffffff" +
-    "&size=256"
-  );
-}
+    case "completed":
+      return "🎉 Selesai";
 
-// ============================================================
-// TOAST
-// ============================================================
+    case "cancelled":
+      return "✕ Dibatalkan";
 
-function showToast(message) {
+    default:
+      return "🔵 Aktif";
 
-  let toast =
-    $("butuhToast");
-
-  if (!toast) {
-
-    toast =
-      document.createElement("div");
-
-    toast.id =
-      "butuhToast";
-
-    Object.assign(
-      toast.style,
-      {
-        position: "fixed",
-        left: "50%",
-        bottom: "25px",
-        transform: "translateX(-50%)",
-        zIndex: "999999",
-        padding: "13px 20px",
-        borderRadius: "999px",
-        background: "#111827",
-        color: "#fff",
-        fontWeight: "700",
-        fontSize: "14px",
-        boxShadow:
-          "0 10px 30px rgba(0,0,0,.2)"
-      }
-    );
-
-    document.body.appendChild(toast);
   }
 
-  toast.textContent = message;
-  toast.style.display = "block";
-
-  clearTimeout(toast._timer);
-
-  toast._timer =
-    setTimeout(
-      () => {
-        toast.style.display = "none";
-      },
-      3000
-    );
 }
 
-// ============================================================
-// LOGGED OUT
-// ============================================================
-
-function showLoggedOut() {
-
-  const container =
-    $("needsList");
-
-  if (!container) return;
-
-  container.innerHTML = `
-    <div class="loading-box">
-      <div class="empty-icon">🔐</div>
-      <strong>Silakan login</strong>
-      <small>
-        Login untuk melihat kebutuhan.
-      </small>
-    </div>
-  `;
-
-  setText("activeNeedsCount", "0");
-  setText("userNeedsCount", "0");
-  setText("userOffersCount", "0");
-}
 
 // ============================================================
-// DOM EVENTS
+// PAYMENT STATUS
 // ============================================================
 
-document.addEventListener(
-  "DOMContentLoaded",
-  () => {
-
-    $("needForm")
-      ?.addEventListener(
-        "submit",
-        submitNeed
-      );
-
-    $("openNeedModal")
-      ?.addEventListener(
-        "click",
-        openNeedModal
-      );
-
-    $("heroPostButton")
-      ?.addEventListener(
-        "click",
-        openNeedModal
-      );
-
-    $("desktopPostButton")
-      ?.addEventListener(
-        "click",
-        openNeedModal
-      );
-
-    $("mobilePostButton")
-      ?.addEventListener(
-        "click",
-        openNeedModal
-      );
-
-    $("closeNeedModal")
-      ?.addEventListener(
-        "click",
-        closeNeedModal
-      );
-
-    $("cancelNeed")
-      ?.addEventListener(
-        "click",
-        closeNeedModal
-      );
-
-    $("needBackdrop")
-      ?.addEventListener(
-        "click",
-        closeNeedModal
-      );
-
-    $("profileButton")
-      ?.addEventListener(
-        "click",
-        event => {
-
-          event.stopPropagation();
-
-          $("profileMenu")
-            ?.classList.toggle("hidden");
-        }
-      );
-
-    $("profilePageBtn")
-      ?.addEventListener(
-        "click",
-        openProfile
-      );
-
-    $("logoutBtn")
-      ?.addEventListener(
-        "click",
-        logout
-      );
-
-    document.addEventListener(
-      "click",
-      event => {
-
-        const menu =
-          $("profileMenu");
-
-        const button =
-          $("profileButton");
-
-        if (
-          menu &&
-          button &&
-          !menu.contains(event.target) &&
-          !button.contains(event.target)
-        ) {
-
-          menu.classList.add(
-            "hidden"
-          );
-        }
-      }
-    );
-
-    $("needsList")
-      ?.addEventListener(
-        "click",
-        event => {
-
-          const button =
-            event.target.closest(
-              "[data-action='detail']"
-            );
-
-          if (!button) return;
-
-          const needId =
-            button.dataset.id;
-
-          if (needId) {
-            window.openNeedDetail(
-              needId
-            );
-          }
-        }
-      );
-
-    document.addEventListener(
-      "keydown",
-      event => {
-
-        if (
-          event.key === "Escape"
-        ) {
-
-          closeModal("needModal");
-          closeModal("detailModal");
-          closeModal("offerModal");
-          closeTransaction();
-        }
-      }
-    );
-  }
-);
-
-// ============================================================
-// DEBUG
-// ============================================================
-
-window.butuhApp = {
-
-  getUser() {
-    return currentUser;
-  },
-
-  getNeeds() {
-    return needsCache;
-  },
-
-  reload() {
-    loadNeeds();
-  },
-
-  openTransaction:
-    window.openTransaction
-};
-
-console.log(
-  "✅ BUTUH script.js V2 transaksi + chat aktif"
-);
+function normalizePaymentStatus
