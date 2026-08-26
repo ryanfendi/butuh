@@ -1045,6 +1045,292 @@ async function showNeedDetail(
 
 
 // ============================================================
+// RENDER OFFERS FOR NEED OWNER
+// ============================================================
+
+function renderOffersForNeed(
+  need,
+  offers
+) {
+
+  const container =
+    $("offersForNeed");
+
+
+  if (!container) {
+    return;
+  }
+
+
+  if (!offers.length) {
+
+    container.innerHTML = `
+
+      <div class="empty-state">
+
+        <div class="empty-icon">
+          💰
+        </div>
+
+        <strong>
+          Belum ada penawaran
+        </strong>
+
+        <p>
+          Penawaran dari pengguna lain akan muncul di sini.
+        </p>
+
+      </div>
+
+    `;
+
+    return;
+
+  }
+
+
+  container.innerHTML =
+    offers
+      .map(
+        offer => {
+
+          const status =
+            String(
+              offer.status ||
+              "pending"
+            ).toLowerCase();
+
+
+          const isPending =
+            status === "pending" ||
+            status === "menunggu";
+
+
+          return `
+
+            <div
+              style="
+                border:1px solid #e5e7eb;
+                border-radius:14px;
+                padding:16px;
+                margin-bottom:12px;
+              "
+            >
+
+              <div style="
+                display:flex;
+                justify-content:space-between;
+                gap:12px;
+                align-items:flex-start;
+              ">
+
+                <div>
+
+                  <strong>
+                    👤 ${escapeHTML(
+                      offer.providerName ||
+                      "Pengguna"
+                    )}
+                  </strong>
+
+
+                  <div style="
+                    margin-top:6px;
+                    color:#2563eb;
+                    font-size:20px;
+                    font-weight:800;
+                  ">
+
+                    Rp ${formatMoney(
+                      offer.price
+                    )}
+
+                  </div>
+
+                </div>
+
+
+                <span
+                  class="status ${getOfferStatusClass(
+                    status
+                  )}"
+                >
+
+                  ${getOfferStatusText(
+                    status
+                  )}
+
+                </span>
+
+              </div>
+
+
+              <div style="
+                margin-top:12px;
+                color:#4b5563;
+              ">
+
+                ⏱️ Lama pengerjaan:
+                <strong>
+                  ${escapeHTML(
+                    offer.duration ||
+                    "-"
+                  )}
+                </strong>
+
+              </div>
+
+
+              <p style="
+                margin:12px 0;
+                line-height:1.6;
+                color:#374151;
+              ">
+
+                ${escapeHTML(
+                  offer.message ||
+                  ""
+                )}
+
+              </p>
+
+
+              <small style="
+                color:#9ca3af;
+              ">
+
+                📅 ${formatDate(
+                  offer.createdAt
+                )}
+
+              </small>
+
+
+              ${
+                isPending
+                  ? `
+
+                    <div style="
+                      display:flex;
+                      gap:10px;
+                      margin-top:15px;
+                    ">
+
+                      <button
+                        type="button"
+                        class="btn btn-primary"
+                        data-offer-action="accept"
+                        data-need-id="${escapeHTML(
+                          need.id
+                        )}"
+                        data-offer-id="${escapeHTML(
+                          offer.id
+                        )}"
+                      >
+
+                        ✓ Terima
+
+                      </button>
+
+
+                      <button
+                        type="button"
+                        class="btn btn-outline"
+                        data-offer-action="reject"
+                        data-need-id="${escapeHTML(
+                          need.id
+                        )}"
+                        data-offer-id="${escapeHTML(
+                          offer.id
+                        )}"
+                      >
+
+                        ✕ Tolak
+
+                      </button>
+
+                    </div>
+
+                  `
+                  : ""
+              }
+
+            </div>
+
+          `;
+
+        }
+      )
+      .join("");
+
+
+  // ==========================================================
+  // EVENT ACCEPT / REJECT
+  // ==========================================================
+
+  container
+    .querySelectorAll(
+      "[data-offer-action]"
+    )
+    .forEach(
+      button => {
+
+        button.addEventListener(
+          "click",
+          async () => {
+
+            const action =
+              button.dataset.offerAction;
+
+
+            const offerId =
+              button.dataset.offerId;
+
+
+            if (
+              !offerId ||
+              !need.id
+            ) {
+              return;
+            }
+
+
+            const newStatus =
+              action === "accept"
+                ? "accepted"
+                : "rejected";
+
+
+            const confirmText =
+              action === "accept"
+                ? "Terima penawaran ini?"
+                : "Tolak penawaran ini?";
+
+
+            if (
+              !confirm(
+                confirmText
+              )
+            ) {
+              return;
+            }
+
+
+            await updateOfferStatus(
+              need,
+              offerId,
+              newStatus
+            );
+
+          }
+        );
+
+      }
+    );
+
+}
+
+// ============================================================
 // OFFER MODAL
 // ============================================================
 
